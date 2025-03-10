@@ -259,106 +259,6 @@ mod tests {
         eprintln!("All entries successfully recovered after reopening.");
     }
 
-    // TODO: Ensure deleted keys don't transfer
-    // #[test]
-    // fn test_compact_storage() {
-    //     let dir = tempdir().expect("Failed to create temp dir");
-    //     let path = dir.path().join("test_storage_compact.bin");
-
-    //     // Step 1: Open and Write Initial Entries
-    //     let mut storage = AppendStorage::open(&path).expect("Failed to open storage");
-
-    //     let key1 = b"key1";
-    //     let key2 = b"key2";
-
-    //     let initial_payload1 = b"First Version of Key1";
-    //     let initial_payload2 = b"First Version of Key2";
-
-    //     let updated_payload1 = b"Updated Version of Key1";
-    //     let updated_payload2 = b"Updated Version of Key2";
-
-    //     let second_update_payload1 = b"Second Update of Key1"; // Newer than `updated_payload1`
-
-    //     // Append Initial Entries
-    //     storage
-    //         .append_entry(key1, initial_payload1)
-    //         .expect("Append failed");
-    //     storage
-    //         .append_entry(key2, initial_payload2)
-    //         .expect("Append failed");
-
-    //     // Overwrite entries with newer versions
-    //     storage
-    //         .append_entry(key1, updated_payload1)
-    //         .expect("Append failed");
-    //     storage
-    //         .append_entry(key2, updated_payload2)
-    //         .expect("Append failed");
-
-    //     // One more update for key1
-    //     storage
-    //         .append_entry(key1, second_update_payload1)
-    //         .expect("Append failed");
-
-    //     // **Step 2: Check file size before compaction**
-    //     let size_before = std::fs::metadata(&path)
-    //         .expect("Failed to get file metadata")
-    //         .len();
-    //     eprintln!("File size before compaction: {}", size_before);
-
-    //     // Step 3: Verify that old entries exist **before** compaction
-    //     assert_eq!(
-    //         storage.get_entry_by_key(key1),
-    //         Some(&second_update_payload1[..])
-    //     );
-    //     assert_eq!(storage.get_entry_by_key(key2), Some(&updated_payload2[..]));
-
-    //     // Step 4: Compact the storage
-    //     eprintln!("Starting compaction...");
-    //     storage.compact().expect("Compaction failed");
-
-    //     // **Step 5: Check file size after compaction**
-    //     let size_after = std::fs::metadata(&path)
-    //         .expect("Failed to get file metadata")
-    //         .len();
-    //     eprintln!("File size after compaction: {}", size_after);
-
-    //     // **Ensure the file size is reduced**
-    //     assert!(
-    //         size_after < size_before,
-    //         "Compaction should reduce file size!"
-    //     );
-
-    //     // Step 6: **Reopen the storage** to remap it properly
-    //     let storage =
-    //         AppendStorage::open(&path).expect("Failed to reopen storage after compaction");
-
-    //     for entry in storage.into_iter() {
-    //         eprintln!("{:?}", entry);
-    //     }
-
-    //     // Step 7: Verify that **only the latest versions remain**
-    //     let retrieved1 = storage
-    //         .get_entry_by_key(key1)
-    //         .expect("Failed to retrieve key1 after compaction");
-    //     assert_eq!(
-    //         retrieved1,
-    //         &second_update_payload1[..],
-    //         "Key1 should contain the latest version after compaction"
-    //     );
-
-    //     let retrieved2 = storage
-    //         .get_entry_by_key(key2)
-    //         .expect("Failed to retrieve key2 after compaction");
-    //     assert_eq!(
-    //         retrieved2,
-    //         &updated_payload2[..],
-    //         "Key2 should contain the latest version after compaction"
-    //     );
-
-    //     eprintln!("✅ Compaction test passed: Only the latest versions of keys remain.");
-    // }
-
     #[test]
     fn test_update_and_delete_entry() {
         let (_dir, mut storage) = create_temp_storage();
@@ -430,7 +330,11 @@ mod tests {
             );
         }
 
-        eprintln!("✅ Update and delete entry test passed: Key was properly updated, deleted, and does not revert to an older version.");
+        assert_eq!(
+            storage.get_entry_by_key(b"key2").unwrap(),
+            updated_payload2,
+            "`key2` does not match updated payload"
+        );
     }
 
     #[test]
@@ -592,9 +496,5 @@ mod tests {
         let deserialized_struct: CustomStruct =
             bincode::deserialize(retrieved_struct).expect("Failed to deserialize struct");
         assert_eq!(deserialized_struct, struct_payload2);
-
-        eprintln!(
-            "✅ Mixed type test passed: Strings, numbers, binaries, and structs handled correctly."
-        );
     }
 }

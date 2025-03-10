@@ -501,9 +501,6 @@ impl AppendStorage {
             let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
-            // TODO: Remove
-            eprintln!("metadata: {:?}", metadata);
-
             // Append the entry with the correct key_hash
             compacted_storage.append_entry_with_key_hash(metadata.key_hash, entry)?;
 
