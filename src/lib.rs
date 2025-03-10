@@ -346,7 +346,7 @@ impl AppendStorage {
         self.batch_write(vec![(key_hash, payload)])
     }
 
-    /// NEW: Batch append multiple entries as a single transaction
+    /// Batch append multiple entries as a single transaction
     pub fn append_entries(&mut self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let hashed_entries: Vec<(u64, &[u8])> = entries
             .iter()
@@ -355,7 +355,7 @@ impl AppendStorage {
         self.batch_write(hashed_entries)
     }
 
-    /// NEW: Batch append multiple entries with precomputed key hashes
+    /// Batch append multiple entries with precomputed key hashes
     pub fn append_entries_with_key_hashes(&mut self, entries: &[(u64, &[u8])]) -> Result<u64> {
         self.batch_write(entries.to_vec())
     }
@@ -497,7 +497,12 @@ impl AppendStorage {
         Ok(())
     }
 
-    /// Computes a SIMD-accelerated CRC32C-based 3-byte checksum
+    /// Counts the number of currently active entries.
+    pub fn count(&self) -> usize {
+        self.iter_entries().count()
+    }
+
+    /// Computes a SIMD-accelerated CRC32C-based 3-byte checksum.
     fn compute_checksum(data: &[u8]) -> [u8; 3] {
         let mut hasher = Crc32FastHasher::new();
         hasher.update(data);

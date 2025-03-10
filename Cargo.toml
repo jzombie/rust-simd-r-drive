@@ -3,7 +3,7 @@ name = "simd-r-drive"
 authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
 version = "0.1.0-alpha"
 edition = "2021"
-description = "SIMD-optimized append-only key-based binary storage"
+description = "SIMD-optimized append-only key-based binary storage."
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
 
