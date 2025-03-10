@@ -175,7 +175,14 @@ impl<'a> Iterator for EntryIterator<'a> {
             return self.next(); // Skip if already seen
         }
 
-        Some(&self.mmap[entry_start..entry_end])
+        let entry_data = &self.mmap[entry_start..entry_end];
+
+        // Skip deleted entries (empty binary data)
+        if entry_data == b"\0" {
+            return self.next();
+        }
+
+        Some(entry_data)
     }
 }
 
@@ -341,6 +348,10 @@ impl AppendStorage {
         self.append_entry_with_key_hash(key_hash, payload)
     }
 
+    pub fn delete_entry(&mut self, key: &[u8]) -> Result<u64> {
+        self.append_entry(key, b"\0")
+    }
+
     /// High-level method: Appends a single entry by key hash
     pub fn append_entry_with_key_hash(&mut self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write(vec![(key_hash, payload)])
@@ -371,6 +382,13 @@ impl AppendStorage {
             let mut last_offset = self.last_offset;
 
             for (key_hash, payload) in entries {
+                if payload.is_empty() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Payload cannot be empty.",
+                    ));
+                }
+
                 let prev_offset = last_offset;
                 let checksum = Self::compute_checksum(payload);
 
@@ -440,7 +458,15 @@ impl AppendStorage {
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             let entry_start = metadata.prev_offset as usize;
-            return Some(&self.mmap[entry_start..offset as usize]);
+
+            let entry = &self.mmap[entry_start..offset as usize];
+
+            // Ensure deleted (null) entries are ignored
+            if entry == b"\0" {
+                return None;
+            }
+
+            return Some(entry);
         }
 
         None
@@ -474,6 +500,9 @@ impl AppendStorage {
 
             let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
+
+            // TODO: Remove
+            eprintln!("metadata: {:?}", metadata);
 
             // Append the entry with the correct key_hash
             compacted_storage.append_entry_with_key_hash(metadata.key_hash, entry)?;
