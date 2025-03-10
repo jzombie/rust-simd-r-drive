@@ -66,15 +66,6 @@ fn simd_copy(dst: &mut [u8], src: &[u8]) {
     dst.copy_from_slice(&src[..dst.len().min(src.len())]);
 }
 
-#[cfg(target_os = "linux")]
-use std::os::unix::io::AsRawFd;
-
-#[cfg(target_os = "macos")]
-use std::os::unix::io::AsRawFd;
-
-#[cfg(target_os = "windows")]
-use std::os::windows::io::AsRawHandle;
-
 /// Custom Hasher using XXH3
 #[derive(Default)]
 struct Xxh3Hasher {
