@@ -258,7 +258,7 @@ impl AppendStorage {
         let file_len = file.get_ref().metadata()?.len();
 
         // First mmap the file
-        let mmap = unsafe { memmap2::MmapOptions::new().map(file.get_ref())? };
+        let mmap = Self::init_mmap(&file)?;
 
         // Recover valid chain using mmap, not file
         let final_len = Self::recover_valid_chain(&mmap, file_len)?;
@@ -294,6 +294,11 @@ impl AppendStorage {
             lock: Arc::new(RwLock::new(())),
             path: path.to_path_buf(),
         })
+    }
+
+    // TODO: Document
+    fn init_mmap(file: &BufWriter<File>) -> Result<Mmap> {
+        unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }
     }
 
     /// Opens the storage file in **append mode**.
@@ -479,7 +484,10 @@ impl AppendStorage {
     /// This method is called **after a write operation** to reload the memory-mapped file
     /// and ensure that newly written data is accessible for reading.
     fn remap_file(&mut self) -> Result<()> {
-        self.mmap = Arc::new(unsafe { memmap2::MmapOptions::new().map(self.file.get_ref())? });
+        // self.mmap = Arc::new(unsafe { memmap2::MmapOptions::new().map(self.file.get_ref())? });
+        let mmap = Self::init_mmap(&self.file)?;
+        self.mmap = Arc::new(mmap);
+
         Ok(())
     }
 
