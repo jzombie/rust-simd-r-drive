@@ -11,11 +11,11 @@ mod digest;
 use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use log::{debug, info, warn};
 
-/// Metadata structure (fixed 19 bytes at the end of each entry)
-const METADATA_SIZE: usize = 19;
+/// Metadata structure (fixed 20 bytes at the end of each entry)
+const METADATA_SIZE: usize = 20;
 const KEY_HASH_RANGE: std::ops::Range<usize> = 0..8;
 const PREV_OFFSET_RANGE: std::ops::Range<usize> = 8..16;
-const CHECKSUM_RANGE: std::ops::Range<usize> = 16..19;
+const CHECKSUM_RANGE: std::ops::Range<usize> = 16..20;
 
 // Marker indicating a logically deleted entry in the storage
 const NULL_BYTE: [u8; 1] = [0];
@@ -38,9 +38,9 @@ const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 /// - **Offset `0` → `N`**: **Payload** (variable-length data)
 /// - **Offset `N` → `N + 8`**: **Key Hash** (64-bit XXH3 hash of the key, used for fast lookups)
 /// - **Offset `N + 8` → `N + 16`**: **Prev Offset** (absolute file offset pointing to the previous version)
-/// - **Offset `N + 16` → `N + 19`**: **Checksum** (truncated 24-bit CRC32C checksum for integrity verification)
+/// - **Offset `N + 16` → `N + 20`**: **Checksum** (full 32-bit CRC32C checksum for integrity verification)
 ///
-/// **Total Size**: `N + 19` bytes, where `N` is the length of the payload.
+/// **Total Size**: `N + 20` bytes, where `N` is the length of the payload.
 ///
 /// ## Notes
 /// - The `prev_offset` forms a **backward-linked chain** for each key.
@@ -51,7 +51,7 @@ const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 struct EntryMetadata {
     key_hash: u64,     // 8 bytes (hashed key for lookup)
     prev_offset: u64,  // 8 bytes (absolute offset of previous entry)
-    checksum: [u8; 3], // 3 bytes (checksum for integrity)
+    checksum: [u8; 4], // 4 bytes (checksum for integrity)
 }
 
 impl EntryMetadata {
@@ -221,14 +221,6 @@ impl From<PathBuf> for AppendStorage {
     /// Creates an `AppendStorage` instance from a `PathBuf`.
     ///
     /// This allows creating a storage instance **directly from a file path**.
-    ///
-    /// # Example:
-    /// ```
-    /// use simd_r_drive::AppendStorage;
-    /// use std::path::PathBuf;
-    ///
-    /// let storage = AppendStorage::from(PathBuf::from("data.bin"));
-    /// ```
     ///
     /// # Panics:
     /// - If the file cannot be opened or mapped into memory.
