@@ -62,9 +62,11 @@ enum Commands {
 
     /// Compact the storage file to remove old entries
     Compact,
+
+    /// Get current state of storage file
+    Info 
 }
 
-// TODO: Add "info" command to get current state of storage file (num entries, est. compact savings, total size in bytes, etc.)
 fn main() {
     let stdin_input = get_stdin_or_default(None);
 
@@ -74,8 +76,6 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        
-
         Commands::Read { key } => {
             let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
             
@@ -148,5 +148,27 @@ fn main() {
             }
             info!("Compaction completed successfully.");
         }
+
+        Commands::Info => {
+            let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+
+            // Retrieve storage file size
+            let storage_size = storage.get_storage_size().unwrap_or(0);
+
+            // Get compaction savings estimate
+            let (current_size, savings) = storage.estimate_compaction_savings();
+
+            // Count active entries
+            let entry_count = storage.count();
+
+            println!("Storage Info:");
+            println!("--------------------------------");
+            println!("File Path:       {:?}", cli.storage);
+            println!("Total Size:      {} bytes", storage_size);
+            println!("Active Entries:  {}", entry_count);
+            println!("Compaction Savings Estimate: {} bytes", savings);
+            println!("--------------------------------");
+        }
+
     }
 }

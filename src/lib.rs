@@ -557,4 +557,47 @@ impl AppendStorage {
     pub fn count(&self) -> usize {
         self.iter_entries().count()
     }
+
+    /// Estimates the potential space savings from compaction.
+    ///
+    /// This method scans the storage file and calculates the difference
+    /// between the total file size and the size required to keep only
+    /// the latest versions of all keys.
+    ///
+    /// # Returns:
+    /// - `(total_size, potential_savings)`: The current file size and estimated space savings.
+    pub fn estimate_compaction_savings(&self) -> (u64, u64) {
+        let total_size = self.get_storage_size().unwrap_or(0);
+        let mut unique_entry_size: u64 = 0;
+        let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
+
+        for entry in self.iter_entries() {
+            let entry_start_offset = entry.as_ptr() as usize - self.mmap.as_ptr() as usize;
+            let metadata_offset = entry_start_offset + entry.len();
+
+            if metadata_offset + METADATA_SIZE > self.mmap.len() {
+                warn!("Skipping corrupted entry at offset {}", entry_start_offset);
+                continue;
+            }
+
+            let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+            let metadata = EntryMetadata::deserialize(metadata_bytes);
+
+            // Only count the latest version of each key
+            if seen_keys.insert(metadata.key_hash) {
+                unique_entry_size += entry.len() as u64 + METADATA_SIZE as u64;
+            }
+        }
+
+        let potential_savings = total_size.saturating_sub(unique_entry_size);
+        (total_size, potential_savings)
+    }
+
+    /// Returns the total file size of the storage.
+    ///
+    /// # Returns:
+    /// - `Ok(file_size_in_bytes)`, or an error if the file could not be accessed.
+    pub fn get_storage_size(&self) -> Result<u64> {
+        std::fs::metadata(&self.path).map(|meta| meta.len())
+    }
 }
