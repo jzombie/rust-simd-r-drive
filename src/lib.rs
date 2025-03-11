@@ -563,10 +563,7 @@ impl AppendStorage {
     /// This method scans the storage file and calculates the difference
     /// between the total file size and the size required to keep only
     /// the latest versions of all keys.
-    ///
-    /// # Returns:
-    /// - `(total_size, potential_savings)`: The current file size and estimated space savings.
-    pub fn estimate_compaction_savings(&self) -> (u64, u64) {
+    pub fn estimate_compaction_savings(&self) -> u64 {
         let total_size = self.get_storage_size().unwrap_or(0);
         let mut unique_entry_size: u64 = 0;
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
@@ -589,8 +586,7 @@ impl AppendStorage {
             }
         }
 
-        let potential_savings = total_size.saturating_sub(unique_entry_size);
-        (total_size, potential_savings)
+        total_size.saturating_sub(unique_entry_size)
     }
 
     /// Returns the total file size of the storage.

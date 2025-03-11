@@ -156,7 +156,7 @@ fn main() {
             let storage_size = storage.get_storage_size().unwrap_or(0);
 
             // Get compaction savings estimate
-            let (current_size, savings) = storage.estimate_compaction_savings();
+            let savings_estimate = storage.estimate_compaction_savings();
 
             // Count active entries
             let entry_count = storage.count();
@@ -166,7 +166,7 @@ fn main() {
             println!("File Path:       {:?}", cli.storage);
             println!("Total Size:      {} bytes", storage_size);
             println!("Active Entries:  {}", entry_count);
-            println!("Compaction Savings Estimate: {} bytes", savings);
+            println!("Compaction Savings Estimate: {} bytes", savings_estimate);
             println!("--------------------------------");
         }
 
