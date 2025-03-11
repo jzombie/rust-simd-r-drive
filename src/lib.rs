@@ -732,7 +732,6 @@ impl AppendStorage {
     /// # Returns:
     /// - `Ok(file_size_in_bytes)` if successful.
     /// - `Err(std::io::Error)` if the file cannot be accessed.
-    /// ```
     pub fn get_storage_size(&self) -> Result<u64> {
         std::fs::metadata(&self.path).map(|meta| meta.len())
     }
