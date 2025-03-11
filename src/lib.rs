@@ -150,7 +150,7 @@ impl AppendStorage {
         let file = BufWriter::new(
             OpenOptions::new()
                 .read(true)
-                .write(true)
+                .append(true)
                 .create(true)
                 .open(path)?,
         );
