@@ -45,7 +45,7 @@ jobs:
       - name: Build binary
         run: cargo build --release
 
-      - name: Debug: List built binaries
+      - name: Debug (List built binaries)
         run: ls -lah target/release/
 
       - name: Rename binary for OS
