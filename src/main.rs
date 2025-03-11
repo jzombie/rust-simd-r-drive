@@ -68,6 +68,7 @@ enum Commands {
 fn main() {
     let stdin_input = get_stdin_or_default(None);
 
+    // TODO: Remove
     // println!("STDIN {:?}", stdin_input);
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -86,6 +87,7 @@ fn main() {
             }
         }
 
+        // TODO: Remove
         // Commands::Write { key, value } => {
         //     let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
         //     storage
@@ -96,18 +98,33 @@ fn main() {
 
         Commands::Write { key, value } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
-            let final_value = value.clone().unwrap_or_else(|| stdin_input.unwrap());
-
-            if final_value.is_empty() {
+        
+            // Convert `Option<String>` to `Option<Vec<u8>>` (binary format)
+            let value_bytes = value.as_ref().map(|s| s.as_bytes().to_vec());
+        
+            // `stdin_input` is already `Option<Vec<u8>>`, so merge them properly
+            let final_value = value_bytes.or_else(|| stdin_input.clone());
+        
+            // Check if the final value is `None` or an empty binary array
+            if final_value.as_deref().map_or(true, |v| v.is_empty()) {
                 error!("Error: No value provided and stdin is empty.");
                 std::process::exit(1);
             }
-
+        
+            // Unwrap safely since we checked for `None`
+            let final_value = final_value.unwrap();
+        
             storage
-                .append_entry(key.as_bytes(), final_value.as_bytes())
+                .append_entry(key.as_bytes(), &final_value)
                 .expect("Failed to write entry");
-            info!("Stored '{}' -> '{}'", key, final_value);
+        
+            info!(
+                "Stored '{}' -> '{}'",
+                key,
+                String::from_utf8_lossy(&final_value) // Convert binary to UTF-8 for logging
+            );
         }
+                
 
         Commands::Delete { key } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");

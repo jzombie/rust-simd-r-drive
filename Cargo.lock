@@ -454,9 +454,9 @@ dependencies = [
 
 [[package]]
 name = "stdin-nonblocking"
-version = "0.2.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fdb22c284cafadb73eb2a01692c97196711ebf439510dd30d5939d25a77cb791"
+checksum = "6e49ac44a0dbefff31a3e094e3d63ee99b98a6a9635cb22e8204176c76db1376"
 
 [[package]]
 name = "strsim"
