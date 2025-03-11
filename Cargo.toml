@@ -8,8 +8,10 @@ repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
 
 [dependencies]
+clap = "4.5.32"
 crc32fast = "1.4.2"
 memmap2 = "0.9.5"
+stdin-nonblocking = "0.2.1"
 
 [dependencies.xxhash-rust]
 version = "0.8.12"
