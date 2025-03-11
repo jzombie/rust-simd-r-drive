@@ -8,9 +8,9 @@ use std::path::PathBuf;
 /// Append-Only Storage Engine CLI
 #[derive(Parser)]
 #[command(
-    name = "simd-r-drive",
-    version = "1.0",
-    about = "A simple key-value store with an append-only storage engine.",
+    name = env!("CARGO_PKG_NAME"),
+    version = env!("CARGO_PKG_VERSION"),
+    about = env!("CARGO_PKG_DESCRIPTION"),
     long_about = None
 )]
 #[command(
