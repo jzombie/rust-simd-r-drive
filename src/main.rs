@@ -60,6 +60,7 @@ enum Commands {
 
 // TODO: Enable stdin to write
 // TODO: Try "nesting" the .bin by reading it in and saving it as a key (does it work?)
+// TODO: Add "info" command to get current state of storage file (num entries, est. compact savings, total size in bytes, etc.)
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
