@@ -57,6 +57,7 @@ enum Commands {
 }
 
 // TODO: Enable stdin to write
+// TODO: Try "nesting" the .bin by reading it in and saving it as a key (does it work?)
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
