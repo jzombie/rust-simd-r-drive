@@ -500,11 +500,10 @@ mod tests {
 
     #[test]
     fn test_persistence_across_multiple_reopens_with_updates() {
-        let dir = tempdir().expect("Failed to create temp dir");
-        let path = dir.path().join("test_storage_persistent_updates.bin");
-
         // Step 1: Write initial entries and close storage
         {
+            let dir = tempdir().expect("Failed to create temp dir");
+            let path = dir.path().join("test_storage_persistent_updates.bin");
             let mut storage = AppendStorage::open(&path).expect("Failed to open storage");
 
             storage
@@ -514,12 +513,13 @@ mod tests {
                 .append_entry(b"key2", b"Initial Value 2")
                 .expect("Failed to append entry");
 
-            drop(storage);
             eprintln!("Step 1: Initial entries written, closing file...");
         } // **Storage closed here**
 
         // Step 2: Reopen storage, update values, and close again
         {
+            let dir = tempdir().expect("Failed to create temp dir");
+            let path = dir.path().join("test_storage_persistent_updates.bin");
             let mut storage = AppendStorage::open(&path).expect("Failed to reopen storage");
 
             storage
@@ -529,25 +529,28 @@ mod tests {
                 .append_entry(b"key2", b"Updated Value 2")
                 .expect("Failed to update key2");
 
-            drop(storage);
             eprintln!("Step 2: Updates written, closing file...");
         } // **Storage closed here**
 
-        // Step 3: Reopen storage again and verify persistence
-        let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
+        {
+            let dir = tempdir().expect("Failed to create temp dir");
+            let path = dir.path().join("test_storage_persistent_updates.bin");
 
-        assert_eq!(
-            storage.get_entry_by_key(b"key1"),
-            Some(b"Updated Value 1".as_slice()),
-            "Key1 should contain the updated value"
-        );
-        assert_eq!(
-            storage.get_entry_by_key(b"key2"),
-            Some(b"Updated Value 2".as_slice()),
-            "Key2 should contain the updated value"
-        );
+            // Step 3: Reopen storage again and verify persistence
+            let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
 
-        drop(storage);
-        eprintln!("Step 3: Persistence check passed after multiple reopens.");
+            assert_eq!(
+                storage.get_entry_by_key(b"key1"),
+                Some(b"Updated Value 1".as_slice()),
+                "Key1 should contain the updated value"
+            );
+            assert_eq!(
+                storage.get_entry_by_key(b"key2"),
+                Some(b"Updated Value 2".as_slice()),
+                "Key2 should contain the updated value"
+            );
+
+            eprintln!("Step 3: Persistence check passed after multiple reopens.");
+        }
     }
 }
