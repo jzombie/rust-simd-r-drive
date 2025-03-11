@@ -238,17 +238,6 @@ impl From<PathBuf> for AppendStorage {
 }
 
 impl AppendStorage {
-    /// Retrieves an iterator over all valid entries in the storage.
-    ///
-    /// This iterator allows scanning the storage file and retrieving **only the most recent**
-    /// versions of each key.
-    ///
-    /// # Returns:
-    /// - An `EntryIterator` instance for iterating over valid entries.
-    pub fn iter_entries(&self) -> EntryIterator {
-        EntryIterator::new(&self.mmap, self.last_offset)
-    }
-
     /// Opens an **existing** or **new** append-only storage file.
     ///
     /// This function:
@@ -295,9 +284,6 @@ impl AppendStorage {
             return Self::open(path);
         }
 
-        // **Re-map the file after recovery**
-        // let mmap = unsafe { memmap2::MmapOptions::new().map(file.get_ref())? };
-
         let key_index = Self::build_key_index(&mmap, final_len);
 
         Ok(Self {
@@ -338,6 +324,17 @@ impl AppendStorage {
         file.seek(SeekFrom::End(0))?; // Move cursor to end to prevent overwriting
 
         Ok(BufWriter::new(file))
+    }
+
+    /// Retrieves an iterator over all valid entries in the storage.
+    ///
+    /// This iterator allows scanning the storage file and retrieving **only the most recent**
+    /// versions of each key.
+    ///
+    /// # Returns:
+    /// - An `EntryIterator` instance for iterating over valid entries.
+    pub fn iter_entries(&self) -> EntryIterator {
+        EntryIterator::new(&self.mmap, self.last_offset)
     }
 
     /// Builds an in-memory index for **fast key lookups**.
