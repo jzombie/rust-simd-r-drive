@@ -64,30 +64,17 @@ enum Commands {
     Compact,
 }
 
-// TODO: Enable stdin to write
-// TODO: Try "nesting" the .bin by reading it in and saving it as a key (does it work?)
 // TODO: Add "info" command to get current state of storage file (num entries, est. compact savings, total size in bytes, etc.)
 fn main() {
     let stdin_input = get_stdin_or_default(None);
 
-    // TODO: Remove
-    // println!("STDIN {:?}", stdin_input);
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let cli = Cli::parse();
 
     match &cli.command {
-        // Commands::Read { key } => {
-        //     let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
-        //     match storage.get_entry_by_key(key.as_bytes()) {
-        //         Some(value) => println!("{}", String::from_utf8_lossy(value)),
-        //         None => {
-        //             error!("Error: Key '{}' not found", key);
-        //             std::process::exit(1);
-        //         }
-        //     }
-        // }
+        
 
         Commands::Read { key } => {
             let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
@@ -113,15 +100,6 @@ fn main() {
                 }
             }
         }
-
-        // TODO: Remove
-        // Commands::Write { key, value } => {
-        //     let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
-        //     storage
-        //         .append_entry(key.as_bytes(), value.as_bytes())
-        //         .expect("Failed to write entry");
-        //     info!("Stored '{}' -> '{}'", key, value);
-        // }
 
         Commands::Write { key, value } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
@@ -150,9 +128,6 @@ fn main() {
                 key,
             );
 
-            // io::stdout()
-            // .write_all(final_value.as_slice())
-            // .expect("Failed to write output");
         }
                 
 
