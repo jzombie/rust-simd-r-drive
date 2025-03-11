@@ -1,6 +1,6 @@
+use indoc::indoc;
 use clap::{Parser, Subcommand};
 use env_logger;
-use indoc::indoc;
 use log::{error, info, warn};
 use simd_r_drive::{AppendStorage, format_bytes};
 use std::path::PathBuf;
