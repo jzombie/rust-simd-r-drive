@@ -1,3 +1,12 @@
+#[allow(dead_code)]
+use log::warn;
+
+use std::sync::Once;
+
+// Static variable to ensure the warning is logged only once
+#[allow(dead_code)]
+static LOG_ONCE: Once = Once::new();
+
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
@@ -43,15 +52,29 @@ unsafe fn simd_copy_arm(dst: &mut [u8], src: &[u8]) {
 #[inline]
 pub fn simd_copy(dst: &mut [u8], src: &[u8]) {
     #[cfg(target_arch = "x86_64")]
-    unsafe {
-        return simd_copy_x86(dst, src);
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            unsafe {
+                return simd_copy_x86(dst, src);
+            }
+        } else {
+            // Note: This condition is met running Windows 11 Arm in UTM v. 4.4.5 on Mac
+            // Log the warning only once
+            LOG_ONCE.call_once(|| {
+                warn!("Warning: AVX2 not detected, falling back to scalar copy.");
+            });
+        }
     }
+
     #[cfg(target_arch = "aarch64")]
-    unsafe {
-        return simd_copy_arm(dst, src);
+    {
+        // No standard runtime feature detection, use fallback by default
+        unsafe {
+            return simd_copy_arm(dst, src);
+        }
     }
 
     // Fallback for unsupported architectures
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[allow(unreachable_code)]
     dst.copy_from_slice(&src[..dst.len().min(src.len())]);
 }
