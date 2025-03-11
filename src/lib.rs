@@ -1,5 +1,6 @@
 use memmap2::Mmap;
 use std::collections::{HashMap, HashSet};
+use std::convert::From;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -215,6 +216,26 @@ impl<'a> IntoIterator for &'a AppendStorage {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_entries()
+    }
+}
+
+impl From<PathBuf> for AppendStorage {
+    /// Creates an `AppendStorage` instance from a `PathBuf`.
+    ///
+    /// This allows creating a storage instance **directly from a file path**.
+    ///
+    /// # Example:
+    /// ```
+    /// use simd_r_drive::AppendStorage;
+    /// use std::path::PathBuf;
+    ///
+    /// let storage = AppendStorage::from(PathBuf::from("data.bin"));
+    /// ```
+    ///
+    /// # Panics:
+    /// - If the file cannot be opened or mapped into memory.
+    fn from(path: PathBuf) -> Self {
+        AppendStorage::open(&path).expect("Failed to open storage file")
     }
 }
 
