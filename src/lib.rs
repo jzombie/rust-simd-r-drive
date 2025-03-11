@@ -15,6 +15,9 @@ const KEY_HASH_RANGE: std::ops::Range<usize> = 0..8;
 const PREV_OFFSET_RANGE: std::ops::Range<usize> = 8..16;
 const CHECKSUM_RANGE: std::ops::Range<usize> = 16..19;
 
+// Marker indicating a logically deleted entry in the storage
+const NULL_BYTE: [u8; 1] = [0];
+
 // Define checksum length explicitly since `CHECKSUM_RANGE.len()` isn't `const`
 const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 
@@ -185,7 +188,7 @@ impl<'a> Iterator for EntryIterator<'a> {
         let entry_data = &self.mmap[entry_start..entry_end];
 
         // Skip deleted entries (denoted by empty data)
-        if entry_data == b"\0" {
+        if entry_data == NULL_BYTE {
             return self.next();
         }
 
@@ -393,7 +396,7 @@ impl AppendStorage {
     }
 
     pub fn delete_entry(&mut self, key: &[u8]) -> Result<u64> {
-        self.append_entry(key, b"\0")
+        self.append_entry(key, &NULL_BYTE)
     }
 
     /// High-level method: Appends a single entry by key hash
@@ -507,7 +510,7 @@ impl AppendStorage {
             let entry = &self.mmap[entry_start..offset as usize];
 
             // Ensure deleted (null) entries are ignored
-            if entry == b"\0" {
+            if entry == NULL_BYTE {
                 return None;
             }
 
