@@ -282,19 +282,20 @@ impl AppendStorage {
                 file_len
             );
 
-            let mut file_ref = file.get_ref();
-
-            // 1. Drop mmap BEFORE modifying file (maybe important on certain OS's?)
+            // **Close the file before truncation**
             drop(mmap);
+            drop(file);
 
-            // 2. Truncate first (removes corrupted bytes immediately)
-            file_ref.set_len(final_len)?;
+            // **Reopen the file in read-write mode and truncate it**
+            let mut file = OpenOptions::new().read(true).write(true).open(path)?;
+            file.set_len(final_len)?;
+            file.sync_all()?; // Ensure OS writes take effect
 
-            // 3. Force a sync to make sure truncation is applied
-            file_ref.sync_all()?;
+            // **Now reopen everything fresh**
+            return Self::open(path);
         }
 
-        // **4. Re-map the file AFTER truncation**
+        // **Re-map the file after recovery**
         let mmap = unsafe { memmap2::MmapOptions::new().map(file.get_ref())? };
         let key_index = Self::build_key_index(&mmap, final_len);
 

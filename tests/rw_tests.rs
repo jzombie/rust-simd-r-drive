@@ -217,7 +217,7 @@ mod tests {
                 "Expected to recover at least one valid entry"
             );
 
-            // Check if file can still be written to and read from after recovery
+            // // Check if file can still be written to and read from after recovery
             let new_key = b"new_key";
             let new_payload = b"New Data After Recovery";
 
