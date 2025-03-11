@@ -45,9 +45,6 @@ jobs:
       - name: Build binary
         run: cargo build --release
 
-      - name: Debug (List built binaries)
-        run: ls -lah target/release/
-
       - name: Rename binary for OS
         run: |
           mkdir -p dist
@@ -59,7 +56,6 @@ jobs:
           else
             mv target/release/$BINARY_NAME dist/$BINARY_NAME-linux
           fi
-
 
       - name: Upload Artifact (Preview Binaries)
         uses: actions/upload-artifact@v4
