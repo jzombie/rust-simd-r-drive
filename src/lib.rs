@@ -296,7 +296,30 @@ impl AppendStorage {
         })
     }
 
-    // TODO: Document
+    /// Initializes a memory-mapped file for fast access.
+    ///
+    /// This function creates a memory-mapped file (`mmap`) from a `BufWriter<File>`.
+    /// It provides a read-only view of the file, allowing efficient direct access to
+    /// stored data without unnecessary copies.
+    ///
+    /// # Parameters:
+    /// - `file`: A reference to a `BufWriter<File>`, which must be flushed before
+    ///   mapping to ensure all written data is visible.
+    ///
+    /// # Returns:
+    /// - `Ok(Mmap)`: A memory-mapped view of the file.
+    /// - `Err(std::io::Error)`: If the mapping fails.
+    ///
+    /// # Notes:
+    /// - The `BufWriter<File>` should be flushed before calling this function to
+    ///   ensure that all pending writes are persisted.
+    /// - The memory mapping remains valid as long as the underlying file is not truncated
+    ///   or modified in ways that invalidate the mapping.
+    ///
+    /// # Safety:
+    /// - This function uses an **unsafe** operation (`memmap2::MmapOptions::map`).
+    ///   The caller must ensure that the mapped file is not resized or closed while
+    ///   the mapping is in use, as this could lead to undefined behavior.
     fn init_mmap(file: &BufWriter<File>) -> Result<Mmap> {
         unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }
     }
