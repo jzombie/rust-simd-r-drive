@@ -7,73 +7,8 @@ use std::io::{BufWriter, Result, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use xxhash_rust::xxh3::xxh3_64;
-
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
-
-#[cfg(target_arch = "aarch64")]
-use std::arch::aarch64::*;
-
-#[inline]
-#[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "avx2")]
-unsafe fn simd_copy_x86(dst: &mut [u8], src: &[u8]) {
-    let len = dst.len().min(src.len());
-    let chunks = len / 32; // AVX2 processes 32 bytes at a time
-
-    let mut i = 0;
-    while i < chunks * 32 {
-        let data = _mm256_loadu_si256(src.as_ptr().add(i) as *const __m256i);
-        _mm256_storeu_si256(dst.as_mut_ptr().add(i) as *mut __m256i, data);
-        i += 32;
-    }
-
-    // Copy remaining bytes normally
-    dst[i..len].copy_from_slice(&src[i..len]);
-}
-
-#[inline]
-#[cfg(target_arch = "aarch64")]
-#[target_feature(enable = "neon")]
-unsafe fn simd_copy_arm(dst: &mut [u8], src: &[u8]) {
-    let len = dst.len().min(src.len());
-    let chunks = len / 16; // NEON processes 16 bytes at a time
-
-    let mut i = 0;
-    while i < chunks * 16 {
-        let data = vld1q_u8(src.as_ptr().add(i));
-        vst1q_u8(dst.as_mut_ptr().add(i), data);
-        i += 16;
-    }
-
-    // Copy remaining bytes normally
-    dst[i..len].copy_from_slice(&src[i..len]);
-}
-
-#[inline]
-fn simd_copy(dst: &mut [u8], src: &[u8]) {
-    #[cfg(target_arch = "x86_64")]
-    unsafe {
-        return simd_copy_x86(dst, src);
-    }
-    #[cfg(target_arch = "aarch64")]
-    unsafe {
-        return simd_copy_arm(dst, src);
-    }
-
-    // Fallback for unsupported architectures
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    dst.copy_from_slice(&src[..dst.len().min(src.len())]);
-}
-
-#[cfg(target_os = "linux")]
-use std::os::unix::io::AsRawFd;
-
-#[cfg(target_os = "macos")]
-use std::os::unix::io::AsRawFd;
-
-#[cfg(target_os = "windows")]
-use std::os::windows::io::AsRawHandle;
+mod simd_copy;
+use simd_copy::simd_copy;
 
 /// Custom Hasher using XXH3
 #[derive(Default)]
@@ -175,7 +110,14 @@ impl<'a> Iterator for EntryIterator<'a> {
             return self.next(); // Skip if already seen
         }
 
-        Some(&self.mmap[entry_start..entry_end])
+        let entry_data = &self.mmap[entry_start..entry_end];
+
+        // Skip deleted entries (empty binary data)
+        if entry_data == b"\0" {
+            return self.next();
+        }
+
+        Some(entry_data)
     }
 }
 
@@ -341,12 +283,16 @@ impl AppendStorage {
         self.append_entry_with_key_hash(key_hash, payload)
     }
 
+    pub fn delete_entry(&mut self, key: &[u8]) -> Result<u64> {
+        self.append_entry(key, b"\0")
+    }
+
     /// High-level method: Appends a single entry by key hash
     pub fn append_entry_with_key_hash(&mut self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write(vec![(key_hash, payload)])
     }
 
-    /// NEW: Batch append multiple entries as a single transaction
+    /// Batch append multiple entries as a single transaction
     pub fn append_entries(&mut self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let hashed_entries: Vec<(u64, &[u8])> = entries
             .iter()
@@ -355,7 +301,7 @@ impl AppendStorage {
         self.batch_write(hashed_entries)
     }
 
-    /// NEW: Batch append multiple entries with precomputed key hashes
+    /// Batch append multiple entries with precomputed key hashes
     pub fn append_entries_with_key_hashes(&mut self, entries: &[(u64, &[u8])]) -> Result<u64> {
         self.batch_write(entries.to_vec())
     }
@@ -371,6 +317,13 @@ impl AppendStorage {
             let mut last_offset = self.last_offset;
 
             for (key_hash, payload) in entries {
+                if payload.is_empty() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Payload cannot be empty.",
+                    ));
+                }
+
                 let prev_offset = last_offset;
                 let checksum = Self::compute_checksum(payload);
 
@@ -440,7 +393,15 @@ impl AppendStorage {
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             let entry_start = metadata.prev_offset as usize;
-            return Some(&self.mmap[entry_start..offset as usize]);
+
+            let entry = &self.mmap[entry_start..offset as usize];
+
+            // Ensure deleted (null) entries are ignored
+            if entry == b"\0" {
+                return None;
+            }
+
+            return Some(entry);
         }
 
         None
@@ -497,7 +458,12 @@ impl AppendStorage {
         Ok(())
     }
 
-    /// Computes a SIMD-accelerated CRC32C-based 3-byte checksum
+    /// Counts the number of currently active entries.
+    pub fn count(&self) -> usize {
+        self.iter_entries().count()
+    }
+
+    /// Computes a SIMD-accelerated CRC32C-based 3-byte checksum.
     fn compute_checksum(data: &[u8]) -> [u8; 3] {
         let mut hasher = Crc32FastHasher::new();
         hasher.update(data);
