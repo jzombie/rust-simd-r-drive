@@ -4,7 +4,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use simd_r_drive::AppendStorage;
     use std::fs::{metadata, OpenOptions};
-    use std::io::Write;
+    use std::io::{Seek, SeekFrom, Write};
     use tempfile::tempdir;
 
     /// Helper function to create a temporary file for testing
@@ -179,13 +179,20 @@ mod tests {
         // Step 2: Simulate corruption by writing partial data
         {
             let mut file = OpenOptions::new()
-                .write(true)
+                .read(true)
+                .write(true) // ✅ Allows writing but does NOT truncate
                 .open(&path)
                 .expect("Failed to open file");
-            file.write_all(b"CORRUPT")
+
+            file.seek(SeekFrom::End(0)) // ✅ Move cursor to the end
+                .expect("Failed to seek to end");
+
+            file.write_all(b"CORRUPT") // ✅ Write corrupted data at the end
                 .expect("Failed to write corruption");
+
             file.flush().expect("Flush failed");
-        } // **File is closed again here**
+        }
+        // **File is closed again here**
 
         let file_size_after = metadata(&path).expect("Failed to get metadata").len();
         eprintln!("File size after corruption: {}", file_size_after);

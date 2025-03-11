@@ -274,7 +274,25 @@ impl AppendStorage {
 
         // Recover valid chain using mmap, not file
         let final_len = Self::recover_valid_chain(&mmap, file_len)?;
-        file.get_ref().set_len(final_len)?; // Correct file size before remapping
+
+        if final_len < file_len {
+            warn!(
+                "Overwriting corrupted data in {} from offset {} to {}.",
+                path.display(),
+                final_len,
+                file_len
+            );
+
+            let mut file_ref = file.get_ref();
+
+            // Overwrite the corrupted portion with zeroes
+            file_ref.seek(SeekFrom::Start(final_len))?;
+            file_ref.write_all(&vec![0u8; (file_len - final_len) as usize])?;
+            file_ref.flush()?;
+
+            // Truncate file to remove the corrupted portion
+            file_ref.set_len(final_len)?;
+        }
 
         // Re-map the file after recovery
         let mmap = unsafe { memmap2::MmapOptions::new().map(file.get_ref())? };
