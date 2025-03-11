@@ -71,7 +71,7 @@ fn main() {
         }
 
         // TODO: [fixed] Fix issue if writing the same key twice it cannot be found
-        // TODO: Fix issue if writing the same key twice, the original value is returned
+        // TODO: [fixed] Fix issue if writing the same key twice, the original value is returned
         Commands::Write { key, value } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
             storage
