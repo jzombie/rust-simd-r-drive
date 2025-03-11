@@ -24,21 +24,23 @@ const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 /// It includes a hash of the key for quick lookups, an offset pointing to the previous
 /// entry in the chain, and a checksum for integrity verification.
 ///
-/// # Memory Layout
-/// - This struct is marked with `#[repr(C)]` to ensure a predictable memory layout,
-///   which is critical for binary storage and memory-mapped access.
-/// - The total size is **19 bytes**.
-/// - The struct is stored at the end of each entry in the append-only file.
+/// ## Entry Memory Layout
 ///
-/// # Fields
-/// - `key_hash` (8 bytes): A **64-bit XXH3 hash** of the key, used for efficient lookups.
-/// - `prev_offset` (8 bytes): An **absolute file offset** pointing to the previous version
-///   of the same key, forming a **backward-linked chain** of updates.
-/// - `checksum` (3 bytes): A **truncated CRC32C checksum** for detecting data corruption.
+/// Each entry consists of a **variable-sized payload** followed by a **fixed-size metadata block**.
+/// The metadata is stored **at the end** of the entry to simplify sequential writes and enable
+/// efficient recovery.
 ///
-/// # Notes
-/// - The checksum is only a lightweight integrity check and is not cryptographically secure.
-/// - The `prev_offset` is `0` for the first occurrence of a key in the storage chain.
+/// - **Offset `0` → `N`**: **Payload** (variable-length data)
+/// - **Offset `N` → `N + 8`**: **Key Hash** (64-bit XXH3 hash of the key, used for fast lookups)
+/// - **Offset `N + 8` → `N + 16`**: **Prev Offset** (absolute file offset pointing to the previous version)
+/// - **Offset `N + 16` → `N + 19`**: **Checksum** (truncated 24-bit CRC32C checksum for integrity verification)
+///
+/// **Total Size**: `N + 19` bytes, where `N` is the length of the payload.
+///
+/// ## Notes
+/// - The `prev_offset` forms a **backward-linked chain** for each key.
+/// - The checksum is **not cryptographically secure** but serves as a quick integrity check.
+/// - The first entry for a key has `prev_offset = 0`, indicating no previous version.
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct EntryMetadata {
