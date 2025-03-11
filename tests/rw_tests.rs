@@ -514,6 +514,7 @@ mod tests {
                 .append_entry(b"key2", b"Initial Value 2")
                 .expect("Failed to append entry");
 
+            drop(storage);
             eprintln!("Step 1: Initial entries written, closing file...");
         } // **Storage closed here**
 
@@ -528,6 +529,7 @@ mod tests {
                 .append_entry(b"key2", b"Updated Value 2")
                 .expect("Failed to update key2");
 
+            drop(storage);
             eprintln!("Step 2: Updates written, closing file...");
         } // **Storage closed here**
 
@@ -545,6 +547,7 @@ mod tests {
             "Key2 should contain the updated value"
         );
 
+        drop(storage);
         eprintln!("Step 3: Persistence check passed after multiple reopens.");
     }
 }
