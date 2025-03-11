@@ -500,10 +500,11 @@ mod tests {
 
     #[test]
     fn test_persistence_across_multiple_reopens_with_updates() {
+        let dir = tempdir().expect("Failed to create temp dir");
+        let path = dir.path().join("test_storage_persistent_updates.bin");
+
         // Step 1: Write initial entries and close storage
         {
-            let dir = tempdir().expect("Failed to create temp dir");
-            let path = dir.path().join("test_storage_persistent_updates.bin");
             let mut storage = AppendStorage::open(&path).expect("Failed to open storage");
 
             storage
@@ -518,8 +519,6 @@ mod tests {
 
         // Step 2: Reopen storage, update values, and close again
         {
-            let dir = tempdir().expect("Failed to create temp dir");
-            let path = dir.path().join("test_storage_persistent_updates.bin");
             let mut storage = AppendStorage::open(&path).expect("Failed to reopen storage");
 
             storage
@@ -533,9 +532,6 @@ mod tests {
         } // **Storage closed here**
 
         {
-            let dir = tempdir().expect("Failed to create temp dir");
-            let path = dir.path().join("test_storage_persistent_updates.bin");
-
             // Step 3: Reopen storage again and verify persistence
             let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
 
