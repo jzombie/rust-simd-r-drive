@@ -50,6 +50,18 @@ struct EntryMetadata {
 }
 
 impl EntryMetadata {
+    /// Serializes the metadata into a byte array.
+    ///
+    /// Converts the `EntryMetadata` structure into a fixed-size array
+    /// for efficient storage. The serialized format ensures compatibility
+    /// with disk storage and memory-mapped access.
+    ///
+    /// # Format:
+    /// - Encodes the key hash, previous offset, and checksum into their respective byte ranges.
+    /// - Uses little-endian encoding for numeric values.
+    ///
+    /// # Returns:
+    /// - A byte array containing the serialized metadata.
     #[inline]
     fn serialize(&self) -> [u8; METADATA_SIZE] {
         let mut buf = [0u8; METADATA_SIZE];
@@ -61,6 +73,21 @@ impl EntryMetadata {
         buf
     }
 
+    /// Deserializes a byte slice into an `EntryMetadata` instance.
+    ///
+    /// Reconstructs an `EntryMetadata` structure from a byte slice,
+    /// following the predefined binary format. Extracts the key hash,
+    /// previous offset, and checksum while ensuring correctness through
+    /// explicit range-based indexing.
+    ///
+    /// # Parameters:
+    /// - `data`: A byte slice containing the serialized metadata.
+    ///
+    /// # Returns:
+    /// - A reconstructed `EntryMetadata` instance.
+    ///
+    /// # Panics:
+    /// - If the provided `data` slice is too small.
     #[inline]
     fn deserialize(data: &[u8]) -> Self {
         Self {
