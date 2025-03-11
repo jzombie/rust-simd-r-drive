@@ -230,21 +230,21 @@ impl AppendStorage {
         EntryIterator::new(&self.mmap, self.last_offset)
     }
 
-    fn open_file_in_append_mode(path: &Path) -> Result<BufWriter<File>> {
-        // Note: If using `append` here, Windows may throw an error with the message:
-        // "Failed to open storage". A workaround is to open the file normally, then
-        // move the cursor to the end of the file.
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)?;
-
-        file.seek(SeekFrom::End(0))?; // Move cursor to end to prevent overwriting
-
-        Ok(BufWriter::new(file))
-    }
-
+    /// Opens an **existing** or **new** append-only storage file.
+    ///
+    /// This function:
+    /// 1. **Opens the file** in read/write mode (creating it if necessary).
+    /// 2. **Maps the file** into memory using `mmap` for fast access.
+    /// 3. **Recovers the valid chain**, ensuring **data integrity**.
+    /// 4. **Re-maps** the file after recovery to reflect the correct state.
+    /// 5. **Builds an in-memory index** for **fast key lookups**.
+    ///
+    /// # Parameters:
+    /// - `path`: The **file path** where the storage is located.
+    ///
+    /// # Returns:
+    /// - `Ok(AppendStorage)`: A **new storage instance**.
+    /// - `Err(std::io::Error)`: If any file operation fails.
     pub fn open(path: &Path) -> Result<Self> {
         let file = Self::open_file_in_append_mode(path)?;
 
@@ -272,6 +272,52 @@ impl AppendStorage {
         })
     }
 
+    /// Opens the storage file in **append mode**.
+    ///
+    /// This function opens the file with both **read and write** access.
+    /// If the file does not exist, it is created automatically.
+    ///
+    /// # Windows Note:
+    /// - Directly opening in **append mode** can cause issues on Windows.
+    /// - Instead, the file is opened normally and the **cursor is moved to the end**.
+    ///
+    /// # Parameters:
+    /// - `path`: The **file path** of the storage file.
+    ///
+    /// # Returns:
+    /// - `Ok(BufWriter<File>)`: A buffered writer pointing to the file.
+    /// - `Err(std::io::Error)`: If the file could not be opened.
+    fn open_file_in_append_mode(path: &Path) -> Result<BufWriter<File>> {
+        // Note: If using `append` here, Windows may throw an error with the message:
+        // "Failed to open storage". A workaround is to open the file normally, then
+        // move the cursor to the end of the file.
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)?;
+
+        file.seek(SeekFrom::End(0))?; // Move cursor to end to prevent overwriting
+
+        Ok(BufWriter::new(file))
+    }
+
+    /// Builds an in-memory index for **fast key lookups**.
+    ///
+    /// This function **scans the storage file** and constructs a **hashmap**
+    /// mapping each key's hash to its **latest** entry's file offset.
+    ///
+    /// # How It Works:
+    /// - Iterates **backward** from the latest offset to find the most recent version of each key.
+    /// - Skips duplicate keys to keep only the **most recent** entry.
+    /// - Stores the **latest offset** of each unique key in the index.
+    ///
+    /// # Parameters:
+    /// - `mmap`: A reference to the **memory-mapped file**.
+    /// - `last_offset`: The **final byte offset** in the file (starting point for scanning).
+    ///
+    /// # Returns:
+    /// - A `HashMap<u64, u64>` mapping `key_hash` → `latest offset`.
     fn build_key_index(mmap: &Mmap, last_offset: u64) -> HashMap<u64, u64, Xxh3BuildHasher> {
         let mut index = HashMap::with_hasher(Xxh3BuildHasher);
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
@@ -303,6 +349,24 @@ impl AppendStorage {
         index
     }
 
+    /// Recovers the **latest valid chain** of entries from the storage file.
+    ///
+    /// This function **scans backward** through the file, verifying that each entry
+    /// correctly references the previous offset. It determines the **last valid
+    /// storage position** to ensure data integrity.
+    ///
+    /// # How It Works:
+    /// - Scans from the last written offset **backward**.
+    /// - Ensures each entry correctly points to its **previous offset**.
+    /// - Stops at the **deepest valid chain** that reaches offset `0`.
+    ///
+    /// # Parameters:
+    /// - `mmap`: A reference to the **memory-mapped file**.
+    /// - `file_len`: The **current size** of the file in bytes.
+    ///
+    /// # Returns:
+    /// - `Ok(final_valid_offset)`: The last **valid** byte offset.
+    /// - `Err(std::io::Error)`: If a file read or integrity check fails
     fn recover_valid_chain(mmap: &Mmap, file_len: u64) -> Result<u64> {
         if file_len < METADATA_SIZE as u64 {
             return Ok(0);
