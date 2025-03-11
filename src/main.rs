@@ -21,14 +21,13 @@ const HELP_TEMPLATE: &str = indoc! {r#"
     about = env!("CARGO_PKG_DESCRIPTION"),
     long_about = None
 )]
-#[command(
-    // TODO: Document `storage` (open `help` and view `storage` section)
-    
+#[command(    
     after_help = HELP_TEMPLATE.replace("%BINARY_NAME%", env!("CARGO_PKG_NAME"))
 )]
 
 struct Cli {
-    #[arg(value_name = "storage")]
+    /// The file where data is stored (automatically created if it does not exist).
+    #[arg(value_name = "storage", help = "Path to the storage file. If the file does not exist, it will be created automatically.")]
     storage: PathBuf,
 
     #[command(subcommand)]
