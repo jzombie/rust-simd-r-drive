@@ -266,7 +266,6 @@ impl AppendStorage {
     /// - `Err(std::io::Error)`: If any file operation fails.
     pub fn open(path: &Path) -> Result<Self> {
         let file = Self::open_file_in_append_mode(path)?;
-
         let file_len = file.get_ref().metadata()?.len();
 
         // First mmap the file
@@ -277,7 +276,7 @@ impl AppendStorage {
 
         if final_len < file_len {
             warn!(
-                "Overwriting corrupted data in {} from offset {} to {}.",
+                "Truncating corrupted data in {} from offset {} to {}.",
                 path.display(),
                 final_len,
                 file_len
@@ -285,18 +284,18 @@ impl AppendStorage {
 
             let mut file_ref = file.get_ref();
 
-            // Overwrite the corrupted portion with zeroes
-            file_ref.seek(SeekFrom::Start(final_len))?;
-            file_ref.write_all(&vec![0u8; (file_len - final_len) as usize])?;
-            file_ref.flush()?;
+            // **1. Drop mmap BEFORE modifying file (important on Windows)**
+            drop(mmap);
 
-            // Truncate file to remove the corrupted portion
+            // **2. Truncate first (removes corrupted bytes immediately)**
             file_ref.set_len(final_len)?;
+
+            // **3. Force a sync to make sure truncation is applied**
+            file_ref.sync_all()?;
         }
 
-        // Re-map the file after recovery
+        // **4. Re-map the file AFTER truncation**
         let mmap = unsafe { memmap2::MmapOptions::new().map(file.get_ref())? };
-
         let key_index = Self::build_key_index(&mmap, final_len);
 
         Ok(Self {
