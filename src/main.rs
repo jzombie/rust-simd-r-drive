@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use env_logger;
 use indoc::indoc;
 use log::{error, info, warn};
-use simd_r_drive::AppendStorage;
+use simd_r_drive::{AppendStorage, format_bytes};
 use std::path::PathBuf;
 use stdin_nonblocking::get_stdin_or_default;
 use std::io::{self, IsTerminal, Write};
@@ -164,9 +164,9 @@ fn main() {
             println!("Storage Info:");
             println!("--------------------------------");
             println!("File Path:       {:?}", cli.storage);
-            println!("Total Size:      {} bytes", storage_size);
+            println!("Total Size:      {} bytes", format_bytes(storage_size));
             println!("Active Entries:  {}", entry_count);
-            println!("Compaction Savings Estimate: {} bytes", savings_estimate);
+            println!("Compaction Savings Estimate: {} bytes", format_bytes(savings_estimate));
             println!("--------------------------------");
         }
 
