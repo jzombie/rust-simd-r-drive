@@ -67,19 +67,3 @@ pub fn simd_copy(dst: &mut [u8], src: &[u8]) {
     #[allow(unreachable_code)]
     dst.copy_from_slice(&src[..dst.len().min(src.len())]);
 }
-
-// #[inline]
-// pub fn simd_copy(dst: &mut [u8], src: &[u8]) {
-//     #[cfg(target_arch = "x86_64")]
-//     unsafe {
-//         return simd_copy_x86(dst, src);
-//     }
-//     #[cfg(target_arch = "aarch64")]
-//     unsafe {
-//         return simd_copy_arm(dst, src);
-//     }
-
-//     // Fallback for unsupported architectures
-//     #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-//     dst.copy_from_slice(&src[..dst.len().min(src.len())]);
-// }
