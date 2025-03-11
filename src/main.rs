@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
+use env_logger;
 use indoc::indoc;
+use log::{error, info, warn};
 use simd_r_drive::AppendStorage;
 use std::path::PathBuf;
 
@@ -52,6 +54,8 @@ enum Commands {
 }
 
 fn main() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
     let cli = Cli::parse();
 
     match &cli.command {
@@ -59,22 +63,27 @@ fn main() {
             let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
             match storage.get_entry_by_key(key.as_bytes()) {
                 Some(value) => println!("{}", String::from_utf8_lossy(value)),
-                None => eprintln!("Error: Key '{}' not found", key),
+                None => {
+                    error!("Error: Key '{}' not found", key);
+                    std::process::exit(1);
+                }
             }
         }
+
+        // TODO: Fix issue if writing the same key twice it cannot be found
         Commands::Write { key, value } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
             storage
                 .append_entry(key.as_bytes(), value.as_bytes())
                 .expect("Failed to write entry");
-            println!("Stored '{}' -> '{}'", key, value);
+            info!("Stored '{}' -> '{}'", key, value);
         }
         Commands::Delete { key } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
             storage
                 .delete_entry(key.as_bytes())
                 .expect("Failed to delete entry");
-            println!("Deleted key '{}'", key);
+            warn!("Deleted key '{}'", key);
         }
     }
 }
