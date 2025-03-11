@@ -181,6 +181,7 @@ impl AppendStorage {
 
     fn build_key_index(mmap: &Mmap, last_offset: u64) -> HashMap<u64, u64, Xxh3BuildHasher> {
         let mut index = HashMap::with_hasher(Xxh3BuildHasher);
+        let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
         let mut cursor = last_offset;
 
         while cursor >= METADATA_SIZE as u64 {
@@ -188,14 +189,24 @@ impl AppendStorage {
             let metadata_bytes = &mmap[metadata_offset..metadata_offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
-            index.insert(metadata.key_hash, metadata_offset as u64); // Store offset
+            // If this key is already seen, skip it (to keep the latest entry only)
+            if seen_keys.contains(&metadata.key_hash) {
+                cursor = metadata.prev_offset;
+                continue;
+            }
 
+            // Mark key as seen and store its latest offset
+            seen_keys.insert(metadata.key_hash);
+            index.insert(metadata.key_hash, metadata_offset as u64);
+
+            // Stop when reaching the first valid entry
             if metadata.prev_offset == 0 {
                 break;
             }
 
             cursor = metadata.prev_offset;
         }
+
         index
     }
 
