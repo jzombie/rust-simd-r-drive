@@ -1,0 +1,81 @@
+name: Rust Tests & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Rust Tests (OS = ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run tests
+        run: cargo test --workspace --all-targets --verbose
+
+  build:
+    name: Build Binaries (OS = ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build binary
+        run: cargo build --release
+
+      - name: Rename binary for OS
+        run: |
+          mkdir -p dist
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mv target/release/my_binary.exe dist/my_binary-windows.exe
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            mv target/release/my_binary dist/my_binary-macos
+          else
+            mv target/release/my_binary dist/my_binary-linux
+          fi
+
+      - name: Upload Artifact (Preview Binaries)
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+          path: dist/*
+
+  release:
+    name: Release Binaries
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Built Binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
+          token: ${{ secrets.GITHUB_TOKEN }}
