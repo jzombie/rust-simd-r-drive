@@ -3,7 +3,7 @@ use memmap2::Mmap;
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::hash::{BuildHasher, Hasher};
-use std::io::{BufWriter, Result, Write};
+use std::io::{BufWriter, Result, Write, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use xxhash_rust::xxh3::xxh3_64;
@@ -131,22 +131,23 @@ pub struct AppendStorage {
     path: PathBuf,
 }
 
-impl Drop for AppendStorage {
-    fn drop(&mut self) {
-        if let Err(e) = self.file.flush() {
-            // TODO: Log `error!`
-            eprintln!("Failed to flush file before closing: {}", e);
-        } else {
-            // TODO: Log `info!`
-            eprintln!("Storage file flushed successfully on drop.");
-        }
 
-        if let Err(e) = self.remap_file() {
-            // TODO: Log `warn`
-            eprintln!("Failed to remap storage file on drop: {}", e);
-        }
-    }
-}
+// impl Drop for AppendStorage {
+//     fn drop(&mut self) {
+//         if let Err(e) = self.file.flush() {
+//             // TODO: Log `error!`
+//             eprintln!("Failed to flush file before closing: {}", e);
+//         } else {
+//             // TODO: Log `info!`
+//             eprintln!("Storage file flushed successfully on drop.");
+//         }
+
+//         if let Err(e) = self.remap_file() {
+//             // TODO: Log `warn`
+//             eprintln!("Failed to remap storage file on drop: {}", e);
+//         }
+//     }
+// }
 
 impl<'a> IntoIterator for &'a AppendStorage {
     type Item = &'a [u8];
@@ -163,14 +164,24 @@ impl AppendStorage {
         EntryIterator::new(&self.mmap, self.last_offset)
     }
 
+    fn open_file_in_append_mode(path: &Path) -> Result<BufWriter<File>> {
+        // Note: If using `append` here, Windows may throw an error with the message:
+        // "Failed to open storage". A workaround is to open the file normally, then
+        // move the cursor to the end of the file.
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)?;
+    
+        file.seek(SeekFrom::End(0))?; // Move cursor to end to prevent overwriting
+    
+        Ok(BufWriter::new(file))
+    }
+    
+
     pub fn open(path: &Path) -> Result<Self> {
-        let file = BufWriter::new(
-            OpenOptions::new()
-                .read(true)
-                .append(true)
-                .create(true)
-                .open(path)?,
-        );
+        let file = Self::open_file_in_append_mode(path)?;
 
         let file_len = file.get_ref().metadata()?.len();
 
@@ -385,7 +396,8 @@ impl AppendStorage {
             self.last_offset = last_offset;
         }
 
-        // 🔄 Remap the file **after** dropping the lock
+        // TODO: Refactor so that the lock can be released after the remap, if possible
+        // Remap the file **after** dropping the lock
         self.remap_file()?;
 
         Ok(self.last_offset)
