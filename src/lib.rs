@@ -1,14 +1,17 @@
-use crc32fast::Hasher as Crc32FastHasher;
 use memmap2::Mmap;
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::hash::{BuildHasher, Hasher};
-use std::io::{BufWriter, Result, Write, Seek, SeekFrom};
+use std::io::{BufWriter, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use xxhash_rust::xxh3::xxh3_64;
 mod simd_copy;
 use simd_copy::simd_copy;
+mod compute_checksum;
+use compute_checksum::compute_checksum;
+mod compute_hash;
+use compute_hash::compute_hash;
 
 /// Custom Hasher using XXH3
 #[derive(Default)]
@@ -131,7 +134,6 @@ pub struct AppendStorage {
     path: PathBuf,
 }
 
-
 // impl Drop for AppendStorage {
 //     fn drop(&mut self) {
 //         if let Err(e) = self.file.flush() {
@@ -173,12 +175,11 @@ impl AppendStorage {
             .write(true)
             .create(true)
             .open(path)?;
-    
+
         file.seek(SeekFrom::End(0))?; // Move cursor to end to prevent overwriting
-    
+
         Ok(BufWriter::new(file))
     }
-    
 
     pub fn open(path: &Path) -> Result<Self> {
         let file = Self::open_file_in_append_mode(path)?;
@@ -364,7 +365,7 @@ impl AppendStorage {
                 }
 
                 let prev_offset = last_offset;
-                let checksum = Self::compute_checksum(payload);
+                let checksum = compute_checksum(payload);
 
                 let metadata = EntryMetadata {
                     key_hash,
@@ -425,7 +426,7 @@ impl AppendStorage {
     }
 
     pub fn get_entry_by_key(&self, key: &[u8]) -> Option<&[u8]> {
-        let key_hash = Self::compute_hash(key);
+        let key_hash = compute_hash(key);
 
         if let Some(&offset) = self.key_index.get(&key_hash) {
             // Fast lookup
@@ -501,22 +502,5 @@ impl AppendStorage {
     /// Counts the number of currently active entries.
     pub fn count(&self) -> usize {
         self.iter_entries().count()
-    }
-
-    /// Computes a SIMD-accelerated CRC32C-based 3-byte checksum.
-    fn compute_checksum(data: &[u8]) -> [u8; 3] {
-        let mut hasher = Crc32FastHasher::new();
-        hasher.update(data);
-        let hash = hasher.finalize(); // Uses SSE4.2 or Neon when available
-        [
-            (hash & 0xFF) as u8,
-            ((hash >> 8) & 0xFF) as u8,
-            ((hash >> 16) & 0xFF) as u8,
-        ]
-    }
-
-    /// Simple key hash function
-    fn compute_hash(key: &[u8]) -> u64 {
-        xxh3_64(key)
     }
 }
