@@ -273,7 +273,7 @@ mod tests {
             }
 
             eprintln!("Entries written. Closing file...");
-        } // **Storage goes out of scope here, closing the file**
+        } // Storage goes out of scope here, closing the file
 
         // Step 2: Reopen storage and verify persistence
         {
@@ -502,7 +502,7 @@ mod tests {
         eprintln!("Starting compaction...");
         storage.compact().expect("Compaction failed");
 
-        // **Check file size after compaction**
+        // Check file size after compaction
         let size_after = std::fs::metadata(&path)
             .expect("Failed to get metadata")
             .len();
