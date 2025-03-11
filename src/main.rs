@@ -51,6 +51,9 @@ enum Commands {
         /// The key to delete
         key: String,
     },
+
+    /// Compact the storage file to remove old entries
+    Compact,
 }
 
 // TODO: Enable stdin to write
@@ -85,6 +88,16 @@ fn main() {
                 .delete_entry(key.as_bytes())
                 .expect("Failed to delete entry");
             warn!("Deleted key '{}'", key);
+        }
+
+        Commands::Compact => {
+            let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            info!("Starting compaction...");
+            if let Err(e) = storage.compact() {
+                error!("Compaction failed: {}", e);
+                std::process::exit(1);
+            }
+            info!("Compaction completed successfully.");
         }
     }
 }
