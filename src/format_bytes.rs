@@ -24,7 +24,7 @@
 /// assert_eq!(format_bytes(500), "500 bytes");
 /// assert_eq!(format_bytes(2048), "2.00 KB");
 /// assert_eq!(format_bytes(5_242_880), "5.00 MB");
-/// assert_eq!(format_bytes(8_796_093_440), "8.20 GB");
+/// assert_eq!(format_bytes(8_796_093_440), "8.19 GB");
 /// ```
 pub fn format_bytes(bytes: u64) -> String {
     const KB: u64 = 1024;
