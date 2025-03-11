@@ -510,6 +510,8 @@ impl AppendStorage {
         })?;
 
         let compacted_path = self.path.with_extension("bk");
+
+        // TODO: Log
         eprintln!("🛠 Starting compaction. Writing to: {:?}", compacted_path);
 
         // Create a new AppendStorage instance for the compacted file
@@ -522,6 +524,7 @@ impl AppendStorage {
 
             // Extract metadata separately from mmap
             if metadata_offset + METADATA_SIZE > self.mmap.len() {
+                // TODO: Log
                 eprintln!(
                     "⚠️ Skipping corrupted entry at offset {}",
                     entry_start_offset
@@ -535,6 +538,7 @@ impl AppendStorage {
             // Append the entry with the correct key_hash
             compacted_storage.append_entry_with_key_hash(metadata.key_hash, entry)?;
 
+            // TODO: Log
             eprintln!(
                 "Writing key_hash: {} | entry_size: {}",
                 metadata.key_hash,
@@ -545,11 +549,13 @@ impl AppendStorage {
         compacted_storage.file.flush()?;
         drop(compacted_storage); // Ensure all writes are flushed before swapping
 
+        // TODO: Log
         eprintln!("✅ Compaction completed. Swapping files...");
 
         std::fs::rename(&compacted_path, &self.path)?;
         // self.remap_file()?; // Remap file to load compacted data
 
+        // TODO: Log
         eprintln!("🎉 Compaction successful.");
         Ok(())
     }
