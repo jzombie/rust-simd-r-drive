@@ -4,6 +4,7 @@ use indoc::indoc;
 use log::{error, info, warn};
 use simd_r_drive::AppendStorage;
 use std::path::PathBuf;
+use stdin_nonblocking::get_stdin_or_default;
 
 // Help text template with placeholder
 const HELP_TEMPLATE: &str = indoc! {r#"
@@ -46,8 +47,9 @@ enum Commands {
     Write {
         /// The key to write
         key: String,
-        /// The value to store
-        value: String,
+
+        /// The value to store (optional; reads from stdin if not provided)
+        value: Option<String>,
     },
 
     /// Delete a key
@@ -64,6 +66,10 @@ enum Commands {
 // TODO: Try "nesting" the .bin by reading it in and saving it as a key (does it work?)
 // TODO: Add "info" command to get current state of storage file (num entries, est. compact savings, total size in bytes, etc.)
 fn main() {
+    let stdin_input = get_stdin_or_default(None);
+
+    // println!("STDIN {:?}", stdin_input);
+
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let cli = Cli::parse();
@@ -80,12 +86,27 @@ fn main() {
             }
         }
 
+        // Commands::Write { key, value } => {
+        //     let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+        //     storage
+        //         .append_entry(key.as_bytes(), value.as_bytes())
+        //         .expect("Failed to write entry");
+        //     info!("Stored '{}' -> '{}'", key, value);
+        // }
+
         Commands::Write { key, value } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            let final_value = value.clone().unwrap_or_else(|| stdin_input.unwrap());
+
+            if final_value.is_empty() {
+                error!("Error: No value provided and stdin is empty.");
+                std::process::exit(1);
+            }
+
             storage
-                .append_entry(key.as_bytes(), value.as_bytes())
+                .append_entry(key.as_bytes(), final_value.as_bytes())
                 .expect("Failed to write entry");
-            info!("Stored '{}' -> '{}'", key, value);
+            info!("Stored '{}' -> '{}'", key, final_value);
         }
 
         Commands::Delete { key } => {
