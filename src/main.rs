@@ -53,6 +53,7 @@ enum Commands {
     },
 }
 
+// TODO: Enable stdin to write
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
@@ -70,8 +71,6 @@ fn main() {
             }
         }
 
-        // TODO: [fixed] Fix issue if writing the same key twice it cannot be found
-        // TODO: [fixed] Fix issue if writing the same key twice, the original value is returned
         Commands::Write { key, value } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
             storage
