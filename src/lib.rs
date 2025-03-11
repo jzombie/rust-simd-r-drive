@@ -219,7 +219,13 @@ impl<'a> IntoIterator for &'a AppendStorage {
 }
 
 impl AppendStorage {
-    /// Returns an iterator over all stored entries (sequential read optimization)
+    /// Retrieves an iterator over all valid entries in the storage.
+    ///
+    /// This iterator allows scanning the storage file and retrieving **only the most recent**
+    /// versions of each key.
+    ///
+    /// # Returns:
+    /// - An `EntryIterator` instance for iterating over valid entries.
     pub fn iter_entries(&self) -> EntryIterator {
         EntryIterator::new(&self.mmap, self.last_offset)
     }
@@ -369,7 +375,10 @@ impl AppendStorage {
         Ok(final_len)
     }
 
-    /// Re-maps the file to ensure latest updates are visible
+    /// Re-maps the storage file to ensure that the latest updates are visible.
+    ///
+    /// This method is called **after a write operation** to reload the memory-mapped file
+    /// and ensure that newly written data is accessible for reading.
     fn remap_file(&mut self) -> Result<()> {
         self.mmap = Arc::new(unsafe { memmap2::MmapOptions::new().map(self.file.get_ref())? });
         Ok(())
@@ -381,6 +390,16 @@ impl AppendStorage {
         self.append_entry_with_key_hash(key_hash, payload)
     }
 
+    /// Deletes a key by appending a **null byte marker**.
+    ///
+    /// The storage engine is **append-only**, so keys cannot be removed directly.
+    /// Instead, a **null byte is appended** as a tombstone entry to mark the key as deleted.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** to mark as deleted.
+    ///
+    /// # Returns:
+    /// - The **new file offset** where the delete marker was appended.
     pub fn delete_entry(&mut self, key: &[u8]) -> Result<u64> {
         self.append_entry(key, &NULL_BYTE)
     }
@@ -462,7 +481,15 @@ impl AppendStorage {
         Ok(self.last_offset)
     }
 
-    /// Reads the last entry
+    /// Reads the last entry stored in the database.
+    ///
+    /// This method retrieves the **most recently appended** entry in the storage.
+    /// It does not check for key uniqueness; it simply returns the last-written
+    /// data segment from the memory-mapped file.
+    ///
+    /// # Returns:
+    /// - `Some(&[u8])` containing the binary payload of the last entry.
+    /// - `None` if the storage is empty or corrupted.
     pub fn read_last_entry(&self) -> Option<&[u8]> {
         let _read_lock = self.lock.read().ok()?;
 
@@ -483,6 +510,17 @@ impl AppendStorage {
         Some(&self.mmap[entry_start..entry_end]) // Return reference instead of copying data
     }
 
+    /// Retrieves the most recent value associated with a given key.
+    ///
+    /// This method **efficiently looks up a key** using a fast in-memory index,
+    /// and returns the latest corresponding value if found.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** whose latest value is to be retrieved.
+    ///
+    /// # Returns:
+    /// - `Some(&[u8])` containing the latest value associated with the key.
+    /// - `None` if the key does not exist.
     pub fn get_entry_by_key(&self, key: &[u8]) -> Option<&[u8]> {
         let key_hash = compute_hash(key);
 
@@ -555,7 +593,13 @@ impl AppendStorage {
         Ok(())
     }
 
-    /// Counts the number of currently active entries.
+    /// Counts the number of **active** entries in the storage.
+    ///
+    /// This method iterates through the storage file and counts **only the latest versions**
+    /// of keys, skipping deleted or outdated entries.
+    ///
+    /// # Returns:
+    /// - The **total count** of active key-value pairs in the database.
     pub fn count(&self) -> usize {
         self.iter_entries().count()
     }
@@ -570,10 +614,6 @@ impl AppendStorage {
     /// - Iterates through the entries, tracking the **latest version** of each key.
     /// - Ignores older versions of keys to estimate the **optimized** storage footprint.
     /// - Returns the **difference** between the total file size and the estimated compacted size.
-    /// ```
-    /// let savings = storage.estimate_compaction_savings();
-    /// println!("Potential space savings: {} bytes", savings);
-    /// ```
     pub fn estimate_compaction_savings(&self) -> u64 {
         let total_size = self.get_storage_size().unwrap_or(0);
         let mut unique_entry_size: u64 = 0;
