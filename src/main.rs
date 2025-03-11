@@ -78,6 +78,7 @@ fn main() {
                 .expect("Failed to write entry");
             info!("Stored '{}' -> '{}'", key, value);
         }
+
         Commands::Delete { key } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
             storage
