@@ -16,6 +16,10 @@ This storage engine is intentionally designed as a low-level library, meaning it
 
 By focusing solely on efficient data storage and retrieval, `SIMD R Drive` provides a lightweight and flexible foundation for applications that require high-speed access to structured or unstructured binary data without the complexity of schema management.
 
+<div align="center">
+  <img src="assets/storage-layout.png" title="Storage Layout" />
+</div>
+
 ## Currently Not Implemented: Thread Safety and Multiple Instance Locking
 
 As of now, the system does not support full thread safety, and multiple instances of the application accessing the same file may result in unpredictable behavior. Specifically, the following aspects are not yet implemented:

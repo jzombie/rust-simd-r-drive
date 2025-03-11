@@ -10,8 +10,6 @@ use simd_copy::simd_copy;
 mod digest;
 use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use log::{debug, info, warn};
-mod format_bytes;
-pub use format_bytes::format_bytes;
 
 /// Metadata structure (fixed 19 bytes at the end of each entry)
 const METADATA_SIZE: usize = 19;
