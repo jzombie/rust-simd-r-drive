@@ -27,7 +27,7 @@ const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 /// It includes a hash of the key for quick lookups, an offset pointing to the previous
 /// entry in the chain, and a checksum for integrity verification.
 ///
-/// ## Entry Memory Layout
+/// ## Entry Storage Layout
 ///
 /// Each entry consists of a **variable-sized payload** followed by a **fixed-size metadata block**.
 /// The metadata is stored **at the end** of the entry to simplify sequential writes and enable
@@ -205,23 +205,6 @@ pub struct AppendStorage {
     lock: Arc<RwLock<()>>,
     path: PathBuf,
 }
-
-// impl Drop for AppendStorage {
-//     fn drop(&mut self) {
-//         if let Err(e) = self.file.flush() {
-//             // TODO: Log `error!`
-//             eprintln!("Failed to flush file before closing: {}", e);
-//         } else {
-//             // TODO: Log `info!`
-//             eprintln!("Storage file flushed successfully on drop.");
-//         }
-
-//         if let Err(e) = self.remap_file() {
-//             // TODO: Log `warn`
-//             eprintln!("Failed to remap storage file on drop: {}", e);
-//         }
-//     }
-// }
 
 impl<'a> IntoIterator for &'a AppendStorage {
     type Item = &'a [u8];
