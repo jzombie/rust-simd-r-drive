@@ -282,21 +282,22 @@ impl AppendStorage {
                 file_len
             );
 
-            // **Close the file before truncation**
+            // Close the file before truncation
             drop(mmap);
             drop(file);
 
-            // **Reopen the file in read-write mode and truncate it**
-            let mut file = OpenOptions::new().read(true).write(true).open(path)?;
+            // Reopen the file in read-write mode and truncate it
+            let file = OpenOptions::new().read(true).write(true).open(path)?;
             file.set_len(final_len)?;
             file.sync_all()?; // Ensure OS writes take effect
 
-            // **Now reopen everything fresh**
+            // Now reopen everything fresh
             return Self::open(path);
         }
 
         // **Re-map the file after recovery**
-        let mmap = unsafe { memmap2::MmapOptions::new().map(file.get_ref())? };
+        // let mmap = unsafe { memmap2::MmapOptions::new().map(file.get_ref())? };
+
         let key_index = Self::build_key_index(&mmap, final_len);
 
         Ok(Self {
