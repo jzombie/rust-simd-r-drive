@@ -8,10 +8,8 @@ use std::sync::{Arc, RwLock};
 use xxhash_rust::xxh3::xxh3_64;
 mod simd_copy;
 use simd_copy::simd_copy;
-mod compute_checksum;
-use compute_checksum::compute_checksum;
-mod compute_hash;
-use compute_hash::compute_hash;
+mod digest;
+use digest::{compute_checksum, compute_hash};
 
 /// Custom Hasher using XXH3
 #[derive(Default)]
