@@ -1,3 +1,12 @@
+#[allow(dead_code)]
+use log::warn;
+
+use std::sync::Once;
+
+// Static variable to ensure the warning is logged only once
+#[allow(dead_code)]
+static LOG_ONCE: Once = Once::new();
+
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
@@ -50,8 +59,10 @@ pub fn simd_copy(dst: &mut [u8], src: &[u8]) {
             }
         } else {
             // Note: This condition is met running Windows 11 Arm in UTM v. 4.4.5 on Mac
-            // TODO: Log once
-            // eprintln!("Warning: AVX2 not detected, falling back to scalar copy.");
+            // Log the warning only once
+            LOG_ONCE.call_once(|| {
+                warn!("Warning: AVX2 not detected, falling back to scalar copy.");
+            });
         }
     }
 
