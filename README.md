@@ -16,7 +16,7 @@ This storage engine is intentionally designed as a low-level library, meaning it
 
 By focusing solely on efficient data storage and retrieval, `SIMD R Drive` provides a lightweight and flexible foundation for applications that require high-speed access to structured or unstructured binary data without the complexity of schema management.
 
-<div style="text-align: center">
+<div align="center">
   <img src="assets/storage-layout.png" title="Storage Layout" />
 </div>
 
