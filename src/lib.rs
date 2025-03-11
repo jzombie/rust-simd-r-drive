@@ -1,43 +1,13 @@
 use memmap2::Mmap;
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
-use std::hash::{BuildHasher, Hasher};
 use std::io::{BufWriter, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
-use xxhash_rust::xxh3::xxh3_64;
 mod simd_copy;
 use simd_copy::simd_copy;
 mod digest;
-use digest::{compute_checksum, compute_hash};
-
-/// Custom Hasher using XXH3
-#[derive(Default)]
-struct Xxh3Hasher {
-    hash: u64,
-}
-
-impl Hasher for Xxh3Hasher {
-    fn write(&mut self, bytes: &[u8]) {
-        self.hash = xxh3_64(bytes);
-    }
-
-    fn finish(&self) -> u64 {
-        self.hash
-    }
-}
-
-/// Custom BuildHasher for HashMap
-#[derive(Default, Clone)]
-struct Xxh3BuildHasher;
-
-impl BuildHasher for Xxh3BuildHasher {
-    type Hasher = Xxh3Hasher;
-
-    fn build_hasher(&self) -> Self::Hasher {
-        Xxh3Hasher::default()
-    }
-}
+use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 
 /// Metadata structure (fixed 19 bytes at the end of each entry)
 const METADATA_SIZE: usize = 19;
@@ -317,7 +287,7 @@ impl AppendStorage {
 
     /// High-level method: Appends a single entry by key
     pub fn append_entry(&mut self, key: &[u8], payload: &[u8]) -> Result<u64> {
-        let key_hash = xxh3_64(key);
+        let key_hash = compute_hash(key);
         self.append_entry_with_key_hash(key_hash, payload)
     }
 
@@ -334,7 +304,7 @@ impl AppendStorage {
     pub fn append_entries(&mut self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let hashed_entries: Vec<(u64, &[u8])> = entries
             .iter()
-            .map(|(key, payload)| (xxh3_64(key), *payload))
+            .map(|(key, payload)| (compute_hash(key), *payload))
             .collect();
         self.batch_write(hashed_entries)
     }
