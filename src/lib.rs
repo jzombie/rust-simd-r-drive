@@ -15,6 +15,9 @@ const KEY_HASH_RANGE: std::ops::Range<usize> = 0..8;
 const PREV_OFFSET_RANGE: std::ops::Range<usize> = 8..16;
 const CHECKSUM_RANGE: std::ops::Range<usize> = 16..19;
 
+// Define checksum length explicitly since `CHECKSUM_RANGE.len()` isn't `const`
+const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
+
 /// Metadata structure for an append-only storage entry.
 ///
 /// This structure stores metadata associated with each entry in the append-only storage.
@@ -45,21 +48,28 @@ struct EntryMetadata {
 }
 
 impl EntryMetadata {
+    #[inline]
     fn serialize(&self) -> [u8; METADATA_SIZE] {
         let mut buf = [0u8; METADATA_SIZE];
+
         buf[KEY_HASH_RANGE].copy_from_slice(&self.key_hash.to_le_bytes());
         buf[PREV_OFFSET_RANGE].copy_from_slice(&self.prev_offset.to_le_bytes());
         buf[CHECKSUM_RANGE].copy_from_slice(&self.checksum);
+
         buf
     }
 
+    #[inline]
     fn deserialize(data: &[u8]) -> Self {
         Self {
             key_hash: u64::from_le_bytes(data[KEY_HASH_RANGE].try_into().unwrap()),
             prev_offset: u64::from_le_bytes(data[PREV_OFFSET_RANGE].try_into().unwrap()),
-            // `std::array::from_fn`` is a const-friendly way to generate fixed-size arrays
-            // without heap allocation
-            checksum: std::array::from_fn(|i| data[CHECKSUM_RANGE.start + i]),
+            // Use a `const`-safe way to construct a fixed-size array
+            checksum: {
+                let mut checksum = [0u8; CHECKSUM_LEN];
+                checksum.copy_from_slice(&data[CHECKSUM_RANGE]);
+                checksum
+            },
         }
     }
 }
