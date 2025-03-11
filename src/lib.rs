@@ -131,6 +131,23 @@ pub struct AppendStorage {
     path: PathBuf,
 }
 
+impl Drop for AppendStorage {
+    fn drop(&mut self) {
+        if let Err(e) = self.file.flush() {
+            // TODO: Log `error!`
+            eprintln!("Failed to flush file before closing: {}", e);
+        } else {
+            // TODO: Log `info!`
+            eprintln!("Storage file flushed successfully on drop.");
+        }
+
+        if let Err(e) = self.remap_file() {
+            // TODO: Log `warn`
+            eprintln!("Failed to remap storage file on drop: {}", e);
+        }
+    }
+}
+
 impl<'a> IntoIterator for &'a AppendStorage {
     type Item = &'a [u8];
     type IntoIter = EntryIterator<'a>;
