@@ -565,6 +565,15 @@ impl AppendStorage {
     /// This method scans the storage file and calculates the difference
     /// between the total file size and the size required to keep only
     /// the latest versions of all keys.
+    ///
+    /// # How It Works:
+    /// - Iterates through the entries, tracking the **latest version** of each key.
+    /// - Ignores older versions of keys to estimate the **optimized** storage footprint.
+    /// - Returns the **difference** between the total file size and the estimated compacted size.
+    /// ```
+    /// let savings = storage.estimate_compaction_savings();
+    /// println!("Potential space savings: {} bytes", savings);
+    /// ```
     pub fn estimate_compaction_savings(&self) -> u64 {
         let total_size = self.get_storage_size().unwrap_or(0);
         let mut unique_entry_size: u64 = 0;
@@ -591,10 +600,14 @@ impl AppendStorage {
         total_size.saturating_sub(unique_entry_size)
     }
 
-    /// Returns the total file size of the storage.
+    /// Retrieves the **total size** of the storage file.
+    ///
+    /// This method queries the **current file size** of the storage file on disk.
     ///
     /// # Returns:
-    /// - `Ok(file_size_in_bytes)`, or an error if the file could not be accessed.
+    /// - `Ok(file_size_in_bytes)` if successful.
+    /// - `Err(std::io::Error)` if the file cannot be accessed.
+    /// ```
     pub fn get_storage_size(&self) -> Result<u64> {
         std::fs::metadata(&self.path).map(|meta| meta.len())
     }
