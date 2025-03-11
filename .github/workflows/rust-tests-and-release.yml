@@ -45,6 +45,18 @@ jobs:
       - name: Build binary
         run: cargo build --release
 
+      - name: Rename binary for OS
+      shell: bash  # Ensures Bash is used on Windows
+      run: |
+        mkdir -p dist
+        BINARY_NAME="simd-r-drive"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          mv target/release/$BINARY_NAME.exe dist/$BINARY_NAME-windows.exe
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          mv target/release/$BINARY_NAME dist/$BINARY_NAME-macos
+        else
+          mv target/release/$BINARY_NAME dist/$BINARY_NAME-linux
+        fi
 
       - name: Upload Artifact (Preview Binaries)
         uses: actions/upload-artifact@v4
