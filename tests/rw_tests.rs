@@ -190,28 +190,59 @@ mod tests {
         let file_size_after = metadata(&path).expect("Failed to get metadata").len();
         eprintln!("File size after corruption: {}", file_size_after);
 
-        // Step 3: Attempt to recover storage **(Now that the file is closed)**
-        let storage = AppendStorage::open(&path).expect("Failed to recover storage");
+        {
+            // Step 3: Attempt to recover storage **(Now that the file is closed)**
+            let mut storage = AppendStorage::open(&path).expect("Failed to recover storage");
 
-        // Step 4: Check that the recovered file size matches the original before corruption
-        let file_size_after_recovery = metadata(&path).expect("Failed to get metadata").len();
-        eprintln!("File size after recovery: {}", file_size_after_recovery);
+            // Step 4: Check that the recovered file size matches the original before corruption
+            let file_size_after_recovery = metadata(&path).expect("Failed to get metadata").len();
+            eprintln!("File size after recovery: {}", file_size_after_recovery);
 
-        assert_eq!(
-            file_size_after_recovery, file_size_before,
-            "File size after recovery should match size before corruption"
-        );
+            assert_eq!(
+                file_size_after_recovery, file_size_before,
+                "File size after recovery should match size before corruption"
+            );
 
-        // Step 5: Verify recovery worked
-        let recovered = storage.get_entry_by_key(b"key1");
-        assert!(
-            recovered.is_some(),
-            "Expected to recover at least one valid entry"
-        );
+            // Step 5: Verify recovery worked
+            let recovered = storage.get_entry_by_key(b"key1");
+            assert!(
+                recovered.is_some(),
+                "Expected to recover at least one valid entry"
+            );
 
-        // TODO: Check if file can still be written to and read from after recovery
+            // Check if file can still be written to and read from after recovery
+            let new_key = b"new_key";
+            let new_payload = b"New Data After Recovery";
 
-        eprintln!("Test passed: Recovery successful, file size matches.");
+            storage
+                .append_entry(new_key, new_payload)
+                .expect("Failed to append entry after recovery");
+
+            let retrieved = storage.get_entry_by_key(new_key);
+            assert!(
+                retrieved.is_some(),
+                "Failed to retrieve newly written entry after recovery"
+            );
+
+            assert_eq!(
+                retrieved.unwrap(),
+                new_payload,
+                "Newly written payload does not match expected value"
+            );
+        }
+
+        {
+            // Verify re-opened storage can still access these keys
+
+            let storage = AppendStorage::open(&path).expect("Failed to recover storage");
+
+            assert_eq!(storage.get_entry_by_key(b"key1").unwrap(), b"Valid Entry");
+
+            assert_eq!(
+                storage.get_entry_by_key(b"new_key").unwrap(),
+                b"New Data After Recovery"
+            );
+        }
     }
 
     #[test]
