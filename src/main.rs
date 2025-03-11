@@ -14,7 +14,9 @@ use std::path::PathBuf;
     long_about = None
 )]
 #[command(
-    // next_help_heading = "Examples",
+    // TODO: Document `storage` (open `help` and view `storage` section)
+
+    // TODO: string-replace-all with binary name
     after_help = indoc! {r#"
     Examples:
       simd-r-drive data.bin write mykey "Hello, world!"
