@@ -13,6 +13,22 @@ use std::arch::x86_64::*;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 
+/// Performs SIMD-accelerated memory copy using AVX2 on x86_64.
+///
+/// This function utilizes **AVX2 (Advanced Vector Extensions 2)** to copy memory
+/// in **32-byte chunks**, significantly improving performance on supported CPUs.
+///
+/// # Safety
+/// - Requires the `avx2` feature to be **enabled at runtime**.
+/// - **Caller must ensure** that `dst` and `src` have at least `len` bytes of valid memory.
+///
+/// # Parameters
+/// - `dst`: Mutable destination slice.
+/// - `src`: Source slice.
+///
+/// # Performance
+/// - Processes **32 bytes at a time**.
+/// - Falls back to a scalar copy for any remaining bytes.
 #[inline]
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
@@ -31,6 +47,22 @@ unsafe fn simd_copy_x86(dst: &mut [u8], src: &[u8]) {
     dst[i..len].copy_from_slice(&src[i..len]);
 }
 
+/// Performs SIMD-accelerated memory copy using NEON on AArch64 (ARM64).
+///
+/// This function uses **NEON (Advanced SIMD)** to copy memory in **16-byte chunks**.
+/// It offers significant performance benefits on ARM64-based processors.
+///
+/// # Safety
+/// - Requires the `neon` feature to be **enabled at runtime**.
+/// - **Caller must ensure** that `dst` and `src` have at least `len` bytes of valid memory.
+///
+/// # Parameters
+/// - `dst`: Mutable destination slice.
+/// - `src`: Source slice.
+///
+/// # Performance
+/// - Processes **16 bytes at a time**.
+/// - Falls back to a scalar copy for any remaining bytes.
 #[inline]
 #[cfg(target_arch = "aarch64")]
 #[target_feature(enable = "neon")]
