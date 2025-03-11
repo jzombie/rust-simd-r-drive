@@ -12,12 +12,33 @@ use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 /// Metadata structure (fixed 19 bytes at the end of each entry)
 const METADATA_SIZE: usize = 19;
 
+/// Metadata structure for an append-only storage entry.
+///
+/// This structure stores metadata associated with each entry in the append-only storage.
+/// It includes a hash of the key for quick lookups, an offset pointing to the previous
+/// entry in the chain, and a checksum for integrity verification.
+///
+/// # Memory Layout
+/// - This struct is marked with `#[repr(C)]` to ensure a predictable memory layout,
+///   which is critical for binary storage and memory-mapped access.
+/// - The total size is **19 bytes**.
+/// - The struct is stored at the end of each entry in the append-only file.
+///
+/// # Fields
+/// - `key_hash` (8 bytes): A **64-bit XXH3 hash** of the key, used for efficient lookups.
+/// - `prev_offset` (8 bytes): An **absolute file offset** pointing to the previous version
+///   of the same key, forming a **backward-linked chain** of updates.
+/// - `checksum` (3 bytes): A **truncated CRC32C checksum** for detecting data corruption.
+///
+/// # Notes
+/// - The checksum is only a lightweight integrity check and is not cryptographically secure.
+/// - The `prev_offset` is `0` for the first occurrence of a key in the storage chain.
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct EntryMetadata {
     key_hash: u64,     // 8 bytes (hashed key for lookup)
     prev_offset: u64,  // 8 bytes (absolute offset of previous entry)
-    checksum: [u8; 3], // 3 bytes (optional checksum for integrity)
+    checksum: [u8; 3], // 3 bytes (checksum for integrity)
 }
 
 impl EntryMetadata {
