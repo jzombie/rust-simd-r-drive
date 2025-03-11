@@ -209,6 +209,8 @@ mod tests {
             "Expected to recover at least one valid entry"
         );
 
+        // TODO: Check if file can still be written to and read from after recovery
+
         eprintln!("Test passed: Recovery successful, file size matches.");
     }
 
