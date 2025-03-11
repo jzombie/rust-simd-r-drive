@@ -284,13 +284,13 @@ impl AppendStorage {
 
             let mut file_ref = file.get_ref();
 
-            // **1. Drop mmap BEFORE modifying file (important on Windows)**
+            // 1. Drop mmap BEFORE modifying file (maybe important on certain OS's?)
             drop(mmap);
 
-            // **2. Truncate first (removes corrupted bytes immediately)**
+            // 2. Truncate first (removes corrupted bytes immediately)
             file_ref.set_len(final_len)?;
 
-            // **3. Force a sync to make sure truncation is applied**
+            // 3. Force a sync to make sure truncation is applied
             file_ref.sync_all()?;
         }
 
