@@ -11,6 +11,9 @@ use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 
 /// Metadata structure (fixed 19 bytes at the end of each entry)
 const METADATA_SIZE: usize = 19;
+const KEY_HASH_RANGE: std::ops::Range<usize> = 0..8;
+const PREV_OFFSET_RANGE: std::ops::Range<usize> = 8..16;
+const CHECKSUM_RANGE: std::ops::Range<usize> = 16..19;
 
 /// Metadata structure for an append-only storage entry.
 ///
@@ -44,17 +47,19 @@ struct EntryMetadata {
 impl EntryMetadata {
     fn serialize(&self) -> [u8; METADATA_SIZE] {
         let mut buf = [0u8; METADATA_SIZE];
-        buf[0..8].copy_from_slice(&self.key_hash.to_le_bytes());
-        buf[8..16].copy_from_slice(&self.prev_offset.to_le_bytes());
-        buf[16..19].copy_from_slice(&self.checksum);
+        buf[KEY_HASH_RANGE].copy_from_slice(&self.key_hash.to_le_bytes());
+        buf[PREV_OFFSET_RANGE].copy_from_slice(&self.prev_offset.to_le_bytes());
+        buf[CHECKSUM_RANGE].copy_from_slice(&self.checksum);
         buf
     }
 
     fn deserialize(data: &[u8]) -> Self {
         Self {
-            key_hash: u64::from_le_bytes(data[0..8].try_into().unwrap()),
-            prev_offset: u64::from_le_bytes(data[8..16].try_into().unwrap()),
-            checksum: [data[16], data[17], data[18]],
+            key_hash: u64::from_le_bytes(data[KEY_HASH_RANGE].try_into().unwrap()),
+            prev_offset: u64::from_le_bytes(data[PREV_OFFSET_RANGE].try_into().unwrap()),
+            // `std::array::from_fn`` is a const-friendly way to generate fixed-size arrays
+            // without heap allocation
+            checksum: std::array::from_fn(|i| data[CHECKSUM_RANGE.start + i]),
         }
     }
 }
