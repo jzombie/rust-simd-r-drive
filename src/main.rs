@@ -5,6 +5,14 @@ use log::{error, info, warn};
 use simd_r_drive::AppendStorage;
 use std::path::PathBuf;
 
+// Help text template with placeholder
+const HELP_TEMPLATE: &str = indoc! {r#"
+    Examples:
+      %BINARY_NAME% data.bin write mykey "Hello, world!"
+      %BINARY_NAME% data.bin read mykey
+      %BINARY_NAME% data.bin delete mykey
+"#};
+
 /// Append-Only Storage Engine CLI
 #[derive(Parser)]
 #[command(
@@ -15,15 +23,10 @@ use std::path::PathBuf;
 )]
 #[command(
     // TODO: Document `storage` (open `help` and view `storage` section)
-
-    // TODO: string-replace-all with binary name
-    after_help = indoc! {r#"
-    Examples:
-      simd-r-drive data.bin write mykey "Hello, world!"
-      simd-r-drive data.bin read mykey
-      simd-r-drive data.bin delete mykey
-    "#}
+    
+    after_help = HELP_TEMPLATE.replace("%BINARY_NAME%", env!("CARGO_PKG_NAME"))
 )]
+
 struct Cli {
     #[arg(value_name = "storage")]
     storage: PathBuf,
