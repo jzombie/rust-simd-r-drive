@@ -8,6 +8,7 @@ mod simd_copy;
 use simd_copy::simd_copy;
 mod digest;
 use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
+use log::{debug, info, warn};
 
 /// Metadata structure (fixed 19 bytes at the end of each entry)
 const METADATA_SIZE: usize = 19;
@@ -350,8 +351,8 @@ impl AppendStorage {
 
             // Only accept the deepest valid chain that reaches `offset = 0`
             if chain_valid && back_cursor == 0 && total_size <= file_len {
-                eprintln!(
-                    "✔ Found valid chain of {} entries. Ending at offset {}",
+                debug!(
+                    "Found valid chain of {} entries. Ending at offset {}.",
                     temp_chain.len(),
                     metadata_offset + METADATA_SIZE as u64
                 );
@@ -511,8 +512,7 @@ impl AppendStorage {
 
         let compacted_path = self.path.with_extension("bk");
 
-        // TODO: Log
-        eprintln!("🛠 Starting compaction. Writing to: {:?}", compacted_path);
+        debug!("Starting compaction. Writing to: {:?}", compacted_path);
 
         // Create a new AppendStorage instance for the compacted file
         let mut compacted_storage = AppendStorage::open(&compacted_path)?;
@@ -524,11 +524,7 @@ impl AppendStorage {
 
             // Extract metadata separately from mmap
             if metadata_offset + METADATA_SIZE > self.mmap.len() {
-                // TODO: Log
-                eprintln!(
-                    "⚠️ Skipping corrupted entry at offset {}",
-                    entry_start_offset
-                );
+                warn!("Skipping corrupted entry at offset {}", entry_start_offset);
                 continue;
             }
 
@@ -538,8 +534,7 @@ impl AppendStorage {
             // Append the entry with the correct key_hash
             compacted_storage.append_entry_with_key_hash(metadata.key_hash, entry)?;
 
-            // TODO: Log
-            eprintln!(
+            debug!(
                 "Writing key_hash: {} | entry_size: {}",
                 metadata.key_hash,
                 entry.len()
@@ -549,14 +544,12 @@ impl AppendStorage {
         compacted_storage.file.flush()?;
         drop(compacted_storage); // Ensure all writes are flushed before swapping
 
-        // TODO: Log
-        eprintln!("✅ Compaction completed. Swapping files...");
+        debug!("Reduced backup completed. Swapping files...");
 
         std::fs::rename(&compacted_path, &self.path)?;
         // self.remap_file()?; // Remap file to load compacted data
 
-        // TODO: Log
-        eprintln!("🎉 Compaction successful.");
+        info!("Compaction successful.");
         Ok(())
     }
 
