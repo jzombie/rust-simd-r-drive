@@ -2,9 +2,13 @@
 
 **Work in progress. Not thread safe.**
 
+`SIMD R Drive` is a high-performance single-file storage engine optimized for zero-copy binary access.
+
+## Zero-Copy Memory-Mapped Access
+
 `SIMD R Drive` is a schema-less, append-only binary storage engine designed for high-performance runtime read/write access. It provides zero-copy reads by memory-mapping the storage file (`mmap`), allowing direct data access without additional deserialization. Unlike `FlatBuffers`, which also supports zero-copy reads but requires predefined schemas, `SIMD R Drive` operates without IDLs or schemas, enabling flexible, raw binary storage optimized for real-time applications.
 
-## Raw Binary Storage & Schema-Less Design
+## Single-File Storage Engine with Raw Binary Storage
 
 This storage engine is intentionally designed as a low-level library, meaning it does not interpret or modify stored data. The payload is treated as raw bytes (`&[u8]`), ensuring that data is stored and retrieved exactly as written. This approach provides maximum flexibility, allowing users to store arbitrary binary formats without constraints.
 
