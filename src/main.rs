@@ -5,6 +5,8 @@ use log::{error, info, warn};
 use simd_r_drive::AppendStorage;
 use std::path::PathBuf;
 use stdin_nonblocking::get_stdin_or_default;
+use std::io::{self, IsTerminal, Write};
+
 
 // Help text template with placeholder
 const HELP_TEMPLATE: &str = indoc! {r#"
@@ -76,10 +78,35 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
+        // Commands::Read { key } => {
+        //     let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+        //     match storage.get_entry_by_key(key.as_bytes()) {
+        //         Some(value) => println!("{}", String::from_utf8_lossy(value)),
+        //         None => {
+        //             error!("Error: Key '{}' not found", key);
+        //             std::process::exit(1);
+        //         }
+        //     }
+        // }
+
         Commands::Read { key } => {
             let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            
             match storage.get_entry_by_key(key.as_bytes()) {
-                Some(value) => println!("{}", String::from_utf8_lossy(value)),
+                Some(value) => {
+                    let stdout = io::stdout();
+                    let mut handle = stdout.lock();
+
+                    if stdout.is_terminal() {
+                        // If writing to a terminal, use UTF-8 safe string output
+                        writeln!(handle, "{}", String::from_utf8_lossy(&value))
+                            .expect("Failed to write output");
+                    } else {
+                        // If redirected, output raw binary
+                        handle.write_all(&value).expect("Failed to write binary output");
+                        handle.flush().expect("Failed to flush output");
+                    }
+                }
                 None => {
                     error!("Error: Key '{}' not found", key);
                     std::process::exit(1);
@@ -119,10 +146,13 @@ fn main() {
                 .expect("Failed to write entry");
         
             info!(
-                "Stored '{}' -> '{}'",
+                "Stored '{}'",
                 key,
-                String::from_utf8_lossy(&final_value) // Convert binary to UTF-8 for logging
             );
+
+            // io::stdout()
+            // .write_all(final_value.as_slice())
+            // .expect("Failed to write output");
         }
                 
 
