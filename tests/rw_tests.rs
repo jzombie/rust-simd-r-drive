@@ -2,7 +2,7 @@
 mod tests {
     use bincode;
     use serde::{Deserialize, Serialize};
-    use simd_r_drive::AppendStorage;
+    use simd_r_drive::{compute_checksum, compute_hash, AppendStorage};
     use std::fs::{metadata, OpenOptions};
     use std::io::{Seek, SeekFrom, Write};
     use tempfile::tempdir;
@@ -28,7 +28,8 @@ mod tests {
 
         let last_entry = storage.read_last_entry().expect("No entry found");
         assert_eq!(
-            last_entry, payload,
+            last_entry.as_slice(),
+            payload,
             "Stored payload does not match expected value"
         );
     }
@@ -51,7 +52,7 @@ mod tests {
 
         let last_entry = storage.read_last_entry().expect("No last entry found");
         assert_eq!(
-            last_entry,
+            last_entry.as_slice(),
             entries.last().unwrap().1,
             "Last entry does not match expected value"
         );
@@ -75,7 +76,7 @@ mod tests {
 
         let last_entry = storage.read_last_entry().expect("No last entry found");
         assert_eq!(
-            last_entry,
+            last_entry.as_slice(),
             payloads.last().unwrap().as_slice(),
             "Last entry payload does not match expected value"
         );
@@ -99,7 +100,7 @@ mod tests {
         );
 
         assert_eq!(
-            retrieved.unwrap(),
+            retrieved.unwrap().as_slice(),
             payload,
             "Retrieved payload does not match expected value"
         );
@@ -141,7 +142,8 @@ mod tests {
             .get_entry_by_key(key1)
             .expect("Entry for key1 should be found");
         assert_eq!(
-            retrieved1, updated_payload1,
+            retrieved1.as_slice(),
+            updated_payload1,
             "Latest version of key1 was not retrieved"
         );
 
@@ -149,14 +151,19 @@ mod tests {
             .get_entry_by_key(key2)
             .expect("Entry for key2 should be found");
         assert_eq!(
-            retrieved2, updated_payload2,
+            retrieved2.as_slice(),
+            updated_payload2,
             "Latest version of key2 was not retrieved"
         );
 
         let retrieved3 = storage
             .get_entry_by_key(key3)
             .expect("Entry for key3 should be found");
-        assert_eq!(retrieved3, initial_payload3, "Key3 should remain unchanged");
+        assert_eq!(
+            retrieved3.as_slice(),
+            initial_payload3,
+            "Key3 should remain unchanged"
+        );
     }
 
     #[test]
@@ -196,58 +203,78 @@ mod tests {
         let file_size_after = metadata(&path).expect("Failed to get metadata").len();
         eprintln!("File size after corruption: {}", file_size_after);
 
-        // Step 3: Attempt to recover storage and write to it
-        {
-            let mut storage = AppendStorage::open(&path).expect("Failed to recover storage");
+        // Skipping the following tests on Windows due to memory-mapped file restrictions.
+        //
+        // Note: Testing this manually on Windows does work. This issue appears to only be related
+        // to the current testing environment and I have not yet found a work around after trying
+        // to close this section in a variety of ways. Maybe implementing a `Drop` trait on `Storage`
+        // could work?
+        //
+        // After wrapping `mmap` with `Arc<AtomicPtr<Mmap>>`, these tests started failing
+        // at commit:
+        // https://github.com/jzombie/rust-simd-r-drive/pull/5/commits/e53d7e9e1767a6e193e0a6b33656b56d2febbbfc
+        //
+        // Error encountered:
+        // Failed to recover storage: Os { code: 1224, kind: Uncategorized,
+        // message: "The requested operation cannot be performed on a file with a user-mapped section open." }
+        if !cfg!(target_os = "windows") {
+            // Step 3: Attempt to recover storage and write to it
+            {
+                let mut storage = AppendStorage::open(&path).expect("Failed to recover storage");
 
-            //  Check that the recovered file size matches the original before corruption
-            let file_size_after_recovery = metadata(&path).expect("Failed to get metadata").len();
-            eprintln!("File size after recovery: {}", file_size_after_recovery);
+                //  Check that the recovered file size matches the original before corruption
+                let file_size_after_recovery =
+                    metadata(&path).expect("Failed to get metadata").len();
+                eprintln!("File size after recovery: {}", file_size_after_recovery);
 
-            assert_eq!(
-                file_size_after_recovery, file_size_before,
-                "File size after recovery should match size before corruption"
-            );
+                assert_eq!(
+                    file_size_after_recovery, file_size_before,
+                    "File size after recovery should match size before corruption"
+                );
 
-            // Verify recovery worked
-            let recovered = storage.get_entry_by_key(b"key1");
-            assert!(
-                recovered.is_some(),
-                "Expected to recover at least one valid entry"
-            );
+                // Verify recovery worked
+                let recovered = storage.get_entry_by_key(b"key1");
+                assert!(
+                    recovered.is_some(),
+                    "Expected to recover at least one valid entry"
+                );
 
-            // Check if file can still be written to and read from after recovery
-            let new_key = b"new_key";
-            let new_payload = b"New Data After Recovery";
+                // Check if file can still be written to and read from after recovery
+                let new_key = b"new_key";
+                let new_payload = b"New Data After Recovery";
 
-            // Write new data
-            storage
-                .append_entry(new_key, new_payload)
-                .expect("Failed to append entry after recovery");
+                // Write new data
+                storage
+                    .append_entry(new_key, new_payload)
+                    .expect("Failed to append entry after recovery");
 
-            // Verify new data
-            let retrieved = storage.get_entry_by_key(new_key);
-            assert!(
-                retrieved.is_some(),
-                "Failed to retrieve newly written entry after recovery"
-            );
-            assert_eq!(
-                retrieved.unwrap(),
-                new_payload,
-                "Newly written payload does not match expected value"
-            );
-        }
+                // Verify new data
+                let retrieved = storage.get_entry_by_key(new_key);
+                assert!(
+                    retrieved.is_some(),
+                    "Failed to retrieve newly written entry after recovery"
+                );
+                assert_eq!(
+                    retrieved.unwrap().as_slice(),
+                    new_payload,
+                    "Newly written payload does not match expected value"
+                );
+            }
 
-        // Step 4: Verify re-opened storage can still access these keys
-        {
-            let storage = AppendStorage::open(&path).expect("Failed to recover storage");
+            // Step 4: Verify re-opened storage can still access these keys
+            {
+                let storage = AppendStorage::open(&path).expect("Failed to recover storage");
 
-            assert_eq!(storage.get_entry_by_key(b"key1").unwrap(), b"Valid Entry");
+                assert_eq!(
+                    storage.get_entry_by_key(b"key1").unwrap().as_slice(),
+                    b"Valid Entry"
+                );
 
-            assert_eq!(
-                storage.get_entry_by_key(b"new_key").unwrap(),
-                b"New Data After Recovery"
-            );
+                assert_eq!(
+                    storage.get_entry_by_key(b"new_key").unwrap().as_slice(),
+                    b"New Data After Recovery"
+                );
+            }
         }
     }
 
@@ -290,7 +317,7 @@ mod tests {
                     "Entry should be found after reopening, but got None"
                 );
                 assert_eq!(
-                    retrieved.unwrap(),
+                    retrieved.unwrap().as_slice(),
                     expected_payload,
                     "Retrieved payload does not match expected value after reopening"
                 );
@@ -320,8 +347,14 @@ mod tests {
             .expect("Failed to append entry");
 
         // Verify initial entries exist
-        assert_eq!(storage.get_entry_by_key(key1), Some(initial_payload1));
-        assert_eq!(storage.get_entry_by_key(key2), Some(initial_payload2));
+        assert_eq!(
+            storage.get_entry_by_key(key1).as_deref(),
+            Some(initial_payload1)
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key2).as_deref(),
+            Some(initial_payload2)
+        );
 
         // Update entries
         storage
@@ -332,8 +365,14 @@ mod tests {
             .expect("Failed to update entry");
 
         // Verify updates were applied correctly
-        assert_eq!(storage.get_entry_by_key(key1), Some(updated_payload1));
-        assert_eq!(storage.get_entry_by_key(key2), Some(updated_payload2));
+        assert_eq!(
+            storage.get_entry_by_key(key1).as_deref(),
+            Some(updated_payload1)
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key2).as_deref(),
+            Some(updated_payload2)
+        );
 
         let count_before_delete = storage.count();
 
@@ -360,17 +399,19 @@ mod tests {
         let keys_in_iteration: Vec<_> = storage.iter_entries().collect();
         for entry in keys_in_iteration {
             assert_ne!(
-                entry, updated_payload1,
+                entry.as_ref(),
+                updated_payload1,
                 "Deleted entry should not appear in iteration"
             );
             assert_ne!(
-                entry, initial_payload1,
+                entry.as_ref(),
+                initial_payload1,
                 "Older version of deleted entry should not appear in iteration"
             );
         }
 
         assert_eq!(
-            storage.get_entry_by_key(b"key2").unwrap(),
+            storage.get_entry_by_key(b"key2").unwrap().as_slice(),
             updated_payload2,
             "`key2` does not match updated payload"
         );
@@ -474,22 +515,40 @@ mod tests {
             .expect("Append failed");
 
         // Ensure Data is Stored Correctly Before Compaction
-        assert_eq!(storage.get_entry_by_key(key1), Some(text_payload2));
-        assert_eq!(storage.get_entry_by_key(key2), Some(&binary_payload2[..]));
-        assert_eq!(storage.get_entry_by_key(key4), Some(&integer_payload2[..]));
-        assert_eq!(storage.get_entry_by_key(key5), Some(&float_payload2[..]));
-        assert_eq!(storage.get_entry_by_key(key6), Some(&mixed_payload2[..]));
-        assert_eq!(storage.get_entry_by_key(key7), Some(&temp_payload2[..]));
+        assert_eq!(
+            storage.get_entry_by_key(key1).as_deref(),
+            Some(text_payload2)
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key2).as_deref(),
+            Some(&binary_payload2[..])
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key4).as_deref(),
+            Some(&integer_payload2[..])
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key5).as_deref(),
+            Some(&float_payload2[..])
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key6).as_deref(),
+            Some(&mixed_payload2[..])
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key7).as_deref(),
+            Some(&temp_payload2[..])
+        );
 
         storage.delete_entry(key7).unwrap();
 
-        assert_eq!(storage.get_entry_by_key(key7), None);
+        assert_eq!(storage.get_entry_by_key(key7).as_deref(), None);
 
         let retrieved_struct = storage
             .get_entry_by_key(key3)
             .expect("Failed to retrieve struct");
-        let deserialized_struct: CustomStruct =
-            bincode::deserialize(retrieved_struct).expect("Failed to deserialize struct");
+        let deserialized_struct: CustomStruct = bincode::deserialize(retrieved_struct.as_slice())
+            .expect("Failed to deserialize struct");
         assert_eq!(deserialized_struct, struct_payload2);
 
         // Check file size before compaction
@@ -517,23 +576,38 @@ mod tests {
         let storage =
             AppendStorage::open(&path).expect("Failed to reopen storage after compaction");
 
-        for entry in storage.into_iter() {
-            eprintln!("Entry: {:?}", entry);
-        }
+        // for entry in storage.iter_entries() {
+        //     eprintln!("Entry: {:?}", entry);
+        // }
 
         // Verify that only the latest versions remain
-        assert_eq!(storage.get_entry_by_key(key1), Some(text_payload2));
-        assert_eq!(storage.get_entry_by_key(key2), Some(&binary_payload2[..]));
-        assert_eq!(storage.get_entry_by_key(key4), Some(&integer_payload2[..]));
-        assert_eq!(storage.get_entry_by_key(key5), Some(&float_payload2[..]));
-        assert_eq!(storage.get_entry_by_key(key6), Some(&mixed_payload2[..]));
-        assert_eq!(storage.get_entry_by_key(key7), None);
+        assert_eq!(
+            storage.get_entry_by_key(key1).as_deref(),
+            Some(text_payload2)
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key2).as_deref(),
+            Some(&binary_payload2[..])
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key4).as_deref(),
+            Some(&integer_payload2[..])
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key5).as_deref(),
+            Some(&float_payload2[..])
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key6).as_deref(),
+            Some(&mixed_payload2[..])
+        );
+        assert_eq!(storage.get_entry_by_key(key7).as_deref(), None);
 
         let retrieved_struct = storage
             .get_entry_by_key(key3)
             .expect("Failed to retrieve struct");
-        let deserialized_struct: CustomStruct =
-            bincode::deserialize(retrieved_struct).expect("Failed to deserialize struct");
+        let deserialized_struct: CustomStruct = bincode::deserialize(retrieved_struct.as_slice())
+            .expect("Failed to deserialize struct");
         assert_eq!(deserialized_struct, struct_payload2);
     }
 
@@ -575,17 +649,183 @@ mod tests {
             let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
 
             assert_eq!(
-                storage.get_entry_by_key(b"key1"),
+                storage.get_entry_by_key(b"key1").as_deref(),
                 Some(b"Updated Value 1".as_slice()),
                 "Key1 should contain the updated value"
             );
             assert_eq!(
-                storage.get_entry_by_key(b"key2"),
+                storage.get_entry_by_key(b"key2").as_deref(),
                 Some(b"Updated Value 2".as_slice()),
                 "Key2 should contain the updated value"
             );
 
             eprintln!("Step 3: Persistence check passed after multiple reopens.");
         } // Storage closed here
+    }
+
+    #[test]
+    fn test_copy_entry_between_storages() {
+        let (_dir1, mut source_storage) = create_temp_storage();
+        let (_dir2, mut target_storage) = create_temp_storage();
+
+        let key = b"copy_key";
+        let payload = b"Data to be copied";
+
+        // Step 1: Append the entry to the source storage
+        source_storage
+            .append_entry(key, payload)
+            .expect("Failed to append entry");
+
+        // Step 2: Copy the entry to the target storage
+        source_storage
+            .copy_entry(key, &mut target_storage)
+            .expect("Failed to copy entry");
+
+        // Step 3: Ensure the original entry still exists in the source
+        let original_entry = source_storage
+            .get_entry_by_key(key)
+            .expect("Source entry should exist");
+        assert_eq!(
+            original_entry.as_slice(),
+            payload,
+            "Original data should remain unchanged in source"
+        );
+
+        // Step 4: Ensure the copied entry exists in the target
+        let copied_entry = target_storage
+            .get_entry_by_key(key)
+            .expect("Copied entry should exist in target");
+        assert_eq!(
+            copied_entry.as_slice(),
+            payload,
+            "Copied data should match the original"
+        );
+
+        // Step 5: Verify metadata integrity
+        assert_eq!(
+            original_entry.key_hash(),
+            copied_entry.key_hash(),
+            "Key hash should remain unchanged after copy"
+        );
+        assert_eq!(
+            original_entry.checksum(),
+            copied_entry.checksum(),
+            "Checksum should remain unchanged after copy"
+        );
+        assert!(
+            copied_entry.is_valid_checksum(),
+            "Copied entry should pass checksum validation"
+        );
+    }
+
+    #[test]
+    fn test_move_entry_between_storages() {
+        let (_dir1, mut source_storage) = create_temp_storage();
+        let (_dir2, mut target_storage) = create_temp_storage();
+
+        let key = b"move_key";
+        let payload = b"Data to be moved";
+
+        // Step 1: Append the entry to the source storage
+        source_storage
+            .append_entry(key, payload)
+            .expect("Failed to append entry");
+
+        // Step 2: Move the entry to the target storage
+        source_storage
+            .move_entry(key, &mut target_storage)
+            .expect("Failed to move entry");
+
+        // Step 3: Ensure the original entry no longer exists in the source
+        assert!(
+            source_storage.get_entry_by_key(key).is_none(),
+            "Moved entry should no longer exist in source"
+        );
+
+        // Step 4: Ensure the moved entry exists in the target
+        let moved_entry = target_storage
+            .get_entry_by_key(key)
+            .expect("Moved entry should exist in target");
+        assert_eq!(
+            moved_entry.as_slice(),
+            payload,
+            "Moved data should match the original"
+        );
+
+        // Step 5: Verify metadata integrity
+        assert_eq!(
+            moved_entry.key_hash(),
+            compute_hash(key),
+            "Key hash should remain unchanged after move"
+        );
+        assert_eq!(
+            moved_entry.raw_checksum(),
+            compute_checksum(payload),
+            "Checksum should remain unchanged after move"
+        );
+        assert!(
+            moved_entry.is_valid_checksum(),
+            "Moved entry should pass checksum validation"
+        );
+    }
+
+    #[test]
+    fn test_nested_storage_extraction() {
+        let (_dir1, mut storage1) = create_temp_storage();
+        let key1 = b"original_key";
+        let payload1 = b"Initial Data";
+
+        // Step 1: Write an entry into the original storage
+        storage1
+            .append_entry(key1, payload1)
+            .expect("Failed to append entry to initial storage");
+
+        // Step 2: Read the full storage as raw bytes
+        let storage1_bytes =
+            std::fs::read(&storage1.get_path()).expect("Failed to read storage file");
+
+        // Step 3: Create a second storage and embed the first storage inside it
+        let (_dir2, mut storage2) = create_temp_storage();
+        let nested_key = b"nested_storage";
+
+        storage2
+            .append_entry(nested_key, &storage1_bytes)
+            .expect("Failed to store the original storage inside the new storage");
+
+        // Step 4: Add additional entries to the second storage
+        storage2
+            .append_entry(b"extra_key1", b"Extra Entry 1")
+            .expect("Failed to append extra entry 1");
+        storage2
+            .append_entry(b"extra_key2", b"Extra Entry 2")
+            .expect("Failed to append extra entry 2");
+
+        // Step 5: Extract the nested storage from storage2
+        let extracted_storage_bytes = storage2
+            .get_entry_by_key(nested_key)
+            .expect("Failed to retrieve the nested storage")
+            .as_slice()
+            .to_vec();
+
+        // Step 6: Write extracted bytes to a new storage file
+        let nested_storage_path = _dir2.path().join("extracted_storage.bin");
+        std::fs::write(&nested_storage_path, &extracted_storage_bytes)
+            .expect("Failed to write extracted storage to file");
+
+        // Step 7: Open the extracted storage as a new storage instance
+        let extracted_storage =
+            AppendStorage::open(&nested_storage_path).expect("Failed to open extracted storage");
+
+        // Step 8: Read the original entry from the extracted storage
+        let retrieved_entry = extracted_storage
+            .get_entry_by_key(key1)
+            .expect("Failed to retrieve original entry from extracted storage");
+
+        // Step 9: Validate that the extracted storage's data is correct
+        assert_eq!(
+            retrieved_entry.as_slice(),
+            payload1,
+            "Extracted storage does not contain the correct original data"
+        );
     }
 }

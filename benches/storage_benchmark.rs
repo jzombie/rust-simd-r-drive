@@ -80,7 +80,7 @@ fn benchmark_sequential_reads(path: &PathBuf) {
     let mut count = 0;
 
     for entry in storage.into_iter() {
-        let stored_value = u64::from_le_bytes(entry.try_into().expect("Failed to parse"));
+        let stored_value = u64::from_le_bytes((&*entry).try_into().expect("Failed to parse"));
         let expected_value = NUM_ENTRIES as u64 - 1 - count; // Reverse expectation
         assert_eq!(
             stored_value, expected_value,
@@ -111,7 +111,8 @@ fn benchmark_random_reads(path: &PathBuf) {
         let entry = storage.get_entry_by_key(key.as_bytes());
 
         if let Some(data) = entry {
-            let stored_value = u64::from_le_bytes(data.try_into().expect("Failed to parse"));
+            let stored_value =
+                u64::from_le_bytes(data.as_slice().try_into().expect("Failed to parse"));
             assert_eq!(
                 stored_value, i as u64,
                 "Corrupt data: expected {}, got {}",

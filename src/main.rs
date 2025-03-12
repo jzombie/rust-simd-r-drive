@@ -56,6 +56,26 @@ enum Commands {
         value: Option<String>,
     },
 
+    /// Copy an entry from one storage file to another
+    Copy {
+        /// The key to copy
+        key: String,
+
+        /// Target storage file
+        #[arg(value_name = "target")]
+        target: PathBuf,
+    },
+
+    /// Move an entry from one storage file to another (copy and delete)
+    Move {
+        /// The key to move
+        key: String,
+
+        /// Target storage file
+        #[arg(value_name = "target")]
+        target: PathBuf,
+    },
+
     /// Delete a key
     Delete {
         /// The key to delete
@@ -66,12 +86,17 @@ enum Commands {
     Compact,
 
     /// Get current state of storage file
-    Info 
+    Info,
+
+    /// Access the metadata of a key
+    Metadata {
+        // The key to query
+        key: String
+    }
 }
 
 fn main() {
     let stdin_input = get_stdin_or_default(None);
-
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
@@ -88,11 +113,11 @@ fn main() {
 
                     if stdout.is_terminal() {
                         // If writing to a terminal, use UTF-8 safe string output
-                        writeln!(handle, "{}", String::from_utf8_lossy(&value))
+                        writeln!(handle, "{}", String::from_utf8_lossy(&value.as_slice()))
                             .expect("Failed to write output");
                     } else {
                         // If redirected, output raw binary
-                        handle.write_all(&value).expect("Failed to write binary output");
+                        handle.write_all(&value.as_slice()).expect("Failed to write binary output");
                         handle.flush().expect("Failed to flush output");
                     }
                 }
@@ -131,7 +156,36 @@ fn main() {
             );
 
         }
+
+        Commands::Copy { key, target } => {
+            let source_storage = AppendStorage::open(&cli.storage).expect("Failed to open source storage");
+            let mut target_storage = AppendStorage::open(target).expect("Failed to open target storage");
+        
+            source_storage
+                    .copy_entry(key.as_bytes(), &mut target_storage)
+                    .map_err(|err| {
+                        error!("Could not copy entry. Received error: {}", err.to_string());
+                        std::process::exit(1);
+                    })
+                    .ok(); // Ignore the success case
                 
+                info!("Copied key '{}' to {:?}", key, target);
+        },
+
+        Commands::Move { key, target } => {
+            let mut source_storage = AppendStorage::open(&cli.storage).expect("Failed to open source storage");
+            let mut target_storage = AppendStorage::open(target).expect("Failed to open target storage");
+        
+            source_storage
+                    .move_entry(key.as_bytes(), &mut target_storage)
+                    .map_err(|err| {
+                        error!("Could not copy entry. Received error: {}", err.to_string());
+                        std::process::exit(1);
+                    })
+                    .ok(); // Ignore the success case
+                
+                info!("Moved key '{}' to {:?}", key, target);
+        }, 
 
         Commands::Delete { key } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
@@ -151,6 +205,47 @@ fn main() {
             info!("Compaction completed successfully.");
         }
 
+        Commands::Metadata { key } => {
+            let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            
+            match storage.get_entry_by_key(key.as_bytes()) {
+                Some(entry) => {
+                    println!(
+                        "\n{:=^50}\n\
+                        {:<25} \"{}\"\n\
+                        {:-<50}\n\
+                        {:<25} {} bytes\n\
+                        {:<25} {} bytes\n\
+                        {:<25} {:?}\n\
+                        {:<25} {:?}\n\
+                        {:<25} {}\n\
+                        {:<25} {}\n\
+                        {:<25} {}\n\
+                        {:-<50}\n\
+                        {:<25} {:?}\n\
+                        {:=<50}",
+                        " METADATA SUMMARY ",               // Centered Header
+                        "ENTRY FOR:", key,                  // Key Name
+                        "",                                 // Separator
+                        "PAYLOAD SIZE:", entry.size(),
+                        "TOTAL SIZE (W/ METADATA):", entry.size_with_metadata(),
+                        "OFFSET RANGE:", entry.offset_range(),
+                        "MEMORY ADDRESS:", entry.address_range(),
+                        "KEY HASH:", entry.key_hash(),
+                        "CHECKSUM:", entry.checksum(),
+                        "CHECKSUM VALIDITY:", if entry.is_valid_checksum() { "VALID" } else { "INVALID" },
+                        "",                                 // Separator
+                        "STORED METADATA:", entry.metadata(),
+                        "="                                 // Footer Line
+                    );
+                }
+                None => {
+                    error!("Error: Key '{}' not found", key);
+                    std::process::exit(1);
+                }
+            }
+        }
+
         Commands::Info => {
             let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
 
@@ -163,13 +258,22 @@ fn main() {
             // Count active entries
             let entry_count = storage.count();
 
-            println!("Storage Info:");
-            println!("--------------------------------");
-            println!("File Path:       {:?}", cli.storage);
-            println!("Total Size:      {} bytes", format_bytes(storage_size));
-            println!("Active Entries:  {}", entry_count);
-            println!("Compaction Savings Estimate: {} bytes", format_bytes(savings_estimate));
-            println!("--------------------------------");
+            println!(
+                "\n{:=^50}\n\
+                {:<25} {:?}\n\
+                {:-<50}\n\
+                {:<25} {}\n\
+                {:<25} {}\n\
+                {:<25} {}\n\
+                {:=<50}",
+                " STORAGE INFO ",                       // Centered Header
+                "STORAGE FILE:", cli.storage,           // File Path
+                "",                                     // Separator
+                "TOTAL SIZE:", format_bytes(storage_size),
+                "ACTIVE ENTRIES:", entry_count,
+                "COMPACTION SAVINGS:", format_bytes(savings_estimate),
+                "="                                     // Footer
+            );
         }
 
     }

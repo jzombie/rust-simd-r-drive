@@ -3,13 +3,51 @@ use std::collections::{HashMap, HashSet};
 use std::convert::From;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Result, Seek, SeekFrom, Write};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 mod simd_copy;
 use simd_copy::simd_copy;
 mod digest;
-use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
+pub use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use log::{debug, info, warn};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+// TODO: When creating new files, start off with initial metadata regarding the software version
+// used to create the file, and ensure whatever key is used for that is protected from writing.
+// Also, use a [semver] heuristic to determine compatibility (or simply see if it can be parsed).
+//
+// TODO: Use keys with a null byte for the leading byte to represent "hidden" entries?
+
+/// Enable `*entry_handle` to act like a `&[u8]`
+impl std::ops::Deref for EntryHandle {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+/// Let us do: `assert_eq!(entry_handle, b"some bytes")`
+impl PartialEq<[u8]> for EntryHandle {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.as_slice() == other
+    }
+}
+
+/// Allow comparisons with `&[u8]`
+impl PartialEq<&[u8]> for EntryHandle {
+    fn eq(&self, other: &&[u8]) -> bool {
+        self.as_slice() == *other
+    }
+}
+
+/// Allow comparisons with `Vec<u8>`
+impl PartialEq<Vec<u8>> for EntryHandle {
+    fn eq(&self, other: &Vec<u8>) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
 
 /// Metadata structure (fixed 20 bytes at the end of each entry)
 const METADATA_SIZE: usize = 20;
@@ -47,8 +85,8 @@ const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 /// - The checksum is **not cryptographically secure** but serves as a quick integrity check.
 /// - The first entry for a key has `prev_offset = 0`, indicating no previous version.
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct EntryMetadata {
+#[derive(Debug)]
+pub struct EntryMetadata {
     key_hash: u64,     // 8 bytes (hashed key for lookup)
     prev_offset: u64,  // 8 bytes (absolute offset of previous entry)
     checksum: [u8; 4], // 4 bytes (checksum for integrity)
@@ -120,13 +158,13 @@ impl EntryMetadata {
 /// - **Ensures unique keys** by tracking seen hashes in a `HashSet`.
 /// - **Skips deleted entries**, which are represented by empty data.
 /// - **Stops when reaching an invalid or out-of-bounds offset.**
-pub struct EntryIterator<'a> {
-    mmap: &'a Mmap,
+pub struct EntryIterator {
+    mmap: Arc<Mmap>, // Borrow from Arc<Mmap> (zero-copy)
     cursor: u64,
     seen_keys: HashSet<u64, Xxh3BuildHasher>,
 }
 
-impl<'a> EntryIterator<'a> {
+impl EntryIterator {
     /// Creates a new iterator for scanning storage entries.
     ///
     /// Initializes an iterator starting at the provided `last_offset` and
@@ -139,7 +177,7 @@ impl<'a> EntryIterator<'a> {
     ///
     /// # Returns:
     /// - A new `EntryIterator` instance.
-    pub fn new(mmap: &'a Mmap, last_offset: u64) -> Self {
+    pub fn new(mmap: Arc<Mmap>, last_offset: u64) -> Self {
         Self {
             mmap,
             cursor: last_offset,
@@ -148,8 +186,8 @@ impl<'a> EntryIterator<'a> {
     }
 }
 
-impl<'a> Iterator for EntryIterator<'a> {
-    type Item = &'a [u8];
+impl Iterator for EntryIterator {
+    type Item = EntryHandle;
 
     /// Advances the iterator to the next valid entry.
     ///
@@ -194,23 +232,109 @@ impl<'a> Iterator for EntryIterator<'a> {
             return self.next();
         }
 
-        Some(entry_data)
+        // Some(entry_data.into())
+
+        Some(EntryHandle {
+            mmap_arc: Arc::clone(&self.mmap),
+            range: entry_start..entry_end,
+            metadata,
+        })
+    }
+}
+
+/// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
+/// Lets you access the bytes of the entry as long as this struct is alive.
+#[derive(Debug)]
+pub struct EntryHandle {
+    mmap_arc: Arc<Mmap>,
+
+    /// The payload range
+    range: Range<usize>,
+
+    metadata: EntryMetadata,
+}
+
+impl EntryHandle {
+    /// Returns the sub-slice of bytes corresponding to the entry.
+    pub fn as_slice(&self) -> &[u8] {
+        &self.mmap_arc[self.range.clone()]
+    }
+
+    /// Returns a reference to the entry’s parsed metadata.
+    pub fn metadata(&self) -> &EntryMetadata {
+        &self.metadata
+    }
+
+    /// Returns the payload size.
+    pub fn size(&self) -> usize {
+        self.range.len()
+    }
+
+    /// Returns the payload size plus metadata.
+    pub fn size_with_metadata(&self) -> usize {
+        self.range.len() + METADATA_SIZE
+    }
+
+    pub fn key_hash(&self) -> u64 {
+        self.metadata.key_hash
+    }
+
+    pub fn checksum(&self) -> u32 {
+        u32::from_le_bytes(self.metadata.checksum)
+    }
+
+    pub fn raw_checksum(&self) -> [u8; 4] {
+        self.metadata.checksum
+    }
+
+    pub fn is_valid_checksum(&self) -> bool {
+        let data = self.as_slice();
+        let computed = compute_checksum(data);
+        self.metadata.checksum == computed
+    }
+
+    /// Returns the absolute start byte offset within the mapped file.
+    pub fn start_offset(&self) -> usize {
+        self.range.start
+    }
+
+    /// Returns the absolute end byte offset within the mapped file.
+    pub fn end_offset(&self) -> usize {
+        self.range.end
+    }
+
+    pub fn offset_range(&self) -> Range<usize> {
+        self.range.clone()
+    }
+
+    /// Returns the pointer range in the current process's memory.
+    ///
+    /// This is the actual *virtual address* space that the entry occupies.
+    /// - The `start_ptr` points to the beginning of the payload in memory.
+    /// - The `end_ptr` is `start_ptr + payload_length`.
+    ///
+    /// **Note**: These addresses are valid only in this process and can become
+    /// invalid if the memory map is remapped or unmapped.
+    pub fn address_range(&self) -> std::ops::Range<*const u8> {
+        let slice = self.as_slice();
+        let start_ptr = slice.as_ptr();
+        let end_ptr = unsafe { start_ptr.add(slice.len()) };
+        start_ptr..end_ptr
     }
 }
 
 /// Append-Only Storage Engine
 pub struct AppendStorage {
-    file: BufWriter<File>,
-    mmap: Arc<Mmap>,
-    last_offset: u64,
-    key_index: HashMap<u64, u64, Xxh3BuildHasher>, // Key → Offset map
-    lock: Arc<RwLock<()>>,
+    file: Arc<RwLock<BufWriter<File>>>, // ✅ Wrap file in Arc<RwLock<>> for safe concurrent writes
+    mmap: Arc<Mutex<Arc<Mmap>>>,        // Atomic pointer to an mmap for zero-copy reads
+    last_offset: AtomicU64,
+    key_index: Arc<RwLock<HashMap<u64, u64, Xxh3BuildHasher>>>, // ✅ Wrap in RwLock for safe writes
     path: PathBuf,
 }
 
-impl<'a> IntoIterator for &'a AppendStorage {
-    type Item = &'a [u8];
-    type IntoIter = EntryIterator<'a>;
+impl IntoIterator for AppendStorage {
+    type Item = EntryHandle;
+    type IntoIter = EntryIterator;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_entries()
@@ -279,13 +403,32 @@ impl AppendStorage {
         let key_index = Self::build_key_index(&mmap, final_len);
 
         Ok(Self {
-            file,
-            mmap: Arc::new(mmap),
-            last_offset: final_len,
-            key_index,
-            lock: Arc::new(RwLock::new(())),
+            file: Arc::new(RwLock::new(file)), // ✅ Wrap in RwLock
+            // mmap: Arc::new(AtomicPtr::new(Box::into_raw(Box::new(mmap)))), // ✅ Correct
+            mmap: Arc::new(Mutex::new(Arc::new(mmap))),
+            last_offset: final_len.into(),
+            key_index: Arc::new(RwLock::new(key_index)), // ✅ Wrap HashMap in RwLock
             path: path.to_path_buf(),
         })
+    }
+
+    /// Returns the storage file path.
+    ///
+    /// # Returns:
+    /// - A `PathBuf` containing the path to the storage file.
+    pub fn get_path(&self) -> PathBuf {
+        /*
+        This function **does not** clone or duplicate the actual storage file.
+        It only returns a clone of the in-memory `PathBuf` reference that
+        represents the file path.
+
+        `PathBuf::clone()` creates a shallow copy of the path, which is
+        inexpensive since it only duplicates the internal path buffer.
+
+        For more details, see:
+        https://doc.rust-lang.org/std/path/struct.PathBuf.html
+        */
+        self.path.clone()
     }
 
     /// Initializes a memory-mapped file for fast access.
@@ -354,7 +497,19 @@ impl AppendStorage {
     /// # Returns:
     /// - An `EntryIterator` instance for iterating over valid entries.
     pub fn iter_entries(&self) -> EntryIterator {
-        EntryIterator::new(&self.mmap, self.last_offset)
+        // 1. Lock the mutex
+        let guard = self.mmap.lock().unwrap();
+
+        // 2. Clone the Arc<Mmap>
+        let mmap_clone = guard.clone();
+
+        // 3. Drop guard so others can proceed
+        drop(guard);
+
+        // 4. Get the actual last offset
+        let last_offset = self.last_offset.load(Ordering::Acquire);
+
+        EntryIterator::new(mmap_clone, last_offset)
     }
 
     /// Builds an in-memory index for **fast key lookups**.
@@ -464,7 +619,7 @@ impl AppendStorage {
                     ..(prev_metadata_offset as usize + METADATA_SIZE)];
                 let prev_metadata = EntryMetadata::deserialize(prev_metadata_bytes);
 
-                let entry_size = prev_metadata_offset - prev_metadata.prev_offset;
+                let entry_size = prev_metadata_offset.saturating_sub(prev_metadata.prev_offset);
                 total_size += entry_size + METADATA_SIZE as u64;
 
                 if prev_metadata.prev_offset >= prev_metadata_offset {
@@ -498,39 +653,49 @@ impl AppendStorage {
     ///
     /// This method is called **after a write operation** to reload the memory-mapped file
     /// and ensure that newly written data is accessible for reading.
-    fn remap_file(&mut self) -> Result<()> {
-        // self.mmap = Arc::new(unsafe { memmap2::MmapOptions::new().map(self.file.get_ref())? });
-        let mmap = Self::init_mmap(&self.file)?;
-        self.mmap = Arc::new(mmap);
+    fn remap_file(&self) -> std::io::Result<()> {
+        // 1) Acquire file read lock
+        let file_guard = self.file.read().map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Failed to acquire file read lock",
+            )
+        })?;
+
+        // 2) Create a new Mmap from the file
+        let new_mmap = unsafe { memmap2::MmapOptions::new().map(file_guard.get_ref())? };
+
+        // 3) Replace the old Arc<Mmap> with a new Arc<Mmap>
+        {
+            // Lock the mutex to get a mutable reference to the current Arc<Mmap>
+            let mut guard = self.mmap.lock().unwrap();
+
+            // Overwrite the old Arc<Mmap> with the new one
+            *guard = Arc::new(new_mmap);
+        } // Once the guard drops here, other threads can lock again
+
+        // 4) Update last_offset (or any other fields)
+        let new_offset = file_guard.get_ref().metadata()?.len();
+        self.last_offset
+            .store(new_offset, std::sync::atomic::Ordering::Release);
 
         Ok(())
     }
 
+    // TODO: Document return type
     /// High-level method: Appends a single entry by key
     pub fn append_entry(&mut self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.append_entry_with_key_hash(key_hash, payload)
     }
 
-    /// Deletes a key by appending a **null byte marker**.
-    ///
-    /// The storage engine is **append-only**, so keys cannot be removed directly.
-    /// Instead, a **null byte is appended** as a tombstone entry to mark the key as deleted.
-    ///
-    /// # Parameters:
-    /// - `key`: The **binary key** to mark as deleted.
-    ///
-    /// # Returns:
-    /// - The **new file offset** where the delete marker was appended.
-    pub fn delete_entry(&mut self, key: &[u8]) -> Result<u64> {
-        self.append_entry(key, &NULL_BYTE)
-    }
-
+    // TODO: Document return type
     /// High-level method: Appends a single entry by key hash
     pub fn append_entry_with_key_hash(&mut self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write(vec![(key_hash, payload)])
     }
 
+    // TODO: Document return type
     /// Batch append multiple entries as a single transaction
     pub fn append_entries(&mut self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let hashed_entries: Vec<(u64, &[u8])> = entries
@@ -540,6 +705,7 @@ impl AppendStorage {
         self.batch_write(hashed_entries)
     }
 
+    // TODO: Document return type
     /// Batch append multiple entries with precomputed key hashes
     pub fn append_entries_with_key_hashes(&mut self, entries: &[(u64, &[u8])]) -> Result<u64> {
         self.batch_write(entries.to_vec())
@@ -548,12 +714,12 @@ impl AppendStorage {
     /// Core transaction method (Handles locking, writing, flushing)
     fn batch_write(&mut self, entries: Vec<(u64, &[u8])>) -> Result<u64> {
         {
-            let _write_lock = self.lock.write().map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire write lock")
-            })?;
+            let mut file = self.file.write().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
+            })?; // ✅ Lock only the file, not the whole struct
 
-            let mut buffer = Vec::new(); // Single buffer to hold all writes in this transaction
-            let mut last_offset = self.last_offset;
+            let mut buffer = Vec::new();
+            let mut last_offset = self.last_offset.load(Ordering::Acquire);
 
             for (key_hash, payload) in entries {
                 if payload.is_empty() {
@@ -580,27 +746,31 @@ impl AppendStorage {
                 // Copy metadata normally (small size, not worth SIMD)
                 entry[payload.len()..].copy_from_slice(&metadata.serialize());
 
-                buffer.extend_from_slice(&entry); // Append to transaction buffer
+                buffer.extend_from_slice(&entry);
 
                 last_offset += entry.len() as u64;
 
-                // Update key index in-memory
-                self.key_index
-                    .insert(key_hash, last_offset - METADATA_SIZE as u64);
+                // ✅ Lock the key index before modifying
+                {
+                    let mut key_index = self.key_index.write().map_err(|_| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "Failed to acquire index lock",
+                        )
+                    })?;
+                    key_index.insert(key_hash, last_offset - METADATA_SIZE as u64);
+                } // ✅ Unlocks automatically here
             }
 
-            // Single write & flush for transaction
-            self.file.write_all(&buffer)?;
-            self.file.flush()?;
+            file.write_all(&buffer)?;
+            file.flush()?;
 
-            self.last_offset = last_offset;
+            self.last_offset.store(last_offset, Ordering::Release);
         }
 
-        // TODO: Refactor so that the lock can be released after the remap, if possible
-        // Remap the file **after** dropping the lock
         self.remap_file()?;
 
-        Ok(self.last_offset)
+        Ok(self.last_offset.load(Ordering::Acquire))
     }
 
     /// Reads the last entry stored in the database.
@@ -610,26 +780,48 @@ impl AppendStorage {
     /// data segment from the memory-mapped file.
     ///
     /// # Returns:
+    /// TODO: Update return type
     /// - `Some(&[u8])` containing the binary payload of the last entry.
     /// - `None` if the storage is empty or corrupted.
-    pub fn read_last_entry(&self) -> Option<&[u8]> {
-        let _read_lock = self.lock.read().ok()?;
+    /// Zero-copy: no bytes are duplicated, just reference-counted.
+    pub fn read_last_entry(&self) -> Option<EntryHandle> {
+        // 1) Lock the `Mutex<Arc<Mmap>>` to safely access the current map
+        let guard = self.mmap.lock().unwrap();
 
-        if self.last_offset < METADATA_SIZE as u64 || self.mmap.len() == 0 {
+        // 2) Clone the inner Arc<Mmap> so we can drop the lock quickly
+        let mmap_arc = Arc::clone(&*guard);
+
+        // 3) Release the lock (other threads can proceed)
+        drop(guard);
+
+        // 4) Use `mmap_arc` to find the last entry boundaries
+        let last_offset = self.last_offset.load(std::sync::atomic::Ordering::Acquire);
+
+        if last_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
             return None;
         }
 
-        let metadata_offset = (self.last_offset - METADATA_SIZE as u64) as usize;
-        let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+        let metadata_offset = (last_offset - METADATA_SIZE as u64) as usize;
+        if metadata_offset + METADATA_SIZE > mmap_arc.len() {
+            return None;
+        }
+
+        // Read the last entry's metadata
+        let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
 
         let entry_start = metadata.prev_offset as usize;
         let entry_end = metadata_offset;
-        if entry_start >= entry_end || entry_end > self.mmap.len() {
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
             return None;
         }
 
-        Some(&self.mmap[entry_start..entry_end]) // Return reference instead of copying data
+        // 5) Create a handle that "owns" the Arc and the byte range
+        Some(EntryHandle {
+            mmap_arc,
+            range: entry_start..entry_end,
+            metadata,
+        })
     }
 
     /// Retrieves the most recent value associated with a given key.
@@ -641,76 +833,122 @@ impl AppendStorage {
     /// - `key`: The **binary key** whose latest value is to be retrieved.
     ///
     /// # Returns:
+    /// // TODO: Update return type
     /// - `Some(&[u8])` containing the latest value associated with the key.
     /// - `None` if the key does not exist.
-    pub fn get_entry_by_key(&self, key: &[u8]) -> Option<&[u8]> {
+    pub fn get_entry_by_key(&self, key: &[u8]) -> Option<EntryHandle> {
         let key_hash = compute_hash(key);
 
-        if let Some(&offset) = self.key_index.get(&key_hash) {
-            // Fast lookup
-            let metadata_bytes = &self.mmap[offset as usize..offset as usize + METADATA_SIZE];
-            let metadata = EntryMetadata::deserialize(metadata_bytes);
+        // 1) Lock the mutex to get our Arc<Mmap>
+        let guard = self.mmap.lock().unwrap();
+        let mmap_arc = Arc::clone(&*guard); // Clone so we can drop the lock quickly
+        drop(guard);
 
-            let entry_start = metadata.prev_offset as usize;
-
-            let entry = &self.mmap[entry_start..offset as usize];
-
-            // Ensure deleted (null) entries are ignored
-            if entry == NULL_BYTE {
-                return None;
-            }
-
-            return Some(entry);
+        // 2) Re-check last_offset, ensure the file is big enough
+        let last_offset = self.last_offset.load(std::sync::atomic::Ordering::Acquire);
+        if last_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
+            return None;
         }
 
-        None
+        // 3) Look up the offset in the in-memory key index
+        let offset = *self.key_index.read().ok()?.get(&key_hash)?;
+
+        // 4) Grab the metadata from the mapped file
+        if offset as usize + METADATA_SIZE > mmap_arc.len() {
+            return None;
+        }
+        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
+        let metadata = EntryMetadata::deserialize(metadata_bytes);
+
+        // 5) Extract the actual entry range
+        let entry_start = metadata.prev_offset as usize;
+        let entry_end = offset as usize;
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
+            return None;
+        }
+
+        // Check for tombstone (NULL_BYTE)
+        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+            return None;
+        }
+
+        // 6) Return a handle that *owns* the Arc and the slice range
+        Some(EntryHandle {
+            mmap_arc,
+            range: entry_start..entry_end,
+            metadata,
+        })
+    }
+
+    // TODO: Document
+    pub fn copy_entry(&self, key: &[u8], target: &mut AppendStorage) -> Result<u64> {
+        let entry_handle = self.get_entry_by_key(key).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Key not found: {:?}", key),
+            )
+        })?;
+
+        self.copy_entry_handle(&entry_handle, target)
+    }
+
+    // TODO: Document return type
+    /// Low-level copy functionality.
+    fn copy_entry_handle(&self, entry: &EntryHandle, target: &mut AppendStorage) -> Result<u64> {
+        let metadata = entry.metadata();
+
+        // Append to the compacted storage
+        let result = target.append_entry_with_key_hash(metadata.key_hash, &entry)?;
+
+        Ok(result)
+    }
+
+    // TODO: Document
+    pub fn move_entry(&mut self, key: &[u8], target: &mut AppendStorage) -> Result<u64> {
+        self.copy_entry(key, target)?;
+
+        self.delete_entry(&key)
+    }
+
+    /// Deletes a key by appending a **null byte marker**.
+    ///
+    /// The storage engine is **append-only**, so keys cannot be removed directly.
+    /// Instead, a **null byte is appended** as a tombstone entry to mark the key as deleted.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** to mark as deleted.
+    ///
+    /// # Returns:
+    /// - The **new file offset** where the delete marker was appended.
+    pub fn delete_entry(&mut self, key: &[u8]) -> Result<u64> {
+        self.append_entry(key, &NULL_BYTE)
     }
 
     /// Compacts the storage by keeping only the latest version of each key.
-    pub fn compact(&mut self) -> Result<()> {
-        let _write_lock = self.lock.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire write lock")
-        })?;
-
+    pub fn compact(&mut self) -> std::io::Result<()> {
         let compacted_path = self.path.with_extension("bk");
-
         debug!("Starting compaction. Writing to: {:?}", compacted_path);
 
-        // Create a new AppendStorage instance for the compacted file
+        // 1) Create a new AppendStorage instance for the compacted file
         let mut compacted_storage = AppendStorage::open(&compacted_path)?;
 
-        // Iterate over all valid entries
+        // 2) Iterate over all valid entries using your iterator
         for entry in self.iter_entries() {
-            let entry_start_offset = entry.as_ptr() as usize - self.mmap.as_ptr() as usize;
-            let metadata_offset = entry_start_offset + entry.len();
-
-            // Extract metadata separately from mmap
-            if metadata_offset + METADATA_SIZE > self.mmap.len() {
-                warn!("Skipping corrupted entry at offset {}", entry_start_offset);
-                continue;
-            }
-
-            let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
-            let metadata = EntryMetadata::deserialize(metadata_bytes);
-
-            // Append the entry with the correct key_hash
-            compacted_storage.append_entry_with_key_hash(metadata.key_hash, entry)?;
-
-            debug!(
-                "Writing key_hash: {} | entry_size: {}",
-                metadata.key_hash,
-                entry.len()
-            );
+            self.copy_entry_handle(&entry, &mut compacted_storage)?;
         }
 
-        compacted_storage.file.flush()?;
-        drop(compacted_storage); // Ensure all writes are flushed before swapping
+        // 4) Flush the compacted file
+        {
+            let mut file_guard = compacted_storage.file.write().map_err(|e| {
+                std::io::Error::new(std::io::ErrorKind::Other, format!("Lock poisoned: {}", e))
+            })?;
+            file_guard.flush()?;
+        }
+
+        drop(compacted_storage); // ensure all writes are flushed before swapping
 
         debug!("Reduced backup completed. Swapping files...");
-
         std::fs::rename(&compacted_path, &self.path)?;
-        // self.remap_file()?; // Remap file to load compacted data
-
         info!("Compaction successful.");
         Ok(())
     }
@@ -741,16 +979,23 @@ impl AppendStorage {
         let mut unique_entry_size: u64 = 0;
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
 
+        // 1) Briefly lock the Mutex to clone the Arc<Mmap>
+        let guard = self.mmap.lock().unwrap();
+        let mmap_arc = Arc::clone(&*guard);
+        drop(guard);
+
+        // 2) Now we can safely iterate zero-copy
         for entry in self.iter_entries() {
-            let entry_start_offset = entry.as_ptr() as usize - self.mmap.as_ptr() as usize;
+            // Convert pointer offsets relative to `mmap_arc`
+            let entry_start_offset = entry.as_ptr() as usize - mmap_arc.as_ptr() as usize;
             let metadata_offset = entry_start_offset + entry.len();
 
-            if metadata_offset + METADATA_SIZE > self.mmap.len() {
+            if metadata_offset + METADATA_SIZE > mmap_arc.len() {
                 warn!("Skipping corrupted entry at offset {}", entry_start_offset);
                 continue;
             }
 
-            let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+            let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             // Only count the latest version of each key
@@ -759,6 +1004,7 @@ impl AppendStorage {
             }
         }
 
+        // 3) Return the difference between total size and the unique size
         total_size.saturating_sub(unique_entry_size)
     }
 

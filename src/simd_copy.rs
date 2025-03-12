@@ -1,4 +1,4 @@
-#[allow(dead_code)]
+#[allow(unused_imports)]
 use log::warn;
 
 use std::sync::Once;
