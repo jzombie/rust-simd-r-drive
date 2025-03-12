@@ -4,7 +4,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use simd_r_drive::AppendStorage;
     use std::fs::{metadata, OpenOptions};
-    use std::io::Write;
+    use std::io::{Seek, SeekFrom, Write};
     use tempfile::tempdir;
 
     /// Helper function to create a temporary file for testing
@@ -171,7 +171,7 @@ mod tests {
                 .append_entry(b"key1", b"Valid Entry")
                 .expect("Write failed");
             eprintln!("Written valid entry. Checking file size...");
-        } // **Storage goes out of scope here, ensuring file is closed**
+        } // Storage goes out of scope here, ensuring file is closed
 
         let file_size_before = metadata(&path).expect("Failed to get metadata").len();
         eprintln!("File size before corruption: {}", file_size_before);
@@ -179,39 +179,76 @@ mod tests {
         // Step 2: Simulate corruption by writing partial data
         {
             let mut file = OpenOptions::new()
-                .write(true)
+                .read(true)
+                .write(true) // Allows writing but does NOT truncate
                 .open(&path)
                 .expect("Failed to open file");
-            file.write_all(b"CORRUPT")
+
+            file.seek(SeekFrom::End(0)) // Move cursor to the end
+                .expect("Failed to seek to end");
+
+            file.write_all(b"CORRUPT") // Write corrupted data at the end
                 .expect("Failed to write corruption");
+
             file.flush().expect("Flush failed");
-        } // **File is closed again here**
+        }
 
         let file_size_after = metadata(&path).expect("Failed to get metadata").len();
         eprintln!("File size after corruption: {}", file_size_after);
 
-        // Step 3: Attempt to recover storage **(Now that the file is closed)**
-        let storage = AppendStorage::open(&path).expect("Failed to recover storage");
+        // Step 3: Attempt to recover storage and write to it
+        {
+            let mut storage = AppendStorage::open(&path).expect("Failed to recover storage");
 
-        // Step 4: Check that the recovered file size matches the original before corruption
-        let file_size_after_recovery = metadata(&path).expect("Failed to get metadata").len();
-        eprintln!("File size after recovery: {}", file_size_after_recovery);
+            //  Check that the recovered file size matches the original before corruption
+            let file_size_after_recovery = metadata(&path).expect("Failed to get metadata").len();
+            eprintln!("File size after recovery: {}", file_size_after_recovery);
 
-        assert_eq!(
-            file_size_after_recovery, file_size_before,
-            "File size after recovery should match size before corruption"
-        );
+            assert_eq!(
+                file_size_after_recovery, file_size_before,
+                "File size after recovery should match size before corruption"
+            );
 
-        // Step 5: Verify recovery worked
-        let recovered = storage.get_entry_by_key(b"key1");
-        assert!(
-            recovered.is_some(),
-            "Expected to recover at least one valid entry"
-        );
+            // Verify recovery worked
+            let recovered = storage.get_entry_by_key(b"key1");
+            assert!(
+                recovered.is_some(),
+                "Expected to recover at least one valid entry"
+            );
 
-        // TODO: Check if file can still be written to and read from after recovery
+            // Check if file can still be written to and read from after recovery
+            let new_key = b"new_key";
+            let new_payload = b"New Data After Recovery";
 
-        eprintln!("Test passed: Recovery successful, file size matches.");
+            // Write new data
+            storage
+                .append_entry(new_key, new_payload)
+                .expect("Failed to append entry after recovery");
+
+            // Verify new data
+            let retrieved = storage.get_entry_by_key(new_key);
+            assert!(
+                retrieved.is_some(),
+                "Failed to retrieve newly written entry after recovery"
+            );
+            assert_eq!(
+                retrieved.unwrap(),
+                new_payload,
+                "Newly written payload does not match expected value"
+            );
+        }
+
+        // Step 4: Verify re-opened storage can still access these keys
+        {
+            let storage = AppendStorage::open(&path).expect("Failed to recover storage");
+
+            assert_eq!(storage.get_entry_by_key(b"key1").unwrap(), b"Valid Entry");
+
+            assert_eq!(
+                storage.get_entry_by_key(b"new_key").unwrap(),
+                b"New Data After Recovery"
+            );
+        }
     }
 
     #[test]
@@ -236,29 +273,29 @@ mod tests {
             }
 
             eprintln!("Entries written. Closing file...");
-        } // **Storage goes out of scope here, closing the file**
+        } // Storage goes out of scope here, closing the file
 
         // Step 2: Reopen storage and verify persistence
-        let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
+        {
+            let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
 
-        for (key, expected_payload) in [
-            (b"key1", &b"Persistent Entry 1 .."[..]),
-            (b"key2", &b"Persistent Entry 2 ...."[..]),
-            (b"key3", &b"Persistent Entry 3 ......"[..]),
-        ] {
-            let retrieved = storage.get_entry_by_key(key);
-            assert!(
-                retrieved.is_some(),
-                "Entry should be found after reopening, but got None"
-            );
-            assert_eq!(
-                retrieved.unwrap(),
-                expected_payload,
-                "Retrieved payload does not match expected value after reopening"
-            );
+            for (key, expected_payload) in [
+                (b"key1", &b"Persistent Entry 1 .."[..]),
+                (b"key2", &b"Persistent Entry 2 ...."[..]),
+                (b"key3", &b"Persistent Entry 3 ......"[..]),
+            ] {
+                let retrieved = storage.get_entry_by_key(key);
+                assert!(
+                    retrieved.is_some(),
+                    "Entry should be found after reopening, but got None"
+                );
+                assert_eq!(
+                    retrieved.unwrap(),
+                    expected_payload,
+                    "Retrieved payload does not match expected value after reopening"
+                );
+            }
         }
-
-        eprintln!("All entries successfully recovered after reopening.");
     }
 
     #[test]
@@ -353,7 +390,7 @@ mod tests {
 
         let mut storage = AppendStorage::open(&path).expect("Failed to open storage");
 
-        // **Different Data Types**
+        // Different Data Types
         let key1 = b"text_key";
         let key2 = b"binary_key";
         let key3 = b"struct_key";
@@ -386,7 +423,7 @@ mod tests {
         let mixed_payload2 = "Hello".as_bytes();
         let temp_payload2 = 789u64.to_le_bytes();
 
-        // **Serialize structured data**
+        // Serialize structured data
         let struct_payload1_serialized = bincode::serialize(&struct_payload1).unwrap();
         let struct_payload2_serialized = bincode::serialize(&struct_payload2).unwrap();
 
@@ -436,7 +473,7 @@ mod tests {
             .append_entry(key7, &temp_payload2)
             .expect("Append failed");
 
-        // **Ensure Data is Stored Correctly Before Compaction**
+        // Ensure Data is Stored Correctly Before Compaction
         assert_eq!(storage.get_entry_by_key(key1), Some(text_payload2));
         assert_eq!(storage.get_entry_by_key(key2), Some(&binary_payload2[..]));
         assert_eq!(storage.get_entry_by_key(key4), Some(&integer_payload2[..]));
@@ -455,7 +492,7 @@ mod tests {
             bincode::deserialize(retrieved_struct).expect("Failed to deserialize struct");
         assert_eq!(deserialized_struct, struct_payload2);
 
-        // **Check file size before compaction**
+        // Check file size before compaction
         let size_before = std::fs::metadata(&path)
             .expect("Failed to get metadata")
             .len();
@@ -465,7 +502,7 @@ mod tests {
         eprintln!("Starting compaction...");
         storage.compact().expect("Compaction failed");
 
-        // **Check file size after compaction**
+        // Check file size after compaction
         let size_after = std::fs::metadata(&path)
             .expect("Failed to get metadata")
             .len();
@@ -484,7 +521,7 @@ mod tests {
             eprintln!("Entry: {:?}", entry);
         }
 
-        // **Verify that only the latest versions remain**
+        // Verify that only the latest versions remain
         assert_eq!(storage.get_entry_by_key(key1), Some(text_payload2));
         assert_eq!(storage.get_entry_by_key(key2), Some(&binary_payload2[..]));
         assert_eq!(storage.get_entry_by_key(key4), Some(&integer_payload2[..]));
@@ -517,7 +554,7 @@ mod tests {
                 .expect("Failed to append entry");
 
             eprintln!("Step 1: Initial entries written, closing file...");
-        } // **Storage closed here**
+        } // Storage closed here
 
         // Step 2: Reopen storage, update values, and close again
         {
@@ -531,10 +568,10 @@ mod tests {
                 .expect("Failed to update key2");
 
             eprintln!("Step 2: Updates written, closing file...");
-        } // **Storage closed here**
+        } // Storage closed here
 
+        // Step 3: Reopen storage again and verify persistence
         {
-            // Step 3: Reopen storage again and verify persistence
             let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
 
             assert_eq!(
@@ -549,6 +586,6 @@ mod tests {
             );
 
             eprintln!("Step 3: Persistence check passed after multiple reopens.");
-        }
+        } // Storage closed here
     }
 }

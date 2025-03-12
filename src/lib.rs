@@ -11,11 +11,11 @@ mod digest;
 use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use log::{debug, info, warn};
 
-/// Metadata structure (fixed 19 bytes at the end of each entry)
-const METADATA_SIZE: usize = 19;
+/// Metadata structure (fixed 20 bytes at the end of each entry)
+const METADATA_SIZE: usize = 20;
 const KEY_HASH_RANGE: std::ops::Range<usize> = 0..8;
 const PREV_OFFSET_RANGE: std::ops::Range<usize> = 8..16;
-const CHECKSUM_RANGE: std::ops::Range<usize> = 16..19;
+const CHECKSUM_RANGE: std::ops::Range<usize> = 16..20;
 
 // Marker indicating a logically deleted entry in the storage
 const NULL_BYTE: [u8; 1] = [0];
@@ -38,9 +38,9 @@ const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 /// - **Offset `0` → `N`**: **Payload** (variable-length data)
 /// - **Offset `N` → `N + 8`**: **Key Hash** (64-bit XXH3 hash of the key, used for fast lookups)
 /// - **Offset `N + 8` → `N + 16`**: **Prev Offset** (absolute file offset pointing to the previous version)
-/// - **Offset `N + 16` → `N + 19`**: **Checksum** (truncated 24-bit CRC32C checksum for integrity verification)
+/// - **Offset `N + 16` → `N + 20`**: **Checksum** (full 32-bit CRC32C checksum for integrity verification)
 ///
-/// **Total Size**: `N + 19` bytes, where `N` is the length of the payload.
+/// **Total Size**: `N + 20` bytes, where `N` is the length of the payload.
 ///
 /// ## Notes
 /// - The `prev_offset` forms a **backward-linked chain** for each key.
@@ -51,7 +51,7 @@ const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 struct EntryMetadata {
     key_hash: u64,     // 8 bytes (hashed key for lookup)
     prev_offset: u64,  // 8 bytes (absolute offset of previous entry)
-    checksum: [u8; 3], // 3 bytes (checksum for integrity)
+    checksum: [u8; 4], // 4 bytes (checksum for integrity)
 }
 
 impl EntryMetadata {
@@ -222,14 +222,6 @@ impl From<PathBuf> for AppendStorage {
     ///
     /// This allows creating a storage instance **directly from a file path**.
     ///
-    /// # Example:
-    /// ```
-    /// use simd_r_drive::AppendStorage;
-    /// use std::path::PathBuf;
-    ///
-    /// let storage = AppendStorage::from(PathBuf::from("data.bin"));
-    /// ```
-    ///
     /// # Panics:
     /// - If the file cannot be opened or mapped into memory.
     fn from(path: PathBuf) -> Self {
@@ -238,17 +230,6 @@ impl From<PathBuf> for AppendStorage {
 }
 
 impl AppendStorage {
-    /// Retrieves an iterator over all valid entries in the storage.
-    ///
-    /// This iterator allows scanning the storage file and retrieving **only the most recent**
-    /// versions of each key.
-    ///
-    /// # Returns:
-    /// - An `EntryIterator` instance for iterating over valid entries.
-    pub fn iter_entries(&self) -> EntryIterator {
-        EntryIterator::new(&self.mmap, self.last_offset)
-    }
-
     /// Opens an **existing** or **new** append-only storage file.
     ///
     /// This function:
@@ -266,18 +247,34 @@ impl AppendStorage {
     /// - `Err(std::io::Error)`: If any file operation fails.
     pub fn open(path: &Path) -> Result<Self> {
         let file = Self::open_file_in_append_mode(path)?;
-
         let file_len = file.get_ref().metadata()?.len();
 
         // First mmap the file
-        let mmap = unsafe { memmap2::MmapOptions::new().map(file.get_ref())? };
+        let mmap = Self::init_mmap(&file)?;
 
         // Recover valid chain using mmap, not file
         let final_len = Self::recover_valid_chain(&mmap, file_len)?;
-        file.get_ref().set_len(final_len)?; // Correct file size before remapping
 
-        // Re-map the file after recovery
-        let mmap = unsafe { memmap2::MmapOptions::new().map(file.get_ref())? };
+        if final_len < file_len {
+            warn!(
+                "Truncating corrupted data in {} from offset {} to {}.",
+                path.display(),
+                final_len,
+                file_len
+            );
+
+            // Close the file before truncation
+            drop(mmap);
+            drop(file);
+
+            // Reopen the file in read-write mode and truncate it
+            let file = OpenOptions::new().read(true).write(true).open(path)?;
+            file.set_len(final_len)?;
+            file.sync_all()?; // Ensure OS writes take effect
+
+            // Now reopen everything fresh
+            return Self::open(path);
+        }
 
         let key_index = Self::build_key_index(&mmap, final_len);
 
@@ -289,6 +286,34 @@ impl AppendStorage {
             lock: Arc::new(RwLock::new(())),
             path: path.to_path_buf(),
         })
+    }
+
+    /// Initializes a memory-mapped file for fast access.
+    ///
+    /// This function creates a memory-mapped file (`mmap`) from a `BufWriter<File>`.
+    /// It provides a read-only view of the file, allowing efficient direct access to
+    /// stored data without unnecessary copies.
+    ///
+    /// # Parameters:
+    /// - `file`: A reference to a `BufWriter<File>`, which must be flushed before
+    ///   mapping to ensure all written data is visible.
+    ///
+    /// # Returns:
+    /// - `Ok(Mmap)`: A memory-mapped view of the file.
+    /// - `Err(std::io::Error)`: If the mapping fails.
+    ///
+    /// # Notes:
+    /// - The `BufWriter<File>` should be flushed before calling this function to
+    ///   ensure that all pending writes are persisted.
+    /// - The memory mapping remains valid as long as the underlying file is not truncated
+    ///   or modified in ways that invalidate the mapping.
+    ///
+    /// # Safety:
+    /// - This function uses an **unsafe** operation (`memmap2::MmapOptions::map`).
+    ///   The caller must ensure that the mapped file is not resized or closed while
+    ///   the mapping is in use, as this could lead to undefined behavior.
+    fn init_mmap(file: &BufWriter<File>) -> Result<Mmap> {
+        unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }
     }
 
     /// Opens the storage file in **append mode**.
@@ -319,6 +344,17 @@ impl AppendStorage {
         file.seek(SeekFrom::End(0))?; // Move cursor to end to prevent overwriting
 
         Ok(BufWriter::new(file))
+    }
+
+    /// Retrieves an iterator over all valid entries in the storage.
+    ///
+    /// This iterator allows scanning the storage file and retrieving **only the most recent**
+    /// versions of each key.
+    ///
+    /// # Returns:
+    /// - An `EntryIterator` instance for iterating over valid entries.
+    pub fn iter_entries(&self) -> EntryIterator {
+        EntryIterator::new(&self.mmap, self.last_offset)
     }
 
     /// Builds an in-memory index for **fast key lookups**.
@@ -463,7 +499,10 @@ impl AppendStorage {
     /// This method is called **after a write operation** to reload the memory-mapped file
     /// and ensure that newly written data is accessible for reading.
     fn remap_file(&mut self) -> Result<()> {
-        self.mmap = Arc::new(unsafe { memmap2::MmapOptions::new().map(self.file.get_ref())? });
+        // self.mmap = Arc::new(unsafe { memmap2::MmapOptions::new().map(self.file.get_ref())? });
+        let mmap = Self::init_mmap(&self.file)?;
+        self.mmap = Arc::new(mmap);
+
         Ok(())
     }
 
