@@ -872,30 +872,7 @@ impl AppendStorage {
     // TODO: Document return type
     /// Copies an `EntryHandle` instance to a separate storage instance.
     fn copy_entry_handle(&self, entry: &EntryHandle, target: &mut AppendStorage) -> Result<u64> {
-        let guard = self.mmap.lock().unwrap();
-        let mmap_arc = std::sync::Arc::clone(&*guard);
-        drop(guard); // release lock immediately so other threads can proceed
-
-        // Calculate offsets relative to `mmap_arc`
-        let entry_start_offset = entry.as_ptr() as usize - mmap_arc.as_ptr() as usize;
-        let metadata_offset = entry_start_offset + entry.len();
-
-        // Check boundaries
-        if metadata_offset + METADATA_SIZE > mmap_arc.len() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("Skipping corrupted entry at offset {}", entry_start_offset),
-            ));
-        }
-
-        let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
-        let metadata = EntryMetadata::deserialize(metadata_bytes);
-
-        debug!(
-            "Writing key_hash: {} | entry_size: {}",
-            metadata.key_hash,
-            entry.len()
-        );
+        let metadata = entry.metadata();
 
         // Append to the compacted storage
         let result = target.append_entry_with_key_hash(metadata.key_hash, &entry)?;
