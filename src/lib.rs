@@ -10,7 +10,7 @@ use simd_copy::simd_copy;
 mod digest;
 use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use log::{debug, info, warn};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicPtr, AtomicU64, Ordering};
 
 /// Metadata structure (fixed 20 bytes at the end of each entry)
 const METADATA_SIZE: usize = 20;
@@ -202,7 +202,7 @@ impl<'a> Iterator for EntryIterator<'a> {
 /// Append-Only Storage Engine
 pub struct AppendStorage {
     file: Arc<RwLock<BufWriter<File>>>, // ✅ Wrap file in Arc<RwLock<>> for safe concurrent writes
-    mmap: Arc<Mmap>,                    // ✅ Immutable, zero-copy reads (doesn't need RwLock)
+    mmap: Arc<AtomicPtr<Mmap>>,         // Atomic pointer to an mmap for zero-copy reads
     last_offset: AtomicU64,
     key_index: Arc<RwLock<HashMap<u64, u64, Xxh3BuildHasher>>>, // ✅ Wrap in RwLock for safe writes
     path: PathBuf,
@@ -250,7 +250,7 @@ impl AppendStorage {
         let file_len = file.get_ref().metadata()?.len();
 
         // First mmap the file
-        let mmap = Self::init_mmap(&file)?;
+        let mut mmap = Self::init_mmap(&file)?;
 
         // Recover valid chain using mmap, not file
         let final_len = Self::recover_valid_chain(&mmap, file_len)?;
@@ -280,7 +280,7 @@ impl AppendStorage {
 
         Ok(Self {
             file: Arc::new(RwLock::new(file)), // ✅ Wrap in RwLock
-            mmap: Arc::new(mmap),              // ✅ No locking needed for mmap (zero-copy)
+            mmap: Arc::new(AtomicPtr::new(Box::into_raw(Box::new(mmap)))), // ✅ Correct
             last_offset: final_len.into(),
             key_index: Arc::new(RwLock::new(key_index)), // ✅ Wrap HashMap in RwLock
             path: path.to_path_buf(),
@@ -353,7 +353,14 @@ impl AppendStorage {
     /// # Returns:
     /// - An `EntryIterator` instance for iterating over valid entries.
     pub fn iter_entries(&self) -> EntryIterator {
-        EntryIterator::new(&self.mmap, self.last_offset.load(Ordering::Acquire))
+        // Get the current mmap pointer (Acquire ensures memory order)
+        let mmap_ptr = self.mmap.load(Ordering::Acquire);
+        assert!(!mmap_ptr.is_null(), "Mmap should never be null");
+
+        // Convert it back to a reference
+        let mmap_ref = unsafe { &*mmap_ptr };
+
+        EntryIterator::new(mmap_ref, self.last_offset.load(Ordering::Acquire))
     }
 
     /// Builds an in-memory index for **fast key lookups**.
@@ -497,7 +504,7 @@ impl AppendStorage {
     ///
     /// This method is called **after a write operation** to reload the memory-mapped file
     /// and ensure that newly written data is accessible for reading.
-    fn remap_file(&mut self) -> Result<()> {
+    fn remap_file(&self) -> Result<()> {
         let file_guard = self.file.read().map_err(|_| {
             std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -505,8 +512,18 @@ impl AppendStorage {
             )
         })?;
 
-        let mmap = Self::init_mmap(&file_guard)?; // ✅ Now passing &BufWriter<File>
-        self.mmap = Arc::new(mmap);
+        let new_mmap = unsafe { memmap2::MmapOptions::new().map(file_guard.get_ref())? };
+
+        // Create a new mmap pointer
+        let new_mmap_ptr = Box::into_raw(Box::new(new_mmap));
+
+        // Atomically swap the old mmap pointer
+        let old_mmap_ptr = self.mmap.swap(new_mmap_ptr, Ordering::Release);
+
+        // Drop the old mmap safely
+        if !old_mmap_ptr.is_null() {
+            unsafe { drop(Box::from_raw(old_mmap_ptr)) };
+        }
 
         Ok(())
     }
@@ -622,25 +639,28 @@ impl AppendStorage {
     /// - `Some(&[u8])` containing the binary payload of the last entry.
     /// - `None` if the storage is empty or corrupted.
     pub fn read_last_entry(&self) -> Option<&[u8]> {
-        // let _read_lock = self.lock.read().ok()?;
+        let mmap_ptr = self.mmap.load(Ordering::Acquire);
+        assert!(!mmap_ptr.is_null(), "Mmap should never be null");
+
+        let mmap = unsafe { &*mmap_ptr }; // Dereference AtomicPtr<Mmap>
 
         let last_offset = self.last_offset.load(Ordering::Acquire);
 
-        if last_offset < METADATA_SIZE as u64 || self.mmap.len() == 0 {
+        if last_offset < METADATA_SIZE as u64 || mmap.len() == 0 {
             return None;
         }
 
         let metadata_offset = (last_offset - METADATA_SIZE as u64) as usize;
-        let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+        let metadata_bytes = &mmap[metadata_offset..metadata_offset + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
 
         let entry_start = metadata.prev_offset as usize;
         let entry_end = metadata_offset;
-        if entry_start >= entry_end || entry_end > self.mmap.len() {
+        if entry_start >= entry_end || entry_end > mmap.len() {
             return None;
         }
 
-        Some(&self.mmap[entry_start..entry_end]) // Return reference instead of copying data
+        Some(&mmap[entry_start..entry_end]) // Zero-copy reference
     }
 
     /// Retrieves the most recent value associated with a given key.
@@ -657,15 +677,19 @@ impl AppendStorage {
     pub fn get_entry_by_key(&self, key: &[u8]) -> Option<&[u8]> {
         let key_hash = compute_hash(key);
 
-        // if let Some(&offset) = self.key_index.get(&key_hash) {
+        let mmap_ptr = self.mmap.load(Ordering::Acquire);
+        assert!(!mmap_ptr.is_null(), "Mmap should never be null");
+
+        let mmap = unsafe { &*mmap_ptr }; // Dereference AtomicPtr<Mmap>
+
         if let Some(&offset) = self.key_index.read().ok()?.get(&key_hash) {
             // Fast lookup
-            let metadata_bytes = &self.mmap[offset as usize..offset as usize + METADATA_SIZE];
+            let metadata_bytes = &mmap[offset as usize..offset as usize + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             let entry_start = metadata.prev_offset as usize;
 
-            let entry = &self.mmap[entry_start..offset as usize];
+            let entry = &mmap[entry_start..offset as usize];
 
             // Ensure deleted (null) entries are ignored
             if entry == NULL_BYTE {
@@ -680,10 +704,6 @@ impl AppendStorage {
 
     /// Compacts the storage by keeping only the latest version of each key.
     pub fn compact(&mut self) -> Result<()> {
-        // let _write_lock = self.lock.write().map_err(|_| {
-        //     std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire write lock")
-        // })?;
-
         let compacted_path = self.path.with_extension("bk");
 
         debug!("Starting compaction. Writing to: {:?}", compacted_path);
@@ -691,18 +711,23 @@ impl AppendStorage {
         // Create a new AppendStorage instance for the compacted file
         let mut compacted_storage = AppendStorage::open(&compacted_path)?;
 
+        let mmap_ptr = self.mmap.load(Ordering::Acquire);
+        assert!(!mmap_ptr.is_null(), "Mmap should never be null");
+
+        let mmap = unsafe { &*mmap_ptr }; // Dereference AtomicPtr<Mmap>
+
         // Iterate over all valid entries
         for entry in self.iter_entries() {
-            let entry_start_offset = entry.as_ptr() as usize - self.mmap.as_ptr() as usize;
+            let entry_start_offset = entry.as_ptr() as usize - mmap.as_ptr() as usize;
             let metadata_offset = entry_start_offset + entry.len();
 
             // Extract metadata separately from mmap
-            if metadata_offset + METADATA_SIZE > self.mmap.len() {
+            if metadata_offset + METADATA_SIZE > mmap.len() {
                 warn!("Skipping corrupted entry at offset {}", entry_start_offset);
                 continue;
             }
 
-            let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+            let metadata_bytes = &mmap[metadata_offset..metadata_offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             // Append the entry with the correct key_hash
@@ -728,7 +753,6 @@ impl AppendStorage {
         debug!("Reduced backup completed. Swapping files...");
 
         std::fs::rename(&compacted_path, &self.path)?;
-        // self.remap_file()?; // Remap file to load compacted data
 
         info!("Compaction successful.");
         Ok(())
@@ -760,16 +784,20 @@ impl AppendStorage {
         let mut unique_entry_size: u64 = 0;
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
 
+        let mmap_ptr = self.mmap.load(Ordering::Acquire);
+        assert!(!mmap_ptr.is_null(), "Mmap should never be null");
+        let mmap = unsafe { &*mmap_ptr }; // Dereference AtomicPtr<Mmap>
+
         for entry in self.iter_entries() {
-            let entry_start_offset = entry.as_ptr() as usize - self.mmap.as_ptr() as usize;
+            let entry_start_offset = entry.as_ptr() as usize - mmap.as_ptr() as usize;
             let metadata_offset = entry_start_offset + entry.len();
 
-            if metadata_offset + METADATA_SIZE > self.mmap.len() {
+            if metadata_offset + METADATA_SIZE > mmap.len() {
                 warn!("Skipping corrupted entry at offset {}", entry_start_offset);
                 continue;
             }
 
-            let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+            let metadata_bytes = &mmap[metadata_offset..metadata_offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             // Only count the latest version of each key
