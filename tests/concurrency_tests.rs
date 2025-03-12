@@ -4,15 +4,17 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use tempfile::tempdir;
 use tokio::sync::{Barrier, Mutex, Notify, RwLock};
 use tokio::task;
 use tokio::time::{sleep, Duration, Instant};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_read_write_test() {
-    let storage = Arc::new(RwLock::new(
-        AppendStorage::open(&PathBuf::from("test.db")).unwrap(),
-    ));
+    let dir = tempdir().expect("Failed to create temp dir");
+    let path = dir.path().join("test_storage.bin");
+
+    let storage = Arc::new(RwLock::new(AppendStorage::open(&path).unwrap()));
 
     let notify = Arc::new(Notify::new());
 
@@ -64,9 +66,10 @@ async fn concurrent_read_write_test() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn interleaved_read_write_test() {
-    let storage = Arc::new(Mutex::new(
-        AppendStorage::open(&PathBuf::from("test_interleaved.db")).unwrap(),
-    ));
+    let dir = tempdir().expect("Failed to create temp dir");
+    let path = dir.path().join("test_storage.bin");
+
+    let storage = Arc::new(Mutex::new(AppendStorage::open(&path).unwrap()));
 
     let storage_clone_a = storage.clone();
     let thread_a = task::spawn(async move {
