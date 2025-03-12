@@ -49,7 +49,7 @@ async fn concurrent_read_write_test() {
             let read_guard = storage_clone.read().await;
             let result = read_guard.get_entry_by_key(b"key5");
 
-            assert_eq!(result, Some(b"value5".as_ref())); // Ensure correctness
+            assert_eq!(result.as_deref(), Some(b"value5".as_ref())); // Ensure correctness
         }));
     }
 
@@ -95,8 +95,8 @@ async fn interleaved_read_write_test() {
         {
             let storage = storage_clone_a.lock().await;
             let result = storage.get_entry_by_key(key);
-            eprintln!("[Thread A] Read updated value: {:?}", result);
-            assert_eq!(result, Some(b"value_from_B".as_ref()));
+            eprintln!("[Thread A] Read updated value: {:?}", result.as_slice());
+            assert_eq!(result.as_deref(), Some(b"value_from_B".as_ref()));
         }
     });
 
@@ -114,7 +114,7 @@ async fn interleaved_read_write_test() {
             let storage = storage_clone_b.lock().await;
             let result = storage.get_entry_by_key(key);
             eprintln!("[Thread B] Read initial value: {:?}", result);
-            assert_eq!(result, Some(b"value_from_A1".as_ref()));
+            assert_eq!(result.as_deref(), Some(b"value_from_A1".as_ref()));
         }
 
         // Step 4: Write new data
@@ -140,6 +140,6 @@ async fn interleaved_read_write_test() {
         let storage = storage.lock().await;
         let final_value = storage.get_entry_by_key(b"shared_key");
         eprintln!("[Main] FINAL VALUE: {:?}", final_value);
-        assert_eq!(final_value, Some(b"value_from_B".as_ref()));
+        assert_eq!(final_value.as_deref(), Some(b"value_from_B".as_ref()));
     }
 }

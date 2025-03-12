@@ -15,6 +15,7 @@ use std::sync::atomic::{AtomicPtr, AtomicU64, Ordering};
 
 /// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
 /// Lets you access the bytes of the entry as long as this struct is alive.
+#[derive(Debug)]
 pub struct EntryHandle {
     mmap_arc: Arc<Mmap>,
     range: Range<usize>,
@@ -26,6 +27,43 @@ impl EntryHandle {
         &self.mmap_arc[self.range.clone()]
     }
 }
+
+/// Let us do: `assert_eq!(entry_handle, b"some bytes")`
+impl PartialEq<[u8]> for EntryHandle {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.as_slice() == other
+    }
+}
+
+/// Enable `*entry_handle` to act like a `&[u8]`
+impl std::ops::Deref for EntryHandle {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+/// Let us do: `assert_eq!(entry_handle, b"some bytes")`
+// impl PartialEq<[u8]> for EntryHandle {
+//     fn eq(&self, other: &[u8]) -> bool {
+//         self.as_slice() == other
+//     }
+// }
+
+// /// Allow comparisons with `&[u8]`
+// impl PartialEq<&[u8]> for EntryHandle {
+//     fn eq(&self, other: &&[u8]) -> bool {
+//         self.as_slice() == *other
+//     }
+// }
+
+// /// Allow comparisons with `Vec<u8>`
+// impl PartialEq<Vec<u8>> for EntryHandle {
+//     fn eq(&self, other: &Vec<u8>) -> bool {
+//         self.as_slice() == other.as_slice()
+//     }
+// }
 
 /// Metadata structure (fixed 20 bytes at the end of each entry)
 const METADATA_SIZE: usize = 20;

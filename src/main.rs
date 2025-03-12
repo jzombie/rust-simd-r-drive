@@ -88,11 +88,11 @@ fn main() {
 
                     if stdout.is_terminal() {
                         // If writing to a terminal, use UTF-8 safe string output
-                        writeln!(handle, "{}", String::from_utf8_lossy(&value))
+                        writeln!(handle, "{}", String::from_utf8_lossy(&value.as_slice()))
                             .expect("Failed to write output");
                     } else {
                         // If redirected, output raw binary
-                        handle.write_all(&value).expect("Failed to write binary output");
+                        handle.write_all(&value.as_slice()).expect("Failed to write binary output");
                         handle.flush().expect("Failed to flush output");
                     }
                 }
