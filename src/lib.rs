@@ -48,7 +48,7 @@ const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 /// - The checksum is **not cryptographically secure** but serves as a quick integrity check.
 /// - The first entry for a key has `prev_offset = 0`, indicating no previous version.
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 struct EntryMetadata {
     key_hash: u64,     // 8 bytes (hashed key for lookup)
     prev_offset: u64,  // 8 bytes (absolute offset of previous entry)
