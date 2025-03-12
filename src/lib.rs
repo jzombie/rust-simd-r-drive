@@ -601,6 +601,7 @@ impl AppendStorage {
         Ok(())
     }
 
+    // TODO: Document return type
     /// High-level method: Appends a single entry by key
     pub fn append_entry(&mut self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
@@ -621,11 +622,13 @@ impl AppendStorage {
         self.append_entry(key, &NULL_BYTE)
     }
 
+    // TODO: Document return type
     /// High-level method: Appends a single entry by key hash
     pub fn append_entry_with_key_hash(&mut self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write(vec![(key_hash, payload)])
     }
 
+    // TODO: Document return type
     /// Batch append multiple entries as a single transaction
     pub fn append_entries(&mut self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let hashed_entries: Vec<(u64, &[u8])> = entries
@@ -635,6 +638,7 @@ impl AppendStorage {
         self.batch_write(hashed_entries)
     }
 
+    // TODO: Document return type
     /// Batch append multiple entries with precomputed key hashes
     pub fn append_entries_with_key_hashes(&mut self, entries: &[(u64, &[u8])]) -> Result<u64> {
         self.batch_write(entries.to_vec())
@@ -809,6 +813,7 @@ impl AppendStorage {
         })
     }
 
+    // TODO: Document return type
     /// Copies an `EntryHandle` instance to a separate storage instance.
     fn copy_entry(&self, entry: &EntryHandle, target: &mut AppendStorage) -> Result<u64> {
         let guard = self.mmap.lock().unwrap();
