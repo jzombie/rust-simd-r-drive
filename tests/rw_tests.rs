@@ -197,6 +197,11 @@ mod tests {
         eprintln!("File size after corruption: {}", file_size_after);
 
         // Skipping the following tests on Windows due to memory-mapped file restrictions.
+        //
+        // Note: Testing this manually on Windows does work. This issue appears to only be related
+        // to the current testing environment and I have not yet found a work around after trying
+        // to close this section in a variety of ways. Maybe implementing a `Drop` trait on `Storage`
+        // could work?
         // 
         // After wrapping `mmap` with `Arc<AtomicPtr<Mmap>>`, these tests started failing
         // at commit: 
