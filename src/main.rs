@@ -39,7 +39,6 @@ struct Cli {
     command: Commands,
 }
 
-// TODO: Implement copy and move commands (for single entries)
 #[derive(Subcommand)]
 enum Commands {
     /// Read the value associated with a key
