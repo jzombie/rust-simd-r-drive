@@ -871,9 +871,21 @@ impl AppendStorage {
         })
     }
 
+    // TODO: Document
+    pub fn copy_entry(&self, key: &[u8], target: &mut AppendStorage) -> Result<u64> {
+        let entry_handle = self.get_entry_by_key(key).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Key not found: {:?}", key),
+            )
+        })?;
+
+        self.copy_entry_handle(&entry_handle, target)
+    }
+
     // TODO: Document return type
     /// Copies an `EntryHandle` instance to a separate storage instance.
-    fn copy_entry(&self, entry: &EntryHandle, target: &mut AppendStorage) -> Result<u64> {
+    fn copy_entry_handle(&self, entry: &EntryHandle, target: &mut AppendStorage) -> Result<u64> {
         let guard = self.mmap.lock().unwrap();
         let mmap_arc = std::sync::Arc::clone(&*guard);
         drop(guard); // release lock immediately so other threads can proceed
@@ -915,7 +927,7 @@ impl AppendStorage {
 
         // 2) Iterate over all valid entries using your iterator
         for entry in self.iter_entries() {
-            self.copy_entry(&entry, &mut compacted_storage)?;
+            self.copy_entry_handle(&entry, &mut compacted_storage)?;
         }
 
         // 4) Flush the compacted file

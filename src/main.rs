@@ -57,6 +57,26 @@ enum Commands {
         value: Option<String>,
     },
 
+    /// Copy an entry from one storage file to another
+    Copy {
+        /// The key to copy
+        key: String,
+
+        /// Target storage file
+        #[arg(value_name = "target")]
+        target: PathBuf,
+    },
+
+    /// Move an entry from one storage file to another (copy and delete)
+    Move {
+        /// The key to move
+        key: String,
+
+        /// Target storage file
+        #[arg(value_name = "target")]
+        target: PathBuf,
+    },
+
     /// Delete a key
     Delete {
         /// The key to delete
@@ -137,7 +157,45 @@ fn main() {
             );
 
         }
+
+        Commands::Copy { key, target } => {
+            let source_storage = AppendStorage::open(&cli.storage).expect("Failed to open source storage");
+            let mut target_storage = AppendStorage::open(target).expect("Failed to open target storage");
+        
+            source_storage
+                    .copy_entry(key.as_bytes(), &mut target_storage)
+                    .map_err(|err| {
+                        error!("Could not copy entry. Received error: {}", err.to_string());
+                        std::process::exit(1);
+                    })
+                    .ok(); // Ignore the success case
                 
+                info!("Copied key '{}' to {:?}", key, target);
+        },
+
+        Commands::Move { key, target } => {
+            let mut source_storage = AppendStorage::open(&cli.storage).expect("Failed to open source storage");
+            let mut target_storage = AppendStorage::open(target).expect("Failed to open target storage");
+        
+            match source_storage.get_entry_by_key(key.as_bytes()) {
+                Some(entry) => {
+                    // target_storage
+                    //     .append_entry_with_key_hash(entry.metadata().key_hash, entry.as_slice())
+                    //     .expect("Failed to move entry");
+        
+                    // source_storage
+                    //     .delete_entry(key.as_bytes())
+                    //     .expect("Failed to delete entry after move");
+        
+                    // info!("Moved key '{}' to {:?}", key, target_storage);
+                }
+                None => {
+                    error!("Error: Key '{}' not found in {:?}", key, cli.storage);
+                    std::process::exit(1);
+                }
+            }
+        },
+                        
 
         Commands::Delete { key } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
