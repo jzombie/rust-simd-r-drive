@@ -576,33 +576,32 @@ mod tests {
         let storage =
             AppendStorage::open(&path).expect("Failed to reopen storage after compaction");
 
-        for entry in storage.into_iter() {
-            eprintln!("Entry: {:?}", entry);
-        }
+        // for entry in storage.iter_entries() {
+        //     eprintln!("Entry: {:?}", entry);
+        // }
 
-        // TODO: Uncomment
         // Verify that only the latest versions remain
-        // assert_eq!(
-        //     storage.get_entry_by_key(key1).as_deref(),
-        //     Some(text_payload2)
-        // );
-        // assert_eq!(
-        //     storage.get_entry_by_key(key2).as_deref(),
-        //     Some(&binary_payload2[..])
-        // );
-        // assert_eq!(
-        //     storage.get_entry_by_key(key4).as_deref(),
-        //     Some(&integer_payload2[..])
-        // );
-        // assert_eq!(
-        //     storage.get_entry_by_key(key5).as_deref(),
-        //     Some(&float_payload2[..])
-        // );
-        // assert_eq!(
-        //     storage.get_entry_by_key(key6).as_deref(),
-        //     Some(&mixed_payload2[..])
-        // );
-        // assert_eq!(storage.get_entry_by_key(key7).as_deref(), None);
+        assert_eq!(
+            storage.get_entry_by_key(key1).as_deref(),
+            Some(text_payload2)
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key2).as_deref(),
+            Some(&binary_payload2[..])
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key4).as_deref(),
+            Some(&integer_payload2[..])
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key5).as_deref(),
+            Some(&float_payload2[..])
+        );
+        assert_eq!(
+            storage.get_entry_by_key(key6).as_deref(),
+            Some(&mixed_payload2[..])
+        );
+        assert_eq!(storage.get_entry_by_key(key7).as_deref(), None);
 
         // let retrieved_struct = storage
         //     .get_entry_by_key(key3)
