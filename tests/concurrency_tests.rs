@@ -1,3 +1,4 @@
+use serial_test::serial;
 use simd_r_drive::AppendStorage;
 use std::sync::Arc;
 use tempfile::tempdir;
@@ -6,6 +7,7 @@ use tokio::task;
 use tokio::time::{sleep, Duration};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[serial]
 async fn concurrent_write_test() {
     let dir = tempdir().expect("Failed to create temp dir");
     let path = dir.path().join("test_storage.bin");
@@ -13,7 +15,7 @@ async fn concurrent_write_test() {
     let storage = Arc::new(Mutex::new(AppendStorage::open(&path).unwrap()));
 
     let num_writes = 10;
-    let thread_count = 2; // More threads seem fine, but debugging deadlocks on GitHub on macOS (runs fine on local macOS)
+    let thread_count = 8;
     let mut tasks = Vec::new();
 
     for thread_id in 0..thread_count {
@@ -58,6 +60,7 @@ async fn concurrent_write_test() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[serial]
 async fn concurrent_read_write_test() {
     let dir = tempdir().expect("Failed to create temp dir");
     let path = dir.path().join("test_storage.bin");
@@ -109,6 +112,7 @@ async fn concurrent_read_write_test() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[serial]
 async fn interleaved_read_write_test() {
     let dir = tempdir().expect("Failed to create temp dir");
     let path = dir.path().join("test_storage.bin");
