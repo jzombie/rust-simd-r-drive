@@ -66,7 +66,13 @@ enum Commands {
     Compact,
 
     /// Get current state of storage file
-    Info 
+    Info,
+
+    /// Access the metadata of a key
+    Metadata {
+        // The key to query
+        key: String
+    }
 }
 
 fn main() {
@@ -95,6 +101,23 @@ fn main() {
                         handle.write_all(&value.as_slice()).expect("Failed to write binary output");
                         handle.flush().expect("Failed to flush output");
                     }
+                }
+                None => {
+                    error!("Error: Key '{}' not found", key);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Commands::Metadata { key } => {
+            let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            
+            match storage.get_entry_by_key(key.as_bytes()) {
+                Some(value) => {
+                    println!("Metadata:");
+                    println!("--------------------------------");
+                    print!("{:?}\n", value.metadata());
+                    println!("--------------------------------");
                 }
                 None => {
                     error!("Error: Key '{}' not found", key);
@@ -166,9 +189,9 @@ fn main() {
             println!("Storage Info:");
             println!("--------------------------------");
             println!("File Path:       {:?}", cli.storage);
-            println!("Total Size:      {} bytes", format_bytes(storage_size));
+            println!("Total Size:      {}", format_bytes(storage_size));
             println!("Active Entries:  {}", entry_count);
-            println!("Compaction Savings Estimate: {} bytes", format_bytes(savings_estimate));
+            println!("Compaction Savings Estimate: {}", format_bytes(savings_estimate));
             println!("--------------------------------");
         }
 
