@@ -1,3 +1,4 @@
+use std::cell::UnsafeCell;
 use memmap2::Mmap;
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
@@ -202,7 +203,7 @@ impl<'a> Iterator for EntryIterator<'a> {
 /// Append-Only Storage Engine
 pub struct AppendStorage {
     file: Arc<RwLock<BufWriter<File>>>, // ✅ Wrap file in Arc<RwLock<>> for safe concurrent writes
-    mmap: Arc<Mmap>,                    // ✅ Immutable, zero-copy reads (doesn't need RwLock)
+    mmap: UnsafeCell<Mmap>,                    // ✅ Immutable, zero-copy reads (doesn't need RwLock)
     last_offset: AtomicU64,
     key_index: Arc<RwLock<HashMap<u64, u64, Xxh3BuildHasher>>>, // ✅ Wrap in RwLock for safe writes
     path: PathBuf,
@@ -280,7 +281,7 @@ impl AppendStorage {
 
         Ok(Self {
             file: Arc::new(RwLock::new(file)), // ✅ Wrap in RwLock
-            mmap: Arc::new(mmap),              // ✅ No locking needed for mmap (zero-copy)
+            mmap: UnsafeCell::new(mmap),              // ✅ No locking needed for mmap (zero-copy)
             last_offset: final_len.into(),
             key_index: Arc::new(RwLock::new(key_index)), // ✅ Wrap HashMap in RwLock
             path: path.to_path_buf(),
@@ -353,8 +354,20 @@ impl AppendStorage {
     /// # Returns:
     /// - An `EntryIterator` instance for iterating over valid entries.
     pub fn iter_entries(&self) -> EntryIterator {
-        EntryIterator::new(&self.mmap, self.last_offset.load(Ordering::Acquire))
+        let current_offset = self.last_offset.load(Ordering::Acquire);
+
+        unsafe {
+            let mmap = &*self.mmap.get();
+            if mmap.len() < current_offset as usize {
+                let _ = self.remap_file();  // ✅ No panic risk
+            }
+        }
+
+        EntryIterator::new(unsafe { &*self.mmap.get() }, current_offset)
     }
+    // pub fn iter_entries(&self) -> EntryIterator {
+    //     EntryIterator::new(&self.mmap, self.last_offset.load(Ordering::Acquire))
+    // }
 
     /// Builds an in-memory index for **fast key lookups**.
     ///
@@ -497,7 +510,7 @@ impl AppendStorage {
     ///
     /// This method is called **after a write operation** to reload the memory-mapped file
     /// and ensure that newly written data is accessible for reading.
-    fn remap_file(&mut self) -> Result<()> {
+    fn remap_file(&self) -> Result<()> {
         let file_guard = self.file.read().map_err(|_| {
             std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -507,15 +520,33 @@ impl AppendStorage {
     
         let new_mmap = Self::init_mmap(&file_guard)?;
     
-        // Ensure `mmap` is fully updated before switching
-        let new_offset = file_guard.get_ref().metadata()?.len();
-        self.mmap = Arc::new(new_mmap);
-    
-        // Set last_offset after mmap is updated
-        self.last_offset.store(new_offset, Ordering::Release);
+        unsafe {
+            let old_mmap = self.mmap.get().replace(new_mmap); // ✅ Swap safely
+            drop(old_mmap); // ✅ Ensure the old mmap is properly dropped
+        }
     
         Ok(())
     }
+    
+    // fn remap_file(&mut self) -> Result<()> {
+    //     let file_guard = self.file.read().map_err(|_| {
+    //         std::io::Error::new(
+    //             std::io::ErrorKind::Other,
+    //             "Failed to acquire file read lock",
+    //         )
+    //     })?;
+    
+    //     let new_mmap = Self::init_mmap(&file_guard)?;
+    
+    //     // Ensure `mmap` is fully updated before switching
+    //     let new_offset = file_guard.get_ref().metadata()?.len();
+    //     self.mmap = Arc::new(new_mmap);
+    
+    //     // Set last_offset after mmap is updated
+    //     self.last_offset.store(new_offset, Ordering::Release);
+    
+    //     Ok(())
+    // }
     
 
     /// High-level method: Appends a single entry by key
@@ -643,21 +674,24 @@ impl AppendStorage {
 
         let last_offset = self.last_offset.load(Ordering::Acquire);
 
-        if last_offset < METADATA_SIZE as u64 || self.mmap.len() == 0 {
+        // SAFELY access mmap contents inside UnsafeCell
+        let mmap_ref = unsafe { &*self.mmap.get() };
+
+        if last_offset < METADATA_SIZE as u64 || mmap_ref.len() == 0 {
             return None;
         }
 
         let metadata_offset = (last_offset - METADATA_SIZE as u64) as usize;
-        let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+        let metadata_bytes: &[u8] = &mmap_ref[metadata_offset..metadata_offset + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
 
         let entry_start = metadata.prev_offset as usize;
         let entry_end = metadata_offset;
-        if entry_start >= entry_end || entry_end > self.mmap.len() {
+        if entry_start >= entry_end || entry_end > mmap_ref.len() {
             return None;
         }
 
-        Some(&self.mmap[entry_start..entry_end]) // Return reference instead of copying data
+        Some(&mmap_ref[entry_start..entry_end]) // Return reference instead of copying data
     }
 
     /// Retrieves the most recent value associated with a given key.
@@ -674,15 +708,18 @@ impl AppendStorage {
     pub fn get_entry_by_key(&self, key: &[u8]) -> Option<&[u8]> {
         let key_hash = compute_hash(key);
 
+        // SAFELY access mmap contents inside UnsafeCell
+        let mmap_ref = unsafe { &*self.mmap.get() };
+
         // if let Some(&offset) = self.key_index.get(&key_hash) {
         if let Some(&offset) = self.key_index.read().ok()?.get(&key_hash) {
             // Fast lookup
-            let metadata_bytes = &self.mmap[offset as usize..offset as usize + METADATA_SIZE];
+            let metadata_bytes: &[u8] = &mmap_ref[offset as usize..offset as usize + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             let entry_start = metadata.prev_offset as usize;
 
-            let entry = &self.mmap[entry_start..offset as usize];
+            let entry: &[u8] = &mmap_ref[entry_start..offset as usize];
 
             // Ensure deleted (null) entries are ignored
             if entry == NULL_BYTE {
@@ -701,6 +738,9 @@ impl AppendStorage {
         //     std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire write lock")
         // })?;
 
+        // SAFELY access mmap contents inside UnsafeCell
+        let mmap_ref = unsafe { &*self.mmap.get() };
+
         let compacted_path = self.path.with_extension("bk");
 
         debug!("Starting compaction. Writing to: {:?}", compacted_path);
@@ -710,16 +750,16 @@ impl AppendStorage {
 
         // Iterate over all valid entries
         for entry in self.iter_entries() {
-            let entry_start_offset = entry.as_ptr() as usize - self.mmap.as_ptr() as usize;
+            let entry_start_offset = entry.as_ptr() as usize - mmap_ref.as_ptr() as usize;
             let metadata_offset = entry_start_offset + entry.len();
 
             // Extract metadata separately from mmap
-            if metadata_offset + METADATA_SIZE > self.mmap.len() {
+            if metadata_offset + METADATA_SIZE > mmap_ref.len() {
                 warn!("Skipping corrupted entry at offset {}", entry_start_offset);
                 continue;
             }
 
-            let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+            let metadata_bytes: &[u8] = &mmap_ref[metadata_offset..metadata_offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             // Append the entry with the correct key_hash
@@ -778,16 +818,19 @@ impl AppendStorage {
         let mut unique_entry_size: u64 = 0;
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
 
+        // SAFELY access mmap contents inside UnsafeCell
+        let mmap_ref = unsafe { &*self.mmap.get() };
+
         for entry in self.iter_entries() {
-            let entry_start_offset = entry.as_ptr() as usize - self.mmap.as_ptr() as usize;
+            let entry_start_offset = entry.as_ptr() as usize - mmap_ref.as_ptr() as usize;
             let metadata_offset = entry_start_offset + entry.len();
 
-            if metadata_offset + METADATA_SIZE > self.mmap.len() {
+            if metadata_offset + METADATA_SIZE > mmap_ref.len() {
                 warn!("Skipping corrupted entry at offset {}", entry_start_offset);
                 continue;
             }
 
-            let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+            let metadata_bytes: &[u8] = &mmap_ref[metadata_offset..metadata_offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             // Only count the latest version of each key
