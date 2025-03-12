@@ -20,10 +20,18 @@ By focusing solely on efficient data storage and retrieval, `SIMD R Drive` provi
   <img src="assets/storage-layout.png" title="Storage Layout" />
 </div>
 
-## Currently Not Implemented: Thread Safety and Multiple Instance Locking
+## Thread Safety and Concurrency Handling
 
-As of now, the system does not support full thread safety, and multiple instances of the application accessing the same file may result in unpredictable behavior. Specifically, the following aspects are not yet implemented:
+`SIMD R Drive` supports concurrent access using a combination of **read/write locks (`RwLock`)**, **atomic operations (`AtomicU64`)**, and **reference counting (`Arc`)** to ensure safe access across multiple threads. 
 
-- **Thread safety**: There is no mechanism in place to guarantee that multiple threads can safely access and modify the data concurrently. This could lead to race conditions, corrupted data, or other undefined behaviors when read and write operations are happening simultaneously in different threads.
+- **Reads are zero-copy and lock-free**: Since entries are read directly from a memory-mapped file (`mmap`), multiple threads can safely perform reads in parallel without requiring synchronization. The storage structure does not modify entries once written, ensuring safe concurrent reads.
   
-- **Multiple instance synchronization**: If multiple instances of the application attempt to access the same storage file concurrently, there is no locking or coordination to ensure data integrity. Without proper synchronization, actions from one instance could conflict with another, leading to data corruption or loss.
+- **Writes are synchronized with `RwLock`**: All write operations acquire a **write lock** (`RwLock<File>`), ensuring only one thread can modify the storage file at a time. This prevents race conditions when appending new entries.
+  
+- **Index updates use `RwLock<HashMap>`**: The in-memory key index is wrapped in an `RwLock<HashMap>` to allow concurrent lookups while ensuring exclusive access during modifications.
+
+- **Memory mapping (`mmap`) is protected by `Mutex<Arc<Mmap>>`**: The memory-mapped file reference is wrapped in a `Mutex<Arc<Mmap>>` to prevent unsafe remapping while reads are in progress. This ensures that readers always have a valid view of the storage file.
+
+- **Atomic offsets ensure correct ordering**: The last written offset (`last_offset`) is managed using `AtomicU64`, avoiding unnecessary locking while ensuring correct sequential writes.
+
+These mechanisms ensure that `SIMD R Drive` can handle concurrent reads and writes safely in a **single-process, multi-threaded** environment. However, **multiple instances of the application accessing the same file are not synchronized**, meaning external file locking should be used if multiple processes need to coordinate access to the same storage file.
