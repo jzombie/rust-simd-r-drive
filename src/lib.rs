@@ -19,12 +19,18 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub struct EntryHandle {
     mmap_arc: Arc<Mmap>,
     range: Range<usize>,
+    metadata: EntryMetadata,
 }
 
 impl EntryHandle {
     /// Returns the sub-slice of bytes corresponding to the entry.
     pub fn as_slice(&self) -> &[u8] {
         &self.mmap_arc[self.range.clone()]
+    }
+
+    /// Returns a reference to the entry’s parsed metadata.
+    pub fn metadata(&self) -> &EntryMetadata {
+        &self.metadata
     }
 }
 
@@ -95,7 +101,7 @@ const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 /// - The first entry for a key has `prev_offset = 0`, indicating no previous version.
 #[repr(C)]
 #[derive(Debug)]
-struct EntryMetadata {
+pub struct EntryMetadata {
     key_hash: u64,     // 8 bytes (hashed key for lookup)
     prev_offset: u64,  // 8 bytes (absolute offset of previous entry)
     checksum: [u8; 4], // 4 bytes (checksum for integrity)
@@ -246,6 +252,7 @@ impl Iterator for EntryIterator {
         Some(EntryHandle {
             mmap_arc: Arc::clone(&self.mmap),
             range: entry_start..entry_end,
+            metadata,
         })
     }
 }
@@ -738,6 +745,7 @@ impl AppendStorage {
         Some(EntryHandle {
             mmap_arc,
             range: entry_start..entry_end,
+            metadata,
         })
     }
 
@@ -793,6 +801,7 @@ impl AppendStorage {
         Some(EntryHandle {
             mmap_arc,
             range: entry_start..entry_end,
+            metadata,
         })
     }
 
