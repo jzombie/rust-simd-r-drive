@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::From;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Result, Seek, SeekFrom, Write};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 mod simd_copy;
@@ -11,6 +12,20 @@ mod digest;
 use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use log::{debug, info, warn};
 use std::sync::atomic::{AtomicPtr, AtomicU64, Ordering};
+
+/// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
+/// Lets you access the bytes of the entry as long as this struct is alive.
+pub struct EntryHandle {
+    mmap_arc: Arc<Mmap>,
+    range: Range<usize>,
+}
+
+impl EntryHandle {
+    /// Returns the sub-slice of bytes corresponding to the entry.
+    pub fn as_slice(&self) -> &[u8] {
+        &self.mmap_arc[self.range.clone()]
+    }
+}
 
 /// Metadata structure (fixed 20 bytes at the end of each entry)
 const METADATA_SIZE: usize = 20;
@@ -647,31 +662,47 @@ impl AppendStorage {
     /// data segment from the memory-mapped file.
     ///
     /// # Returns:
+    /// TODO: Update return type
     /// - `Some(&[u8])` containing the binary payload of the last entry.
     /// - `None` if the storage is empty or corrupted.
-    pub fn read_last_entry(&self) -> Option<&[u8]> {
-        let mmap_ptr = self.mmap.load(Ordering::Acquire);
-        assert!(!mmap_ptr.is_null(), "Mmap should never be null");
+    /// Zero-copy: no bytes are duplicated, just reference-counted.
+    pub fn read_last_entry(&self) -> Option<EntryHandle> {
+        // 1) Lock the `Mutex<Arc<Mmap>>` to safely access the current map
+        let guard = self.mmap.lock().unwrap();
 
-        let mmap = unsafe { &*mmap_ptr }; // Dereference AtomicPtr<Mmap>
+        // 2) Clone the inner Arc<Mmap> so we can drop the lock quickly
+        let mmap_arc = Arc::clone(&*guard);
 
-        let last_offset = self.last_offset.load(Ordering::Acquire);
+        // 3) Release the lock (other threads can proceed)
+        drop(guard);
 
-        if last_offset < METADATA_SIZE as u64 || mmap.len() == 0 {
+        // 4) Use `mmap_arc` to find the last entry boundaries
+        let last_offset = self.last_offset.load(std::sync::atomic::Ordering::Acquire);
+
+        if last_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
             return None;
         }
 
         let metadata_offset = (last_offset - METADATA_SIZE as u64) as usize;
-        let metadata_bytes = &mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+        if metadata_offset + METADATA_SIZE > mmap_arc.len() {
+            return None;
+        }
+
+        // Read the last entry's metadata
+        let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
 
         let entry_start = metadata.prev_offset as usize;
         let entry_end = metadata_offset;
-        if entry_start >= entry_end || entry_end > mmap.len() {
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
             return None;
         }
 
-        Some(&mmap[entry_start..entry_end]) // Zero-copy reference
+        // 5) Create a handle that "owns" the Arc and the byte range
+        Some(EntryHandle {
+            mmap_arc,
+            range: entry_start..entry_end,
+        })
     }
 
     /// Retrieves the most recent value associated with a given key.
@@ -683,39 +714,50 @@ impl AppendStorage {
     /// - `key`: The **binary key** whose latest value is to be retrieved.
     ///
     /// # Returns:
+    /// // TODO: Update return type
     /// - `Some(&[u8])` containing the latest value associated with the key.
     /// - `None` if the key does not exist.
-    pub fn get_entry_by_key(&self, key: &[u8]) -> Option<&[u8]> {
+    pub fn get_entry_by_key(&self, key: &[u8]) -> Option<EntryHandle> {
         let key_hash = compute_hash(key);
 
-        let mmap_ptr = self.mmap.load(Ordering::Acquire);
-        assert!(!mmap_ptr.is_null(), "Mmap should never be null");
+        // 1) Lock the mutex to get our Arc<Mmap>
+        let guard = self.mmap.lock().unwrap();
+        let mmap_arc = Arc::clone(&*guard); // Clone so we can drop the lock quickly
+        drop(guard);
 
-        let mmap = unsafe { &*mmap_ptr };
-
-        // ✅ Re-check last_offset before accessing mmap
-        let last_offset = self.last_offset.load(Ordering::Acquire);
-        if last_offset < METADATA_SIZE as u64 || mmap.len() == 0 {
+        // 2) Re-check last_offset, ensure the file is big enough
+        let last_offset = self.last_offset.load(std::sync::atomic::Ordering::Acquire);
+        if last_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
             return None;
         }
 
-        if let Some(&offset) = self.key_index.read().ok()?.get(&key_hash) {
-            // Fast lookup
-            let metadata_bytes = &mmap[offset as usize..offset as usize + METADATA_SIZE];
-            let metadata = EntryMetadata::deserialize(metadata_bytes);
+        // 3) Look up the offset in the in-memory key index
+        let offset = *self.key_index.read().ok()?.get(&key_hash)?;
 
-            let entry_start = metadata.prev_offset as usize;
-            let entry = &mmap[entry_start..offset as usize];
+        // 4) Grab the metadata from the mapped file
+        if offset as usize + METADATA_SIZE > mmap_arc.len() {
+            return None;
+        }
+        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
+        let metadata = EntryMetadata::deserialize(metadata_bytes);
 
-            // Ensure deleted (null) entries are ignored
-            if entry == NULL_BYTE {
-                return None;
-            }
-
-            return Some(entry);
+        // 5) Extract the actual entry range
+        let entry_start = metadata.prev_offset as usize;
+        let entry_end = offset as usize;
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
+            return None;
         }
 
-        None
+        // Check for tombstone (NULL_BYTE)
+        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+            return None;
+        }
+
+        // 6) Return a handle that *owns* the Arc and the slice range
+        Some(EntryHandle {
+            mmap_arc,
+            range: entry_start..entry_end,
+        })
     }
 
     /// Compacts the storage by keeping only the latest version of each key.
