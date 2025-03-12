@@ -412,8 +412,22 @@ impl AppendStorage {
         })
     }
 
-    // TODO: Document
+    /// Returns the storage file path.
+    ///
+    /// # Returns:
+    /// - A `PathBuf` containing the path to the storage file.
     pub fn get_path(&self) -> PathBuf {
+        /*
+        This function **does not** clone or duplicate the actual storage file.
+        It only returns a clone of the in-memory `PathBuf` reference that
+        represents the file path.
+
+        `PathBuf::clone()` creates a shallow copy of the path, which is
+        inexpensive since it only duplicates the internal path buffer.
+
+        For more details, see:
+        https://doc.rust-lang.org/std/path/struct.PathBuf.html
+        */
         self.path.clone()
     }
 
