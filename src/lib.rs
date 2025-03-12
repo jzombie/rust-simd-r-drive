@@ -10,6 +10,7 @@ use simd_copy::simd_copy;
 mod digest;
 use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use log::{debug, info, warn};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Metadata structure (fixed 20 bytes at the end of each entry)
 const METADATA_SIZE: usize = 20;
@@ -202,7 +203,7 @@ impl<'a> Iterator for EntryIterator<'a> {
 pub struct AppendStorage {
     file: BufWriter<File>,
     mmap: Arc<Mmap>,
-    last_offset: u64,
+    last_offset: AtomicU64, // Use atomic for safe concurrent access
     key_index: HashMap<u64, u64, Xxh3BuildHasher>, // Key → Offset map
     lock: Arc<RwLock<()>>,
     path: PathBuf,
@@ -281,7 +282,7 @@ impl AppendStorage {
         Ok(Self {
             file,
             mmap: Arc::new(mmap),
-            last_offset: final_len,
+            last_offset: final_len.into(),
             key_index,
             lock: Arc::new(RwLock::new(())),
             path: path.to_path_buf(),
@@ -354,7 +355,7 @@ impl AppendStorage {
     /// # Returns:
     /// - An `EntryIterator` instance for iterating over valid entries.
     pub fn iter_entries(&self) -> EntryIterator {
-        EntryIterator::new(&self.mmap, self.last_offset)
+        EntryIterator::new(&self.mmap, self.last_offset.load(Ordering::Acquire))
     }
 
     /// Builds an in-memory index for **fast key lookups**.
@@ -553,7 +554,7 @@ impl AppendStorage {
             })?;
 
             let mut buffer = Vec::new(); // Single buffer to hold all writes in this transaction
-            let mut last_offset = self.last_offset;
+            let mut last_offset = self.last_offset.load(Ordering::Acquire);
 
             for (key_hash, payload) in entries {
                 if payload.is_empty() {
@@ -593,14 +594,14 @@ impl AppendStorage {
             self.file.write_all(&buffer)?;
             self.file.flush()?;
 
-            self.last_offset = last_offset;
+            self.last_offset.store(last_offset, Ordering::Release);
         }
 
         // TODO: Refactor so that the lock can be released after the remap, if possible
         // Remap the file **after** dropping the lock
         self.remap_file()?;
 
-        Ok(self.last_offset)
+        Ok(self.last_offset.load(Ordering::Acquire))
     }
 
     /// Reads the last entry stored in the database.
@@ -615,11 +616,13 @@ impl AppendStorage {
     pub fn read_last_entry(&self) -> Option<&[u8]> {
         let _read_lock = self.lock.read().ok()?;
 
-        if self.last_offset < METADATA_SIZE as u64 || self.mmap.len() == 0 {
+        let last_offset = self.last_offset.load(Ordering::Acquire);
+
+        if last_offset < METADATA_SIZE as u64 || self.mmap.len() == 0 {
             return None;
         }
 
-        let metadata_offset = (self.last_offset - METADATA_SIZE as u64) as usize;
+        let metadata_offset = (last_offset - METADATA_SIZE as u64) as usize;
         let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
 
