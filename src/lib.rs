@@ -360,7 +360,10 @@ impl AppendStorage {
         // Convert it back to a reference
         let mmap_ref = unsafe { &*mmap_ptr };
 
-        EntryIterator::new(mmap_ref, self.last_offset.load(Ordering::Acquire))
+        // ✅ Ensure iteration uses the latest mmap
+        let last_offset = self.last_offset.load(Ordering::Acquire);
+
+        EntryIterator::new(mmap_ref, last_offset)
     }
 
     /// Builds an in-memory index for **fast key lookups**.
@@ -514,11 +517,13 @@ impl AppendStorage {
 
         let new_mmap = unsafe { memmap2::MmapOptions::new().map(file_guard.get_ref())? };
 
-        // Create a new mmap pointer
+        // Atomically update mmap pointer
         let new_mmap_ptr = Box::into_raw(Box::new(new_mmap));
-
-        // Atomically swap the old mmap pointer
         let old_mmap_ptr = self.mmap.swap(new_mmap_ptr, Ordering::Release);
+
+        // Atomically update last_offset to signal all threads
+        let new_offset = file_guard.get_ref().metadata()?.len();
+        self.last_offset.store(new_offset, Ordering::Release);
 
         // Drop the old mmap safely
         if !old_mmap_ptr.is_null() {
@@ -680,7 +685,13 @@ impl AppendStorage {
         let mmap_ptr = self.mmap.load(Ordering::Acquire);
         assert!(!mmap_ptr.is_null(), "Mmap should never be null");
 
-        let mmap = unsafe { &*mmap_ptr }; // Dereference AtomicPtr<Mmap>
+        let mmap = unsafe { &*mmap_ptr };
+
+        // ✅ Re-check last_offset before accessing mmap
+        let last_offset = self.last_offset.load(Ordering::Acquire);
+        if last_offset < METADATA_SIZE as u64 || mmap.len() == 0 {
+            return None;
+        }
 
         if let Some(&offset) = self.key_index.read().ok()?.get(&key_hash) {
             // Fast lookup
@@ -688,7 +699,6 @@ impl AppendStorage {
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             let entry_start = metadata.prev_offset as usize;
-
             let entry = &mmap[entry_start..offset as usize];
 
             // Ensure deleted (null) entries are ignored
