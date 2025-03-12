@@ -684,20 +684,20 @@ impl AppendStorage {
 
     // TODO: Document return type
     /// High-level method: Appends a single entry by key
-    pub fn append_entry(&mut self, key: &[u8], payload: &[u8]) -> Result<u64> {
+    pub fn append_entry(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.append_entry_with_key_hash(key_hash, payload)
     }
 
     // TODO: Document return type
     /// High-level method: Appends a single entry by key hash
-    pub fn append_entry_with_key_hash(&mut self, key_hash: u64, payload: &[u8]) -> Result<u64> {
+    pub fn append_entry_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write(vec![(key_hash, payload)])
     }
 
     // TODO: Document return type
     /// Batch append multiple entries as a single transaction
-    pub fn append_entries(&mut self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
+    pub fn append_entries(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let hashed_entries: Vec<(u64, &[u8])> = entries
             .iter()
             .map(|(key, payload)| (compute_hash(key), *payload))
@@ -707,12 +707,12 @@ impl AppendStorage {
 
     // TODO: Document return type
     /// Batch append multiple entries with precomputed key hashes
-    pub fn append_entries_with_key_hashes(&mut self, entries: &[(u64, &[u8])]) -> Result<u64> {
+    pub fn append_entries_with_key_hashes(&self, entries: &[(u64, &[u8])]) -> Result<u64> {
         self.batch_write(entries.to_vec())
     }
 
     /// Core transaction method (Handles locking, writing, flushing)
-    fn batch_write(&mut self, entries: Vec<(u64, &[u8])>) -> Result<u64> {
+    fn batch_write(&self, entries: Vec<(u64, &[u8])>) -> Result<u64> {
         {
             let mut file = self.file.write().map_err(|_| {
                 std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
