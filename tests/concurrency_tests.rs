@@ -6,6 +6,58 @@ use tokio::task;
 use tokio::time::{sleep, Duration};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_write_test() {
+    let dir = tempdir().expect("Failed to create temp dir");
+    let path = dir.path().join("test_storage.bin");
+
+    let storage = Arc::new(Mutex::new(AppendStorage::open(&path).unwrap()));
+
+    let num_writes = 10;
+    let thread_count = 2;
+    let mut tasks = Vec::new();
+
+    for thread_id in 0..thread_count {
+        let storage_clone = Arc::clone(&storage);
+        tasks.push(task::spawn(async move {
+            for i in 0..num_writes {
+                let key = format!("thread{}_key{}", thread_id, i).into_bytes();
+                let value = format!("thread{}_value{}", thread_id, i).into_bytes();
+                {
+                    let mut storage = storage_clone.lock().await;
+                    storage.append_entry(&key, &value).unwrap();
+                }
+                eprintln!("[Thread {}] Wrote: {:?} -> {:?}", thread_id, key, value);
+                sleep(Duration::from_millis(5)).await; // Simulate delays
+            }
+        }));
+    }
+
+    // Wait for all threads to finish
+    for task in tasks {
+        task.await.unwrap();
+    }
+
+    // Final Check: Ensure all written keys exist
+    let storage = storage.lock().await;
+    for thread_id in 0..thread_count {
+        for i in 0..num_writes {
+            let key = format!("thread{}_key{}", thread_id, i).into_bytes();
+            let value = format!("thread{}_value{}", thread_id, i).into_bytes();
+
+            let stored_value = storage.get_entry_by_key(&key);
+            eprintln!(
+                "[Main] Verifying {} -> {:?} (Found: {:?})",
+                String::from_utf8_lossy(&key),
+                String::from_utf8_lossy(&value),
+                stored_value.as_deref().map(String::from_utf8_lossy)
+            );
+
+            assert_eq!(stored_value.as_deref(), Some(value.as_ref()));
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_read_write_test() {
     let dir = tempdir().expect("Failed to create temp dir");
     let path = dir.path().join("test_storage.bin");
