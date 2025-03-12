@@ -510,7 +510,8 @@ impl AppendStorage {
     ///
     /// This method is called **after a write operation** to reload the memory-mapped file
     /// and ensure that newly written data is accessible for reading.
-    fn remap_file(&self) -> Result<()> {
+    fn remap_file(&self) -> std::io::Result<()> {
+        // 1) Acquire file read lock
         let file_guard = self.file.read().map_err(|_| {
             std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -518,29 +519,22 @@ impl AppendStorage {
             )
         })?;
 
-        // 1. Lock the mutex
-        let guard = self.mmap.lock().unwrap();
-
-        // 2. Clone the Arc<Mmap>
-        let mmap_clone = *guard.clone();
-
-        // // 3. Drop guard so others can proceed
-        // drop(guard);
-
+        // 2) Create a new Mmap from the file
         let new_mmap = unsafe { memmap2::MmapOptions::new().map(file_guard.get_ref())? };
 
-        // Atomically update mmap pointer
-        let new_mmap_ptr = Box::into_raw(Box::new(new_mmap));
-        let old_mmap_ptr = mmap_clone.swap(new_mmap_ptr, Ordering::Release);
+        // 3) Replace the old Arc<Mmap> with a new Arc<Mmap>
+        {
+            // Lock the mutex to get a mutable reference to the current Arc<Mmap>
+            let mut guard = self.mmap.lock().unwrap();
 
-        // Atomically update last_offset to signal all threads
+            // Overwrite the old Arc<Mmap> with the new one
+            *guard = Arc::new(new_mmap);
+        } // Once the guard drops here, other threads can lock again
+
+        // 4) Update last_offset (or any other fields)
         let new_offset = file_guard.get_ref().metadata()?.len();
-        self.last_offset.store(new_offset, Ordering::Release);
-
-        // Drop the old mmap safely
-        if !old_mmap_ptr.is_null() {
-            unsafe { drop(Box::from_raw(old_mmap_ptr)) };
-        }
+        self.last_offset
+            .store(new_offset, std::sync::atomic::Ordering::Release);
 
         Ok(())
     }
