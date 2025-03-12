@@ -1,6 +1,6 @@
 # SIMD R Drive
 
-**Work in progress. Not thread safe.**
+**Work in progress.**
 
 `SIMD R Drive` is a high-performance single-file storage engine optimized for zero-copy binary access.
 
