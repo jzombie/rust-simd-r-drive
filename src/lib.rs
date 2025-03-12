@@ -870,7 +870,7 @@ impl AppendStorage {
     }
 
     // TODO: Document return type
-    /// Copies an `EntryHandle` instance to a separate storage instance.
+    /// Low-level copy functionality.
     fn copy_entry_handle(&self, entry: &EntryHandle, target: &mut AppendStorage) -> Result<u64> {
         let metadata = entry.metadata();
 
