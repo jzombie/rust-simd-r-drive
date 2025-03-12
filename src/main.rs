@@ -163,7 +163,7 @@ fn main() {
             match storage.get_entry_by_key(key.as_bytes()) {
                 Some(entry) => {
                     println!(
-                        "Metadata:\n\
+                        "Metadata for \"{}\":\n\
                         --------------------------------\n\
                         Payload Size:               {} bytes\n\
                         Payload Size with Metadata: {} bytes\n\
@@ -172,14 +172,18 @@ fn main() {
                         Key Hash:                   {}\n\
                         Checksum:                   {:?}\n\
                         Checksum Validity:          {}\n\
+                        --------------------------------\n\
+                        Stored Metadata:            {:?}\n\
                         --------------------------------",
+                        key,
                         entry.size(),
                         entry.size_with_metadata(),
                         entry.offset_range(),
                         entry.address_range(),
                         entry.key_hash(),
                         entry.checksum(),
-                        if entry.is_valid_checksum() { "VALID" } else { "INVALID" }
+                        if entry.is_valid_checksum() { "VALID" } else { "INVALID" },
+                        entry.metadata(),
                     );
                 }
                 None => {
