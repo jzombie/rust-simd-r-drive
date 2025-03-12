@@ -19,27 +19,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 //
 // TODO: Use keys with a null byte for the leading byte to represent "hidden" entries?
 
-/// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
-/// Lets you access the bytes of the entry as long as this struct is alive.
-#[derive(Debug)]
-pub struct EntryHandle {
-    mmap_arc: Arc<Mmap>,
-    range: Range<usize>,
-    metadata: EntryMetadata,
-}
-
-impl EntryHandle {
-    /// Returns the sub-slice of bytes corresponding to the entry.
-    pub fn as_slice(&self) -> &[u8] {
-        &self.mmap_arc[self.range.clone()]
-    }
-
-    /// Returns a reference to the entry’s parsed metadata.
-    pub fn metadata(&self) -> &EntryMetadata {
-        &self.metadata
-    }
-}
-
 /// Enable `*entry_handle` to act like a `&[u8]`
 impl std::ops::Deref for EntryHandle {
     type Target = [u8];
@@ -260,6 +239,37 @@ impl Iterator for EntryIterator {
             range: entry_start..entry_end,
             metadata,
         })
+    }
+}
+
+/// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
+/// Lets you access the bytes of the entry as long as this struct is alive.
+#[derive(Debug)]
+pub struct EntryHandle {
+    mmap_arc: Arc<Mmap>,
+    range: Range<usize>,
+    metadata: EntryMetadata,
+}
+
+impl EntryHandle {
+    /// Returns the sub-slice of bytes corresponding to the entry.
+    pub fn as_slice(&self) -> &[u8] {
+        &self.mmap_arc[self.range.clone()]
+    }
+
+    /// Returns a reference to the entry’s parsed metadata.
+    pub fn metadata(&self) -> &EntryMetadata {
+        &self.metadata
+    }
+
+    /// Returns the payload size.
+    pub fn size(&self) -> usize {
+        self.range.len()
+    }
+
+    /// Returns the payload size plus metadata.
+    pub fn size_with_metadata(&self) -> usize {
+        self.range.len() + METADATA_SIZE
     }
 }
 
