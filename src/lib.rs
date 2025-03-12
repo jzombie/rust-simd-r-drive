@@ -666,20 +666,6 @@ impl AppendStorage {
         self.append_entry_with_key_hash(key_hash, payload)
     }
 
-    /// Deletes a key by appending a **null byte marker**.
-    ///
-    /// The storage engine is **append-only**, so keys cannot be removed directly.
-    /// Instead, a **null byte is appended** as a tombstone entry to mark the key as deleted.
-    ///
-    /// # Parameters:
-    /// - `key`: The **binary key** to mark as deleted.
-    ///
-    /// # Returns:
-    /// - The **new file offset** where the delete marker was appended.
-    pub fn delete_entry(&mut self, key: &[u8]) -> Result<u64> {
-        self.append_entry(key, &NULL_BYTE)
-    }
-
     // TODO: Document return type
     /// High-level method: Appends a single entry by key hash
     pub fn append_entry_with_key_hash(&mut self, key_hash: u64, payload: &[u8]) -> Result<u64> {
@@ -915,6 +901,27 @@ impl AppendStorage {
         let result = target.append_entry_with_key_hash(metadata.key_hash, &entry)?;
 
         Ok(result)
+    }
+
+    // TODO: Document
+    pub fn move_entry(&mut self, key: &[u8], target: &mut AppendStorage) -> Result<u64> {
+        self.copy_entry(key, target)?;
+
+        self.delete_entry(&key)
+    }
+
+    /// Deletes a key by appending a **null byte marker**.
+    ///
+    /// The storage engine is **append-only**, so keys cannot be removed directly.
+    /// Instead, a **null byte is appended** as a tombstone entry to mark the key as deleted.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** to mark as deleted.
+    ///
+    /// # Returns:
+    /// - The **new file offset** where the delete marker was appended.
+    pub fn delete_entry(&mut self, key: &[u8]) -> Result<u64> {
+        self.append_entry(key, &NULL_BYTE)
     }
 
     /// Compacts the storage by keeping only the latest version of each key.

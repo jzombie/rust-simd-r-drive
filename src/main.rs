@@ -177,25 +177,16 @@ fn main() {
             let mut source_storage = AppendStorage::open(&cli.storage).expect("Failed to open source storage");
             let mut target_storage = AppendStorage::open(target).expect("Failed to open target storage");
         
-            match source_storage.get_entry_by_key(key.as_bytes()) {
-                Some(entry) => {
-                    // target_storage
-                    //     .append_entry_with_key_hash(entry.metadata().key_hash, entry.as_slice())
-                    //     .expect("Failed to move entry");
-        
-                    // source_storage
-                    //     .delete_entry(key.as_bytes())
-                    //     .expect("Failed to delete entry after move");
-        
-                    // info!("Moved key '{}' to {:?}", key, target_storage);
-                }
-                None => {
-                    error!("Error: Key '{}' not found in {:?}", key, cli.storage);
-                    std::process::exit(1);
-                }
-            }
-        },
-                        
+            source_storage
+                    .move_entry(key.as_bytes(), &mut target_storage)
+                    .map_err(|err| {
+                        error!("Could not copy entry. Received error: {}", err.to_string());
+                        std::process::exit(1);
+                    })
+                    .ok(); // Ignore the success case
+                
+                info!("Moved key '{}' to {:?}", key, target);
+        }, 
 
         Commands::Delete { key } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
