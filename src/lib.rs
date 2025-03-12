@@ -839,20 +839,23 @@ impl AppendStorage {
         let mut unique_entry_size: u64 = 0;
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
 
-        let mmap_ptr = self.mmap.load(Ordering::Acquire);
-        assert!(!mmap_ptr.is_null(), "Mmap should never be null");
-        let mmap = unsafe { &*mmap_ptr }; // Dereference AtomicPtr<Mmap>
+        // 1) Briefly lock the Mutex to clone the Arc<Mmap>
+        let guard = self.mmap.lock().unwrap();
+        let mmap_arc = Arc::clone(&*guard);
+        drop(guard);
 
+        // 2) Now we can safely iterate zero-copy
         for entry in self.iter_entries() {
-            let entry_start_offset = entry.as_ptr() as usize - mmap.as_ptr() as usize;
+            // Convert pointer offsets relative to `mmap_arc`
+            let entry_start_offset = entry.as_ptr() as usize - mmap_arc.as_ptr() as usize;
             let metadata_offset = entry_start_offset + entry.len();
 
-            if metadata_offset + METADATA_SIZE > mmap.len() {
+            if metadata_offset + METADATA_SIZE > mmap_arc.len() {
                 warn!("Skipping corrupted entry at offset {}", entry_start_offset);
                 continue;
             }
 
-            let metadata_bytes = &mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+            let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
             // Only count the latest version of each key
@@ -861,6 +864,7 @@ impl AppendStorage {
             }
         }
 
+        // 3) Return the difference between total size and the unique size
         total_size.saturating_sub(unique_entry_size)
     }
 
