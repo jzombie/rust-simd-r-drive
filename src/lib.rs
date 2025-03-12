@@ -412,6 +412,11 @@ impl AppendStorage {
         })
     }
 
+    // TODO: Document
+    pub fn get_path(&self) -> PathBuf {
+        self.path.clone()
+    }
+
     /// Initializes a memory-mapped file for fast access.
     ///
     /// This function creates a memory-mapped file (`mmap`) from a `BufWriter<File>`.

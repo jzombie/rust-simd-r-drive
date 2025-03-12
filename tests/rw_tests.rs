@@ -768,4 +768,64 @@ mod tests {
             "Moved entry should pass checksum validation"
         );
     }
+
+    #[test]
+    fn test_nested_storage_extraction() {
+        let (_dir1, mut storage1) = create_temp_storage();
+        let key1 = b"original_key";
+        let payload1 = b"Initial Data";
+
+        // Step 1: Write an entry into the original storage
+        storage1
+            .append_entry(key1, payload1)
+            .expect("Failed to append entry to initial storage");
+
+        // Step 2: Read the full storage as raw bytes
+        let storage1_bytes =
+            std::fs::read(&storage1.get_path()).expect("Failed to read storage file");
+
+        // Step 3: Create a second storage and embed the first storage inside it
+        let (_dir2, mut storage2) = create_temp_storage();
+        let nested_key = b"nested_storage";
+
+        storage2
+            .append_entry(nested_key, &storage1_bytes)
+            .expect("Failed to store the original storage inside the new storage");
+
+        // Step 4: Add additional entries to the second storage
+        storage2
+            .append_entry(b"extra_key1", b"Extra Entry 1")
+            .expect("Failed to append extra entry 1");
+        storage2
+            .append_entry(b"extra_key2", b"Extra Entry 2")
+            .expect("Failed to append extra entry 2");
+
+        // Step 5: Extract the nested storage from storage2
+        let extracted_storage_bytes = storage2
+            .get_entry_by_key(nested_key)
+            .expect("Failed to retrieve the nested storage")
+            .as_slice()
+            .to_vec();
+
+        // Step 6: Write extracted bytes to a new storage file
+        let nested_storage_path = _dir2.path().join("extracted_storage.bin");
+        std::fs::write(&nested_storage_path, &extracted_storage_bytes)
+            .expect("Failed to write extracted storage to file");
+
+        // Step 7: Open the extracted storage as a new storage instance
+        let extracted_storage =
+            AppendStorage::open(&nested_storage_path).expect("Failed to open extracted storage");
+
+        // Step 8: Read the original entry from the extracted storage
+        let retrieved_entry = extracted_storage
+            .get_entry_by_key(key1)
+            .expect("Failed to retrieve original entry from extracted storage");
+
+        // Step 9: Validate that the extracted storage's data is correct
+        assert_eq!(
+            retrieved_entry.as_slice(),
+            payload1,
+            "Extracted storage does not contain the correct original data"
+        );
+    }
 }
