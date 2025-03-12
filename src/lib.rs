@@ -11,7 +11,7 @@ use simd_copy::simd_copy;
 mod digest;
 use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use log::{debug, info, warn};
-use std::sync::atomic::{AtomicPtr, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
 /// Lets you access the bytes of the entry as long as this struct is alive.
