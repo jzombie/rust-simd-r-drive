@@ -163,27 +163,32 @@ fn main() {
             match storage.get_entry_by_key(key.as_bytes()) {
                 Some(entry) => {
                     println!(
-                        "Metadata for \"{}\":\n\
-                        --------------------------------\n\
-                        Payload Size:               {} bytes\n\
-                        Payload Size with Metadata: {} bytes\n\
-                        Payload Offset Range:       {:?}\n\
-                        Address Range:              {:?}\n\
-                        Key Hash:                   {}\n\
-                        Checksum:                   {:?}\n\
-                        Checksum Validity:          {}\n\
-                        --------------------------------\n\
-                        Stored Metadata:            {:?}\n\
-                        --------------------------------",
-                        key,
-                        entry.size(),
-                        entry.size_with_metadata(),
-                        entry.offset_range(),
-                        entry.address_range(),
-                        entry.key_hash(),
-                        entry.checksum(),
-                        if entry.is_valid_checksum() { "VALID" } else { "INVALID" },
-                        entry.metadata(),
+                        "\n{:=^50}\n\
+                        {:<25} \"{}\"\n\
+                        {:-<50}\n\
+                        {:<25} {} bytes\n\
+                        {:<25} {} bytes\n\
+                        {:<25} {:?}\n\
+                        {:<25} {:?}\n\
+                        {:<25} {}\n\
+                        {:<25} {}\n\
+                        {:<25} {}\n\
+                        {:-<50}\n\
+                        {:<25} {:?}\n\
+                        {:=<50}",
+                        " METADATA SUMMARY ",               // Centered Header
+                        "ENTRY FOR:", key,                  // Key Name
+                        "",                                 // Separator
+                        "PAYLOAD SIZE:", entry.size(),
+                        "TOTAL SIZE (W/ METADATA):", entry.size_with_metadata(),
+                        "OFFSET RANGE:", entry.offset_range(),
+                        "MEMORY ADDRESS:", entry.address_range(),
+                        "KEY HASH:", entry.key_hash(),
+                        "CHECKSUM:", entry.checksum(),
+                        "CHECKSUM VALIDITY:", if entry.is_valid_checksum() { "VALID" } else { "INVALID" },
+                        "",                                 // Separator
+                        "STORED METADATA:", entry.metadata(),
+                        "="                                 // Footer Line
                     );
                 }
                 None => {
@@ -205,13 +210,22 @@ fn main() {
             // Count active entries
             let entry_count = storage.count();
 
-            println!("Storage Info:");
-            println!("--------------------------------");
-            println!("File Path:       {:?}", cli.storage);
-            println!("Total Size:      {}", format_bytes(storage_size));
-            println!("Active Entries:  {}", entry_count);
-            println!("Compaction Savings Estimate: {}", format_bytes(savings_estimate));
-            println!("--------------------------------");
+            println!(
+                "\n{:=^50}\n\
+                {:<25} {:?}\n\
+                {:-<50}\n\
+                {:<25} {}\n\
+                {:<25} {}\n\
+                {:<25} {}\n\
+                {:=<50}",
+                " STORAGE INFO ",                       // Centered Header
+                "STORAGE FILE:", cli.storage,           // File Path
+                "",                                     // Separator
+                "TOTAL SIZE:", format_bytes(storage_size),
+                "ACTIVE ENTRIES:", entry_count,
+                "COMPACTION SAVINGS:", format_bytes(savings_estimate),
+                "="                                     // Footer
+            );
         }
 
     }
