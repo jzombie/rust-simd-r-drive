@@ -761,36 +761,35 @@ impl AppendStorage {
     }
 
     /// Compacts the storage by keeping only the latest version of each key.
-    pub fn compact(&mut self) -> Result<()> {
+    pub fn compact(&mut self) -> std::io::Result<()> {
         let compacted_path = self.path.with_extension("bk");
-
         debug!("Starting compaction. Writing to: {:?}", compacted_path);
 
-        // Create a new AppendStorage instance for the compacted file
+        // 1) Create a new AppendStorage instance for the compacted file
         let mut compacted_storage = AppendStorage::open(&compacted_path)?;
 
-        let mmap_ptr = self.mmap.load(Ordering::Acquire);
-        assert!(!mmap_ptr.is_null(), "Mmap should never be null");
+        // 2) Lock the mutex briefly, clone the Arc<Mmap>
+        let guard = self.mmap.lock().unwrap();
+        let mmap_arc = std::sync::Arc::clone(&*guard);
+        drop(guard); // release lock immediately so other threads can proceed
 
-        let mmap = unsafe { &*mmap_ptr }; // Dereference AtomicPtr<Mmap>
-
-        // Iterate over all valid entries
+        // 3) Iterate over all valid entries using your iterator
         for entry in self.iter_entries() {
-            let entry_start_offset = entry.as_ptr() as usize - mmap.as_ptr() as usize;
+            // Calculate offsets relative to `mmap_arc`
+            let entry_start_offset = entry.as_ptr() as usize - mmap_arc.as_ptr() as usize;
             let metadata_offset = entry_start_offset + entry.len();
 
-            // Extract metadata separately from mmap
-            if metadata_offset + METADATA_SIZE > mmap.len() {
+            // Check boundaries
+            if metadata_offset + METADATA_SIZE > mmap_arc.len() {
                 warn!("Skipping corrupted entry at offset {}", entry_start_offset);
                 continue;
             }
 
-            let metadata_bytes = &mmap[metadata_offset..metadata_offset + METADATA_SIZE];
+            let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
-            // Append the entry with the correct key_hash
-            compacted_storage.append_entry_with_key_hash(metadata.key_hash, entry)?;
-
+            // Append to the compacted storage
+            compacted_storage.append_entry_with_key_hash(metadata.key_hash, &entry)?;
             debug!(
                 "Writing key_hash: {} | entry_size: {}",
                 metadata.key_hash,
@@ -798,20 +797,18 @@ impl AppendStorage {
             );
         }
 
+        // 4) Flush the compacted file
         {
             let mut file_guard = compacted_storage.file.write().map_err(|e| {
                 std::io::Error::new(std::io::ErrorKind::Other, format!("Lock poisoned: {}", e))
-            })?; // Explicitly convert PoisonError to io::Error
-
+            })?;
             file_guard.flush()?;
         }
 
-        drop(compacted_storage); // Ensure all writes are flushed before swapping
+        drop(compacted_storage); // ensure all writes are flushed before swapping
 
         debug!("Reduced backup completed. Swapping files...");
-
         std::fs::rename(&compacted_path, &self.path)?;
-
         info!("Compaction successful.");
         Ok(())
     }
