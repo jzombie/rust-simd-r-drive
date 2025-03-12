@@ -603,12 +603,12 @@ mod tests {
         );
         assert_eq!(storage.get_entry_by_key(key7).as_deref(), None);
 
-        // let retrieved_struct = storage
-        //     .get_entry_by_key(key3)
-        //     .expect("Failed to retrieve struct");
-        // let deserialized_struct: CustomStruct = bincode::deserialize(retrieved_struct.as_slice())
-        //     .expect("Failed to deserialize struct");
-        // assert_eq!(deserialized_struct, struct_payload2);
+        let retrieved_struct = storage
+            .get_entry_by_key(key3)
+            .expect("Failed to retrieve struct");
+        let deserialized_struct: CustomStruct = bincode::deserialize(retrieved_struct.as_slice())
+            .expect("Failed to deserialize struct");
+        assert_eq!(deserialized_struct, struct_payload2);
     }
 
     #[test]
