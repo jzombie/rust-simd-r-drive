@@ -39,6 +39,7 @@ struct Cli {
     command: Commands,
 }
 
+// TODO: Implement copy and move commands (for single entries)
 #[derive(Subcommand)]
 enum Commands {
     /// Read the value associated with a key
@@ -77,7 +78,6 @@ enum Commands {
 
 fn main() {
     let stdin_input = get_stdin_or_default(None);
-
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
