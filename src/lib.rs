@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex, RwLock};
 mod simd_copy;
 use simd_copy::simd_copy;
 mod digest;
-use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
+pub use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use log::{debug, info, warn};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -281,6 +281,10 @@ impl EntryHandle {
 
     pub fn checksum(&self) -> u32 {
         u32::from_le_bytes(self.metadata.checksum)
+    }
+
+    pub fn raw_checksum(&self) -> [u8; 4] {
+        self.metadata.checksum
     }
 
     pub fn is_valid_checksum(&self) -> bool {

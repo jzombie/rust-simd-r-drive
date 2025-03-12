@@ -2,7 +2,7 @@
 mod tests {
     use bincode;
     use serde::{Deserialize, Serialize};
-    use simd_r_drive::AppendStorage;
+    use simd_r_drive::{compute_checksum, compute_hash, AppendStorage};
     use std::fs::{metadata, OpenOptions};
     use std::io::{Seek, SeekFrom, Write};
     use tempfile::tempdir;
@@ -661,5 +661,111 @@ mod tests {
 
             eprintln!("Step 3: Persistence check passed after multiple reopens.");
         } // Storage closed here
+    }
+
+    #[test]
+    fn test_copy_entry_between_storages() {
+        let (_dir1, mut source_storage) = create_temp_storage();
+        let (_dir2, mut target_storage) = create_temp_storage();
+
+        let key = b"copy_key";
+        let payload = b"Data to be copied";
+
+        // Step 1: Append the entry to the source storage
+        source_storage
+            .append_entry(key, payload)
+            .expect("Failed to append entry");
+
+        // Step 2: Copy the entry to the target storage
+        source_storage
+            .copy_entry(key, &mut target_storage)
+            .expect("Failed to copy entry");
+
+        // Step 3: Ensure the original entry still exists in the source
+        let original_entry = source_storage
+            .get_entry_by_key(key)
+            .expect("Source entry should exist");
+        assert_eq!(
+            original_entry.as_slice(),
+            payload,
+            "Original data should remain unchanged in source"
+        );
+
+        // Step 4: Ensure the copied entry exists in the target
+        let copied_entry = target_storage
+            .get_entry_by_key(key)
+            .expect("Copied entry should exist in target");
+        assert_eq!(
+            copied_entry.as_slice(),
+            payload,
+            "Copied data should match the original"
+        );
+
+        // Step 5: Verify metadata integrity
+        assert_eq!(
+            original_entry.key_hash(),
+            copied_entry.key_hash(),
+            "Key hash should remain unchanged after copy"
+        );
+        assert_eq!(
+            original_entry.checksum(),
+            copied_entry.checksum(),
+            "Checksum should remain unchanged after copy"
+        );
+        assert!(
+            copied_entry.is_valid_checksum(),
+            "Copied entry should pass checksum validation"
+        );
+    }
+
+    #[test]
+    fn test_move_entry_between_storages() {
+        let (_dir1, mut source_storage) = create_temp_storage();
+        let (_dir2, mut target_storage) = create_temp_storage();
+
+        let key = b"move_key";
+        let payload = b"Data to be moved";
+
+        // Step 1: Append the entry to the source storage
+        source_storage
+            .append_entry(key, payload)
+            .expect("Failed to append entry");
+
+        // Step 2: Move the entry to the target storage
+        source_storage
+            .move_entry(key, &mut target_storage)
+            .expect("Failed to move entry");
+
+        // Step 3: Ensure the original entry no longer exists in the source
+        assert!(
+            source_storage.get_entry_by_key(key).is_none(),
+            "Moved entry should no longer exist in source"
+        );
+
+        // Step 4: Ensure the moved entry exists in the target
+        let moved_entry = target_storage
+            .get_entry_by_key(key)
+            .expect("Moved entry should exist in target");
+        assert_eq!(
+            moved_entry.as_slice(),
+            payload,
+            "Moved data should match the original"
+        );
+
+        // Step 5: Verify metadata integrity
+        assert_eq!(
+            moved_entry.key_hash(),
+            compute_hash(key),
+            "Key hash should remain unchanged after move"
+        );
+        assert_eq!(
+            moved_entry.raw_checksum(),
+            compute_checksum(payload),
+            "Checksum should remain unchanged after move"
+        );
+        assert!(
+            moved_entry.is_valid_checksum(),
+            "Moved entry should pass checksum validation"
+        );
     }
 }
