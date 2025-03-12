@@ -473,7 +473,7 @@ impl AppendStorage {
                     ..(prev_metadata_offset as usize + METADATA_SIZE)];
                 let prev_metadata = EntryMetadata::deserialize(prev_metadata_bytes);
 
-                let entry_size = prev_metadata_offset - prev_metadata.prev_offset;
+                let entry_size = prev_metadata_offset.saturating_sub(prev_metadata.prev_offset);
                 total_size += entry_size + METADATA_SIZE as u64;
 
                 if prev_metadata.prev_offset >= prev_metadata_offset {
