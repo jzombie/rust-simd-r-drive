@@ -504,12 +504,19 @@ impl AppendStorage {
                 "Failed to acquire file read lock",
             )
         })?;
-
-        let mmap = Self::init_mmap(&file_guard)?; // ✅ Now passing &BufWriter<File>
-        self.mmap = Arc::new(mmap);
-
+    
+        let new_mmap = Self::init_mmap(&file_guard)?;
+    
+        // Ensure `mmap` is fully updated before switching
+        let new_offset = file_guard.get_ref().metadata()?.len();
+        self.mmap = Arc::new(new_mmap);
+    
+        // Set last_offset after mmap is updated
+        self.last_offset.store(new_offset, Ordering::Release);
+    
         Ok(())
     }
+    
 
     /// High-level method: Appends a single entry by key
     pub fn append_entry(&mut self, key: &[u8], payload: &[u8]) -> Result<u64> {
@@ -552,14 +559,15 @@ impl AppendStorage {
 
     /// Core transaction method (Handles locking, writing, flushing)
     fn batch_write(&mut self, entries: Vec<(u64, &[u8])>) -> Result<u64> {
-        {
+        let mut key_updates = Vec::with_capacity(entries.len()); // Store key updates
+        let last_offset = {
             let mut file = self.file.write().map_err(|_| {
                 std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
-            })?; // ✅ Lock only the file, not the whole struct
-
+            })?;
+    
             let mut buffer = Vec::new();
             let mut last_offset = self.last_offset.load(Ordering::Acquire);
-
+    
             for (key_hash, payload) in entries {
                 if payload.is_empty() {
                     return Err(std::io::Error::new(
@@ -567,50 +575,59 @@ impl AppendStorage {
                         "Payload cannot be empty.",
                     ));
                 }
-
+    
                 let prev_offset = last_offset;
                 let checksum = compute_checksum(payload);
-
+    
                 let metadata = EntryMetadata {
                     key_hash,
                     prev_offset,
                     checksum,
                 };
-
+    
                 let mut entry = vec![0u8; payload.len() + METADATA_SIZE];
-
+    
                 // Use SIMD to copy payload into buffer
                 simd_copy(&mut entry[..payload.len()], payload);
-
+    
                 // Copy metadata normally (small size, not worth SIMD)
                 entry[payload.len()..].copy_from_slice(&metadata.serialize());
-
+    
                 buffer.extend_from_slice(&entry);
-
+    
                 last_offset += entry.len() as u64;
-
-                // ✅ Lock the key index before modifying
-                {
-                    let mut key_index = self.key_index.write().map_err(|_| {
-                        std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "Failed to acquire index lock",
-                        )
-                    })?;
-                    key_index.insert(key_hash, last_offset - METADATA_SIZE as u64);
-                } // ✅ Unlocks automatically here
+    
+                // Collect key update instead of locking per iteration
+                key_updates.push((key_hash, last_offset - METADATA_SIZE as u64));
             }
-
+    
             file.write_all(&buffer)?;
             file.flush()?;
-
-            self.last_offset.store(last_offset, Ordering::Release);
-        }
-
-        self.remap_file()?;
-
-        Ok(self.last_offset.load(Ordering::Acquire))
+    
+            last_offset
+        };
+    
+        // Remap before atomic update
+        self.remap_file()?;  
+    
+        // Store last_offset atomically
+        self.last_offset.store(last_offset, Ordering::Release);
+    
+        // Batch update key_index with a single lock
+        {
+            let mut key_index = self.key_index.write().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
+            })?;
+    
+            for (key_hash, offset) in key_updates {
+                key_index.insert(key_hash, offset);
+            }
+        } // Unlocks automatically
+    
+        Ok(last_offset)
     }
+    
+    
 
     /// Reads the last entry stored in the database.
     ///
@@ -728,7 +745,8 @@ impl AppendStorage {
         debug!("Reduced backup completed. Swapping files...");
 
         std::fs::rename(&compacted_path, &self.path)?;
-        // self.remap_file()?; // Remap file to load compacted data
+        
+        self.remap_file()?; // Remap file to load compacted data
 
         info!("Compaction successful.");
         Ok(())
