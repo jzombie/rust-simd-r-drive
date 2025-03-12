@@ -122,7 +122,7 @@ impl EntryMetadata {
 /// - **Skips deleted entries**, which are represented by empty data.
 /// - **Stops when reaching an invalid or out-of-bounds offset.**
 pub struct EntryIterator<'a> {
-    mmap: &'a Mmap,
+    mmap: &'a Mmap, // Borrow from Arc<Mmap> (zero-copy)
     cursor: u64,
     seen_keys: HashSet<u64, Xxh3BuildHasher>,
 }
@@ -201,11 +201,10 @@ impl<'a> Iterator for EntryIterator<'a> {
 
 /// Append-Only Storage Engine
 pub struct AppendStorage {
-    file: BufWriter<File>,
-    mmap: Arc<Mmap>,
-    last_offset: AtomicU64, // Use atomic for safe concurrent access
-    key_index: HashMap<u64, u64, Xxh3BuildHasher>, // Key → Offset map
-    lock: Arc<RwLock<()>>,
+    file: Arc<RwLock<BufWriter<File>>>, // ✅ Wrap file in Arc<RwLock<>> for safe concurrent writes
+    mmap: Arc<Mmap>,                    // ✅ Immutable, zero-copy reads (doesn't need RwLock)
+    last_offset: AtomicU64,
+    key_index: Arc<RwLock<HashMap<u64, u64, Xxh3BuildHasher>>>, // ✅ Wrap in RwLock for safe writes
     path: PathBuf,
 }
 
@@ -280,11 +279,10 @@ impl AppendStorage {
         let key_index = Self::build_key_index(&mmap, final_len);
 
         Ok(Self {
-            file,
-            mmap: Arc::new(mmap),
+            file: Arc::new(RwLock::new(file)), // ✅ Wrap in RwLock
+            mmap: Arc::new(mmap),              // ✅ No locking needed for mmap (zero-copy)
             last_offset: final_len.into(),
-            key_index,
-            lock: Arc::new(RwLock::new(())),
+            key_index: Arc::new(RwLock::new(key_index)), // ✅ Wrap HashMap in RwLock
             path: path.to_path_buf(),
         })
     }
@@ -500,8 +498,14 @@ impl AppendStorage {
     /// This method is called **after a write operation** to reload the memory-mapped file
     /// and ensure that newly written data is accessible for reading.
     fn remap_file(&mut self) -> Result<()> {
-        // self.mmap = Arc::new(unsafe { memmap2::MmapOptions::new().map(self.file.get_ref())? });
-        let mmap = Self::init_mmap(&self.file)?;
+        let file_guard = self.file.read().map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Failed to acquire file read lock",
+            )
+        })?;
+
+        let mmap = Self::init_mmap(&file_guard)?; // ✅ Now passing &BufWriter<File>
         self.mmap = Arc::new(mmap);
 
         Ok(())
@@ -549,11 +553,11 @@ impl AppendStorage {
     /// Core transaction method (Handles locking, writing, flushing)
     fn batch_write(&mut self, entries: Vec<(u64, &[u8])>) -> Result<u64> {
         {
-            let _write_lock = self.lock.write().map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire write lock")
-            })?;
+            let mut file = self.file.write().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
+            })?; // ✅ Lock only the file, not the whole struct
 
-            let mut buffer = Vec::new(); // Single buffer to hold all writes in this transaction
+            let mut buffer = Vec::new();
             let mut last_offset = self.last_offset.load(Ordering::Acquire);
 
             for (key_hash, payload) in entries {
@@ -581,24 +585,28 @@ impl AppendStorage {
                 // Copy metadata normally (small size, not worth SIMD)
                 entry[payload.len()..].copy_from_slice(&metadata.serialize());
 
-                buffer.extend_from_slice(&entry); // Append to transaction buffer
+                buffer.extend_from_slice(&entry);
 
                 last_offset += entry.len() as u64;
 
-                // Update key index in-memory
-                self.key_index
-                    .insert(key_hash, last_offset - METADATA_SIZE as u64);
+                // ✅ Lock the key index before modifying
+                {
+                    let mut key_index = self.key_index.write().map_err(|_| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "Failed to acquire index lock",
+                        )
+                    })?;
+                    key_index.insert(key_hash, last_offset - METADATA_SIZE as u64);
+                } // ✅ Unlocks automatically here
             }
 
-            // Single write & flush for transaction
-            self.file.write_all(&buffer)?;
-            self.file.flush()?;
+            file.write_all(&buffer)?;
+            file.flush()?;
 
             self.last_offset.store(last_offset, Ordering::Release);
         }
 
-        // TODO: Refactor so that the lock can be released after the remap, if possible
-        // Remap the file **after** dropping the lock
         self.remap_file()?;
 
         Ok(self.last_offset.load(Ordering::Acquire))
@@ -614,7 +622,7 @@ impl AppendStorage {
     /// - `Some(&[u8])` containing the binary payload of the last entry.
     /// - `None` if the storage is empty or corrupted.
     pub fn read_last_entry(&self) -> Option<&[u8]> {
-        let _read_lock = self.lock.read().ok()?;
+        // let _read_lock = self.lock.read().ok()?;
 
         let last_offset = self.last_offset.load(Ordering::Acquire);
 
@@ -649,7 +657,8 @@ impl AppendStorage {
     pub fn get_entry_by_key(&self, key: &[u8]) -> Option<&[u8]> {
         let key_hash = compute_hash(key);
 
-        if let Some(&offset) = self.key_index.get(&key_hash) {
+        // if let Some(&offset) = self.key_index.get(&key_hash) {
+        if let Some(&offset) = self.key_index.read().ok()?.get(&key_hash) {
             // Fast lookup
             let metadata_bytes = &self.mmap[offset as usize..offset as usize + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
@@ -671,9 +680,9 @@ impl AppendStorage {
 
     /// Compacts the storage by keeping only the latest version of each key.
     pub fn compact(&mut self) -> Result<()> {
-        let _write_lock = self.lock.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire write lock")
-        })?;
+        // let _write_lock = self.lock.write().map_err(|_| {
+        //     std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire write lock")
+        // })?;
 
         let compacted_path = self.path.with_extension("bk");
 
@@ -706,7 +715,14 @@ impl AppendStorage {
             );
         }
 
-        compacted_storage.file.flush()?;
+        {
+            let mut file_guard = compacted_storage.file.write().map_err(|e| {
+                std::io::Error::new(std::io::ErrorKind::Other, format!("Lock poisoned: {}", e))
+            })?; // Explicitly convert PoisonError to io::Error
+
+            file_guard.flush()?;
+        }
+
         drop(compacted_storage); // Ensure all writes are flushed before swapping
 
         debug!("Reduced backup completed. Swapping files...");
