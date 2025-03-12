@@ -162,16 +162,25 @@ fn main() {
             
             match storage.get_entry_by_key(key.as_bytes()) {
                 Some(entry) => {
-                    println!("Metadata:");
-                    println!("--------------------------------");
-                    print!("{:?}\n", entry.metadata());
-                    println!("Payload Size:               {}", format_bytes(entry.size() as u64));
-                    println!("Payload Size with Metadata: {}", format_bytes(entry.size_with_metadata() as u64));
-                    println!("Payload Offset Range:       {:?}", entry.offset_range());
-                    println!("Address Range:              {:?}", entry.address_range());
-                    println!("Key Hash:                   {:?}", entry.key_hash());
-                    println!("Checksum:                   {:?}", entry.checksum());
-                    println!("--------------------------------");
+                    println!(
+                        "Metadata:\n\
+                        --------------------------------\n\
+                        Payload Size:               {} bytes\n\
+                        Payload Size with Metadata: {} bytes\n\
+                        Payload Offset Range:       {:?}\n\
+                        Address Range:              {:?}\n\
+                        Key Hash:                   {}\n\
+                        Checksum:                   {:?}\n\
+                        Checksum Validity:          {}\n\
+                        --------------------------------",
+                        entry.size(),
+                        entry.size_with_metadata(),
+                        entry.offset_range(),
+                        entry.address_range(),
+                        entry.key_hash(),
+                        entry.checksum(),
+                        if entry.is_valid_checksum() { "VALID" } else { "INVALID" }
+                    );
                 }
                 None => {
                     error!("Error: Key '{}' not found", key);

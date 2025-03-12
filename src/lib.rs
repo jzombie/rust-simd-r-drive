@@ -279,8 +279,14 @@ impl EntryHandle {
         self.metadata.key_hash
     }
 
-    pub fn checksum(&self) -> [u8; 4] {
-        self.metadata.checksum
+    pub fn checksum(&self) -> u32 {
+        u32::from_le_bytes(self.metadata.checksum)
+    }
+
+    pub fn is_valid_checksum(&self) -> bool {
+        let data = self.as_slice();
+        let computed = compute_checksum(data);
+        self.metadata.checksum == computed
     }
 
     /// Returns the absolute start byte offset within the mapped file.
