@@ -13,7 +13,7 @@ async fn concurrent_write_test() {
     let storage = Arc::new(Mutex::new(AppendStorage::open(&path).unwrap()));
 
     let num_writes = 10;
-    let thread_count = 2;
+    let thread_count = 8;
     let mut tasks = Vec::new();
 
     for thread_id in 0..thread_count {
