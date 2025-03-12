@@ -15,6 +15,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 // TODO: When creating new files, start off with initial metadata regarding the software version
 // used to create the file, and ensure whatever key is used for that is protected from writing.
+// Also, use a [semver] heuristic to determine compatibility (or simply see if it can be parsed).
 
 /// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
 /// Lets you access the bytes of the entry as long as this struct is alive.
