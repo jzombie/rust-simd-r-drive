@@ -28,13 +28,6 @@ impl EntryHandle {
     }
 }
 
-/// Let us do: `assert_eq!(entry_handle, b"some bytes")`
-impl PartialEq<[u8]> for EntryHandle {
-    fn eq(&self, other: &[u8]) -> bool {
-        self.as_slice() == other
-    }
-}
-
 /// Enable `*entry_handle` to act like a `&[u8]`
 impl std::ops::Deref for EntryHandle {
     type Target = [u8];
@@ -45,25 +38,25 @@ impl std::ops::Deref for EntryHandle {
 }
 
 /// Let us do: `assert_eq!(entry_handle, b"some bytes")`
-// impl PartialEq<[u8]> for EntryHandle {
-//     fn eq(&self, other: &[u8]) -> bool {
-//         self.as_slice() == other
-//     }
-// }
+impl PartialEq<[u8]> for EntryHandle {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.as_slice() == other
+    }
+}
 
-// /// Allow comparisons with `&[u8]`
-// impl PartialEq<&[u8]> for EntryHandle {
-//     fn eq(&self, other: &&[u8]) -> bool {
-//         self.as_slice() == *other
-//     }
-// }
+/// Allow comparisons with `&[u8]`
+impl PartialEq<&[u8]> for EntryHandle {
+    fn eq(&self, other: &&[u8]) -> bool {
+        self.as_slice() == *other
+    }
+}
 
-// /// Allow comparisons with `Vec<u8>`
-// impl PartialEq<Vec<u8>> for EntryHandle {
-//     fn eq(&self, other: &Vec<u8>) -> bool {
-//         self.as_slice() == other.as_slice()
-//     }
-// }
+/// Allow comparisons with `Vec<u8>`
+impl PartialEq<Vec<u8>> for EntryHandle {
+    fn eq(&self, other: &Vec<u8>) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
 
 /// Metadata structure (fixed 20 bytes at the end of each entry)
 const METADATA_SIZE: usize = 20;
