@@ -4,7 +4,7 @@ use std::convert::From;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 mod simd_copy;
 use simd_copy::simd_copy;
 mod digest;
@@ -121,13 +121,13 @@ impl EntryMetadata {
 /// - **Ensures unique keys** by tracking seen hashes in a `HashSet`.
 /// - **Skips deleted entries**, which are represented by empty data.
 /// - **Stops when reaching an invalid or out-of-bounds offset.**
-pub struct EntryIterator<'a> {
-    mmap: &'a Mmap, // Borrow from Arc<Mmap> (zero-copy)
+pub struct EntryIterator {
+    mmap: Arc<Mmap>, // Borrow from Arc<Mmap> (zero-copy)
     cursor: u64,
     seen_keys: HashSet<u64, Xxh3BuildHasher>,
 }
 
-impl<'a> EntryIterator<'a> {
+impl EntryIterator {
     /// Creates a new iterator for scanning storage entries.
     ///
     /// Initializes an iterator starting at the provided `last_offset` and
@@ -140,17 +140,17 @@ impl<'a> EntryIterator<'a> {
     ///
     /// # Returns:
     /// - A new `EntryIterator` instance.
-    pub fn new(mmap: &'a Mmap, last_offset: u64) -> Self {
+    pub fn new(mmap: Arc<Mmap>, last_offset: u64) -> Self {
         Self {
-            mmap,
+            mmap: mmap,
             cursor: last_offset,
             seen_keys: HashSet::with_hasher(Xxh3BuildHasher),
         }
     }
 }
 
-impl<'a> Iterator for EntryIterator<'a> {
-    type Item = &'a [u8];
+impl Iterator for EntryIterator {
+    type Item = Arc<[u8]>;
 
     /// Advances the iterator to the next valid entry.
     ///
@@ -195,22 +195,22 @@ impl<'a> Iterator for EntryIterator<'a> {
             return self.next();
         }
 
-        Some(entry_data)
+        Some(entry_data.into())
     }
 }
 
 /// Append-Only Storage Engine
 pub struct AppendStorage {
     file: Arc<RwLock<BufWriter<File>>>, // ✅ Wrap file in Arc<RwLock<>> for safe concurrent writes
-    mmap: Arc<AtomicPtr<Mmap>>,         // Atomic pointer to an mmap for zero-copy reads
+    mmap: Arc<Mutex<Arc<Mmap>>>,        // Atomic pointer to an mmap for zero-copy reads
     last_offset: AtomicU64,
     key_index: Arc<RwLock<HashMap<u64, u64, Xxh3BuildHasher>>>, // ✅ Wrap in RwLock for safe writes
     path: PathBuf,
 }
 
-impl<'a> IntoIterator for &'a AppendStorage {
-    type Item = &'a [u8];
-    type IntoIter = EntryIterator<'a>;
+impl IntoIterator for AppendStorage {
+    type Item = Arc<[u8]>;
+    type IntoIter = EntryIterator;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_entries()
@@ -280,7 +280,8 @@ impl AppendStorage {
 
         Ok(Self {
             file: Arc::new(RwLock::new(file)), // ✅ Wrap in RwLock
-            mmap: Arc::new(AtomicPtr::new(Box::into_raw(Box::new(mmap)))), // ✅ Correct
+            // mmap: Arc::new(AtomicPtr::new(Box::into_raw(Box::new(mmap)))), // ✅ Correct
+            mmap: Arc::new(Mutex::new(Arc::new(mmap))),
             last_offset: final_len.into(),
             key_index: Arc::new(RwLock::new(key_index)), // ✅ Wrap HashMap in RwLock
             path: path.to_path_buf(),
@@ -353,17 +354,19 @@ impl AppendStorage {
     /// # Returns:
     /// - An `EntryIterator` instance for iterating over valid entries.
     pub fn iter_entries(&self) -> EntryIterator {
-        // Get the current mmap pointer (Acquire ensures memory order)
-        let mmap_ptr = self.mmap.load(Ordering::Acquire);
-        assert!(!mmap_ptr.is_null(), "Mmap should never be null");
+        // 1. Lock the mutex
+        let guard = self.mmap.lock().unwrap();
 
-        // Convert it back to a reference
-        let mmap_ref = unsafe { &*mmap_ptr };
+        // 2. Clone the Arc<Mmap>
+        let mmap_clone = guard.clone();
 
-        // ✅ Ensure iteration uses the latest mmap
-        let last_offset = self.last_offset.load(Ordering::Acquire);
+        // 3. Drop guard so others can proceed
+        drop(guard);
 
-        EntryIterator::new(mmap_ref, last_offset)
+        // 4. Return an iterator that owns `Arc<Mmap>`
+        let last_offset = 0; // Or wherever you store it
+
+        EntryIterator::new(mmap_clone, last_offset)
     }
 
     /// Builds an in-memory index for **fast key lookups**.
@@ -515,11 +518,20 @@ impl AppendStorage {
             )
         })?;
 
+        // 1. Lock the mutex
+        let guard = self.mmap.lock().unwrap();
+
+        // 2. Clone the Arc<Mmap>
+        let mmap_clone = *guard.clone();
+
+        // // 3. Drop guard so others can proceed
+        // drop(guard);
+
         let new_mmap = unsafe { memmap2::MmapOptions::new().map(file_guard.get_ref())? };
 
         // Atomically update mmap pointer
         let new_mmap_ptr = Box::into_raw(Box::new(new_mmap));
-        let old_mmap_ptr = self.mmap.swap(new_mmap_ptr, Ordering::Release);
+        let old_mmap_ptr = mmap_clone.swap(new_mmap_ptr, Ordering::Release);
 
         // Atomically update last_offset to signal all threads
         let new_offset = file_guard.get_ref().metadata()?.len();
