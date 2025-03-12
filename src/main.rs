@@ -109,23 +109,6 @@ fn main() {
             }
         }
 
-        Commands::Metadata { key } => {
-            let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
-            
-            match storage.get_entry_by_key(key.as_bytes()) {
-                Some(value) => {
-                    println!("Metadata:");
-                    println!("--------------------------------");
-                    print!("{:?}\n", value.metadata());
-                    println!("--------------------------------");
-                }
-                None => {
-                    error!("Error: Key '{}' not found", key);
-                    std::process::exit(1);
-                }
-            }
-        }
-
         Commands::Write { key, value } => {
             let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
         
@@ -172,6 +155,29 @@ fn main() {
                 std::process::exit(1);
             }
             info!("Compaction completed successfully.");
+        }
+
+        Commands::Metadata { key } => {
+            let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            
+            match storage.get_entry_by_key(key.as_bytes()) {
+                Some(entry) => {
+                    println!("Metadata:");
+                    println!("--------------------------------");
+                    print!("{:?}\n", entry.metadata());
+                    println!("Payload Size:               {}", format_bytes(entry.size() as u64));
+                    println!("Payload Size with Metadata: {}", format_bytes(entry.size_with_metadata() as u64));
+                    println!("Payload Offset Range:       {:?}", entry.offset_range());
+                    println!("Address Range:              {:?}", entry.address_range());
+                    println!("Key Hash:                   {:?}", entry.key_hash());
+                    println!("Checksum:                   {:?}", entry.checksum());
+                    println!("--------------------------------");
+                }
+                None => {
+                    error!("Error: Key '{}' not found", key);
+                    std::process::exit(1);
+                }
+            }
         }
 
         Commands::Info => {

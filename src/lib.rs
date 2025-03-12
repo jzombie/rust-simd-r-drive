@@ -247,7 +247,10 @@ impl Iterator for EntryIterator {
 #[derive(Debug)]
 pub struct EntryHandle {
     mmap_arc: Arc<Mmap>,
+
+    /// The payload range
     range: Range<usize>,
+
     metadata: EntryMetadata,
 }
 
@@ -270,6 +273,43 @@ impl EntryHandle {
     /// Returns the payload size plus metadata.
     pub fn size_with_metadata(&self) -> usize {
         self.range.len() + METADATA_SIZE
+    }
+
+    pub fn key_hash(&self) -> u64 {
+        self.metadata.key_hash
+    }
+
+    pub fn checksum(&self) -> [u8; 4] {
+        self.metadata.checksum
+    }
+
+    /// Returns the absolute start byte offset within the mapped file.
+    pub fn start_offset(&self) -> usize {
+        self.range.start
+    }
+
+    /// Returns the absolute end byte offset within the mapped file.
+    pub fn end_offset(&self) -> usize {
+        self.range.end
+    }
+
+    pub fn offset_range(&self) -> Range<usize> {
+        self.range.clone()
+    }
+
+    /// Returns the pointer range in the current process's memory.
+    ///
+    /// This is the actual *virtual address* space that the entry occupies.
+    /// - The `start_ptr` points to the beginning of the payload in memory.
+    /// - The `end_ptr` is `start_ptr + payload_length`.
+    ///
+    /// **Note**: These addresses are valid only in this process and can become
+    /// invalid if the memory map is remapped or unmapped.
+    pub fn address_range(&self) -> std::ops::Range<*const u8> {
+        let slice = self.as_slice();
+        let start_ptr = slice.as_ptr();
+        let end_ptr = unsafe { start_ptr.add(slice.len()) };
+        start_ptr..end_ptr
     }
 }
 
