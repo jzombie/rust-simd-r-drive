@@ -1,5 +1,5 @@
-use std::cell::UnsafeCell;
 use memmap2::Mmap;
+use std::cell::UnsafeCell;
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
 use std::fs::{File, OpenOptions};
@@ -203,7 +203,7 @@ impl<'a> Iterator for EntryIterator<'a> {
 /// Append-Only Storage Engine
 pub struct AppendStorage {
     file: Arc<RwLock<BufWriter<File>>>, // ✅ Wrap file in Arc<RwLock<>> for safe concurrent writes
-    mmap: UnsafeCell<Mmap>,                    // ✅ Immutable, zero-copy reads (doesn't need RwLock)
+    mmap: Arc<UnsafeCell<Mmap>>, // ✅ Arc ensures multiple references, UnsafeCell allows mutation
     last_offset: AtomicU64,
     key_index: Arc<RwLock<HashMap<u64, u64, Xxh3BuildHasher>>>, // ✅ Wrap in RwLock for safe writes
     path: PathBuf,
@@ -277,13 +277,18 @@ impl AppendStorage {
             return Self::open(path);
         }
 
-        let key_index = Self::build_key_index(&mmap, final_len);
+        let mmap = Self::init_mmap(&file)?;
+        let mmap_arc = Arc::new(UnsafeCell::new(mmap)); // ✅ Wrap in Arc<UnsafeCell>
+
+        let final_len = Self::recover_valid_chain(unsafe { &*mmap_arc.get() }, file_len)?;
+
+        let key_index = Self::build_key_index(unsafe { &*mmap_arc.get() }, final_len);
 
         Ok(Self {
-            file: Arc::new(RwLock::new(file)), // ✅ Wrap in RwLock
-            mmap: UnsafeCell::new(mmap),              // ✅ No locking needed for mmap (zero-copy)
-            last_offset: final_len.into(),
-            key_index: Arc::new(RwLock::new(key_index)), // ✅ Wrap HashMap in RwLock
+            file: Arc::new(RwLock::new(file)),
+            mmap: mmap_arc,
+            last_offset: AtomicU64::new(final_len),
+            key_index: Arc::new(RwLock::new(key_index)),
             path: path.to_path_buf(),
         })
     }
@@ -359,7 +364,7 @@ impl AppendStorage {
         unsafe {
             let mmap = &*self.mmap.get();
             if mmap.len() < current_offset as usize {
-                let _ = self.remap_file();  // ✅ No panic risk
+                let _ = self.remap_file(); // ✅ No panic risk
             }
         }
 
@@ -517,17 +522,17 @@ impl AppendStorage {
                 "Failed to acquire file read lock",
             )
         })?;
-    
+
         let new_mmap = Self::init_mmap(&file_guard)?;
-    
+
         unsafe {
             let old_mmap = self.mmap.get().replace(new_mmap); // ✅ Swap safely
             drop(old_mmap); // ✅ Ensure the old mmap is properly dropped
         }
-    
+
         Ok(())
     }
-    
+
     // fn remap_file(&mut self) -> Result<()> {
     //     let file_guard = self.file.read().map_err(|_| {
     //         std::io::Error::new(
@@ -535,19 +540,18 @@ impl AppendStorage {
     //             "Failed to acquire file read lock",
     //         )
     //     })?;
-    
+
     //     let new_mmap = Self::init_mmap(&file_guard)?;
-    
+
     //     // Ensure `mmap` is fully updated before switching
     //     let new_offset = file_guard.get_ref().metadata()?.len();
     //     self.mmap = Arc::new(new_mmap);
-    
+
     //     // Set last_offset after mmap is updated
     //     self.last_offset.store(new_offset, Ordering::Release);
-    
+
     //     Ok(())
     // }
-    
 
     /// High-level method: Appends a single entry by key
     pub fn append_entry(&mut self, key: &[u8], payload: &[u8]) -> Result<u64> {
@@ -595,10 +599,10 @@ impl AppendStorage {
             let mut file = self.file.write().map_err(|_| {
                 std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
             })?;
-    
+
             let mut buffer = Vec::new();
             let mut last_offset = self.last_offset.load(Ordering::Acquire);
-    
+
             for (key_hash, payload) in entries {
                 if payload.is_empty() {
                     return Err(std::io::Error::new(
@@ -606,59 +610,57 @@ impl AppendStorage {
                         "Payload cannot be empty.",
                     ));
                 }
-    
+
                 let prev_offset = last_offset;
                 let checksum = compute_checksum(payload);
-    
+
                 let metadata = EntryMetadata {
                     key_hash,
                     prev_offset,
                     checksum,
                 };
-    
+
                 let mut entry = vec![0u8; payload.len() + METADATA_SIZE];
-    
+
                 // Use SIMD to copy payload into buffer
                 simd_copy(&mut entry[..payload.len()], payload);
-    
+
                 // Copy metadata normally (small size, not worth SIMD)
                 entry[payload.len()..].copy_from_slice(&metadata.serialize());
-    
+
                 buffer.extend_from_slice(&entry);
-    
+
                 last_offset += entry.len() as u64;
-    
+
                 // Collect key update instead of locking per iteration
                 key_updates.push((key_hash, last_offset - METADATA_SIZE as u64));
             }
-    
+
             file.write_all(&buffer)?;
             file.flush()?;
-    
+
             last_offset
         };
-    
+
         // Remap before atomic update
-        self.remap_file()?;  
-    
+        self.remap_file()?;
+
         // Store last_offset atomically
         self.last_offset.store(last_offset, Ordering::Release);
-    
+
         // Batch update key_index with a single lock
         {
             let mut key_index = self.key_index.write().map_err(|_| {
                 std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
             })?;
-    
+
             for (key_hash, offset) in key_updates {
                 key_index.insert(key_hash, offset);
             }
         } // Unlocks automatically
-    
+
         Ok(last_offset)
     }
-    
-    
 
     /// Reads the last entry stored in the database.
     ///
@@ -785,7 +787,7 @@ impl AppendStorage {
         debug!("Reduced backup completed. Swapping files...");
 
         std::fs::rename(&compacted_path, &self.path)?;
-        
+
         self.remap_file()?; // Remap file to load compacted data
 
         info!("Compaction successful.");
