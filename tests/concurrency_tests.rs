@@ -1,13 +1,9 @@
 use simd_r_drive::AppendStorage;
-use std::path::PathBuf;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::Arc;
 use tempfile::tempdir;
-use tokio::sync::{Barrier, Mutex, Notify, RwLock};
+use tokio::sync::{Mutex, Notify, RwLock};
 use tokio::task;
-use tokio::time::{sleep, Duration, Instant};
+use tokio::time::{sleep, Duration};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_read_write_test() {
@@ -38,8 +34,6 @@ async fn concurrent_read_write_test() {
     // Spawn Multiple Reader Tasks
     let mut readers = Vec::new();
     for _ in 0..4 {
-        eprintln!("I am a reader");
-
         let storage_clone = storage.clone();
         let notify_clone = notify.clone();
         readers.push(task::spawn(async move {
