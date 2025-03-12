@@ -859,14 +859,7 @@ impl AppendStorage {
     /// # Returns:
     /// - The **total count** of active key-value pairs in the database.
     pub fn count(&self) -> usize {
-        let mut i = 0;
-        for x in self.iter_entries() {
-            i = i + 1;
-        }
-
-        i
-
-        // self.iter_entries().count()
+        self.iter_entries().count()
     }
 
     /// Estimates the potential space savings from compaction.
