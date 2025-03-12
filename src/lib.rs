@@ -13,12 +13,6 @@ pub use digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use log::{debug, info, warn};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-// TODO: When creating new files, start off with initial metadata regarding the software version
-// used to create the file, and ensure whatever key is used for that is protected from writing.
-// Also, use a [semver] heuristic to determine compatibility (or simply see if it can be parsed).
-//
-// TODO: Use keys with a null byte for the leading byte to represent "hidden" entries?
-
 /// Enable `*entry_handle` to act like a `&[u8]`
 impl std::ops::Deref for EntryHandle {
     type Target = [u8];
