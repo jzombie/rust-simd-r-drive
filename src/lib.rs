@@ -312,7 +312,7 @@ impl AppendStorage {
         let file_len = file.get_ref().metadata()?.len();
 
         // First mmap the file
-        let mut mmap = Self::init_mmap(&file)?;
+        let mmap = Self::init_mmap(&file)?;
 
         // Recover valid chain using mmap, not file
         let final_len = Self::recover_valid_chain(&mmap, file_len)?;
