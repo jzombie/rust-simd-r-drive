@@ -203,7 +203,7 @@ impl EntryIterator {
 }
 
 impl Iterator for EntryIterator {
-    type Item = Arc<[u8]>;
+    type Item = EntryHandle;
 
     /// Advances the iterator to the next valid entry.
     ///
@@ -248,7 +248,12 @@ impl Iterator for EntryIterator {
             return self.next();
         }
 
-        Some(entry_data.into())
+        // Some(entry_data.into())
+
+        Some(EntryHandle {
+            mmap_arc: Arc::clone(&self.mmap),
+            range: entry_start..entry_end,
+        })
     }
 }
 
@@ -262,7 +267,7 @@ pub struct AppendStorage {
 }
 
 impl IntoIterator for AppendStorage {
-    type Item = Arc<[u8]>;
+    type Item = EntryHandle;
     type IntoIter = EntryIterator;
 
     fn into_iter(self) -> Self::IntoIter {
