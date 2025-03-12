@@ -195,7 +195,7 @@ impl EntryIterator {
     /// - A new `EntryIterator` instance.
     pub fn new(mmap: Arc<Mmap>, last_offset: u64) -> Self {
         Self {
-            mmap: mmap,
+            mmap,
             cursor: last_offset,
             seen_keys: HashSet::with_hasher(Xxh3BuildHasher),
         }
@@ -416,8 +416,8 @@ impl AppendStorage {
         // 3. Drop guard so others can proceed
         drop(guard);
 
-        // 4. Return an iterator that owns `Arc<Mmap>`
-        let last_offset = 0; // Or wherever you store it
+        // 4. Get the actual last offset
+        let last_offset = self.last_offset.load(Ordering::Acquire);
 
         EntryIterator::new(mmap_clone, last_offset)
     }
@@ -859,7 +859,14 @@ impl AppendStorage {
     /// # Returns:
     /// - The **total count** of active key-value pairs in the database.
     pub fn count(&self) -> usize {
-        self.iter_entries().count()
+        let mut i = 0;
+        for x in self.iter_entries() {
+            i = i + 1;
+        }
+
+        i
+
+        // self.iter_entries().count()
     }
 
     /// Estimates the potential space savings from compaction.
