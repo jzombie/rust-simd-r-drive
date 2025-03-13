@@ -162,10 +162,6 @@ fn main() {
                 // If stdin is piped, use a streaming approach
                 let mut stdin_reader = io::stdin().lock();
 
-                // storage
-                //     .write_stream(key_as_bytes, &mut stdin_reader)
-                //     .expect("Failed to write streamed stdin data");
-
                 if let Err(err) = storage.write_stream(key_as_bytes, &mut stdin_reader) {
                     error!("Failed to write streamed stdin data: {}", err);
                     std::process::exit(1);
@@ -175,7 +171,6 @@ fn main() {
                 error!("Error: No value provided and stdin is empty.");
                 std::process::exit(1);
             }
-
 
             info!("Stored '{}'", key);
         }
