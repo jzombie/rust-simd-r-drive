@@ -9,13 +9,14 @@ use std::convert::From;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+// TODO: Add feature flag to support using `tokio`'s `Mutex` (etc.) instead of the std lib
 use std::sync::{Arc, Mutex, RwLock};
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Append-Only Storage Engine
 pub struct DataStore {
-    file: Arc<RwLock<BufWriter<File>>>, // Wrap file in Arc<RwLock<>> for safe concurrent writes
+    file: Arc<RwLock<BufWriter<File>>>, // Wrap file in Arc<RwLock<>> for safe concurrent writes`
     mmap: Arc<Mutex<Arc<Mmap>>>,        // Atomic pointer to an mmap for zero-copy reads
     last_offset: AtomicU64,
     key_index: Arc<RwLock<HashMap<u64, u64, Xxh3BuildHasher>>>, // Wrap in RwLock for safe writes
