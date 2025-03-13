@@ -1,5 +1,5 @@
 use rand::Rng;
-use simd_r_drive::AppendStorage;
+use simd_r_drive::DataStore;
 use std::fs::remove_file;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -26,7 +26,7 @@ fn main() {
 
 /// Writes 1M entries
 fn benchmark_append_entries(path: &PathBuf) {
-    let storage = AppendStorage::open(path).expect("Failed to open storage");
+    let storage = DataStore::open(path).expect("Failed to open storage");
     let mut batch = Vec::with_capacity(WRITE_BATCH_SIZE);
 
     let start_time = Instant::now();
@@ -74,7 +74,7 @@ fn benchmark_append_entries(path: &PathBuf) {
 }
 
 fn benchmark_sequential_reads(path: &PathBuf) {
-    let storage = AppendStorage::open(path).expect("Failed to open storage");
+    let storage = DataStore::open(path).expect("Failed to open storage");
 
     let start_time = Instant::now();
     let mut count = 0;
@@ -101,7 +101,7 @@ fn benchmark_sequential_reads(path: &PathBuf) {
 
 /// Random read benchmark
 fn benchmark_random_reads(path: &PathBuf) {
-    let storage = AppendStorage::open(path).expect("Failed to open storage");
+    let storage = DataStore::open(path).expect("Failed to open storage");
     let mut rng = rand::rng();
 
     let start_time = Instant::now();

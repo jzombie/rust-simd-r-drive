@@ -1,8 +1,8 @@
 mod constants;
 use constants::*;
 
-mod append_storage;
-pub use append_storage::AppendStorage;
+mod data_store;
+pub use data_store::DataStore;
 
 mod entry_handle;
 pub use entry_handle::EntryHandle;

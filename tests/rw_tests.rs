@@ -2,17 +2,17 @@
 mod tests {
 
     use serde::{Deserialize, Serialize};
-    use simd_r_drive::{compute_checksum, compute_hash, AppendStorage};
+    use simd_r_drive::{compute_checksum, compute_hash, DataStore};
     use std::fs::{metadata, OpenOptions};
     use std::io::{Read, Seek, SeekFrom, Write};
     use tempfile::tempdir;
 
     /// Helper function to create a temporary file for testing
-    fn create_temp_storage() -> (tempfile::TempDir, AppendStorage) {
+    fn create_temp_storage() -> (tempfile::TempDir, DataStore) {
         let dir = tempdir().expect("Failed to create temp dir");
         let path = dir.path().join("test_storage.bin");
 
-        let storage = AppendStorage::open(&path).expect("Failed to open storage");
+        let storage = DataStore::open(&path).expect("Failed to open storage");
         (dir, storage)
     }
 
@@ -173,7 +173,7 @@ mod tests {
 
         // Step 1: Write a valid entry and close storage
         {
-            let storage = AppendStorage::open(&path).expect("Failed to open storage");
+            let storage = DataStore::open(&path).expect("Failed to open storage");
             storage
                 .append_entry(b"key1", b"Valid Entry")
                 .expect("Write failed");
@@ -220,7 +220,7 @@ mod tests {
         if !cfg!(target_os = "windows") {
             // Step 3: Attempt to recover storage and write to it
             {
-                let storage = AppendStorage::open(&path).expect("Failed to recover storage");
+                let storage = DataStore::open(&path).expect("Failed to recover storage");
 
                 //  Check that the recovered file size matches the original before corruption
                 let file_size_after_recovery =
@@ -263,7 +263,7 @@ mod tests {
 
             // Step 4: Verify re-opened storage can still access these keys
             {
-                let storage = AppendStorage::open(&path).expect("Failed to recover storage");
+                let storage = DataStore::open(&path).expect("Failed to recover storage");
 
                 assert_eq!(
                     storage.get_entry_by_key(b"key1").unwrap().as_slice(),
@@ -285,7 +285,7 @@ mod tests {
 
         // Step 1: Write some entries and close the storage
         {
-            let storage = AppendStorage::open(&path).expect("Failed to open storage");
+            let storage = DataStore::open(&path).expect("Failed to open storage");
 
             let entries = vec![
                 (b"key1".as_slice(), b"Persistent Entry 1 ..".as_slice()),
@@ -304,7 +304,7 @@ mod tests {
 
         // Step 2: Reopen storage and verify persistence
         {
-            let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
+            let storage = DataStore::open(&path).expect("Failed to reopen storage");
 
             for (key, expected_payload) in [
                 (b"key1", &b"Persistent Entry 1 .."[..]),
@@ -429,7 +429,7 @@ mod tests {
         let dir = tempdir().expect("Failed to create temp dir");
         let path = dir.path().join("test_storage_mixed.bin");
 
-        let mut storage = AppendStorage::open(&path).expect("Failed to open storage");
+        let mut storage = DataStore::open(&path).expect("Failed to open storage");
 
         // Different Data Types
         let key1 = b"text_key";
@@ -573,8 +573,7 @@ mod tests {
         );
 
         // Step 4: Reopen Storage and Verify Data Integrity
-        let storage =
-            AppendStorage::open(&path).expect("Failed to reopen storage after compaction");
+        let storage = DataStore::open(&path).expect("Failed to reopen storage after compaction");
 
         // for entry in storage.iter_entries() {
         //     eprintln!("Entry: {:?}", entry);
@@ -618,7 +617,7 @@ mod tests {
 
         // Step 1: Write initial entries and close storage
         {
-            let storage = AppendStorage::open(&path).expect("Failed to open storage");
+            let storage = DataStore::open(&path).expect("Failed to open storage");
 
             storage
                 .append_entry(b"key1", b"Initial Value 1")
@@ -632,7 +631,7 @@ mod tests {
 
         // Step 2: Reopen storage, update values, and close again
         {
-            let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
+            let storage = DataStore::open(&path).expect("Failed to reopen storage");
 
             storage
                 .append_entry(b"key1", b"Updated Value 1")
@@ -646,7 +645,7 @@ mod tests {
 
         // Step 3: Reopen storage again and verify persistence
         {
-            let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
+            let storage = DataStore::open(&path).expect("Failed to reopen storage");
 
             assert_eq!(
                 storage.get_entry_by_key(b"key1").as_deref(),
@@ -814,7 +813,7 @@ mod tests {
 
         // Step 7: Open the extracted storage as a new storage instance
         let extracted_storage =
-            AppendStorage::open(&nested_storage_path).expect("Failed to open extracted storage");
+            DataStore::open(&nested_storage_path).expect("Failed to open extracted storage");
 
         // Step 8: Read the original entry from the extracted storage
         let retrieved_entry = extracted_storage

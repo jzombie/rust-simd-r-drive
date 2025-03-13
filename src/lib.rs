@@ -16,11 +16,11 @@
 //!
 //! ## Example Usage
 //! ```rust
-//! use simd_r_drive::AppendStorage;
+//! use simd_r_drive::DataStore;
 //! use std::path::PathBuf;
 //!
 //! // Open or create a new storage file
-//! let mut storage = AppendStorage::open(&PathBuf::from("test_storage.bin")).unwrap();
+//! let mut storage = DataStore::open(&PathBuf::from("test_storage.bin")).unwrap();
 //!
 //! // TODO: Add streaming examples
 //!
@@ -60,7 +60,7 @@
 //! ```
 //!
 //! ## Modules
-//! - `append_storage` - Core storage implementation.
+//! - `data_store` - Core storage implementation.
 //! - `digest` - Hashing utilities for fast key lookups.
 //! - `constants` - Constants and configuration settings.
 //! - `entry` - Structures representing storage entries.

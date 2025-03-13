@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use indoc::indoc;
 use log::{error, info, warn};
-use simd_r_drive::AppendStorage;
+use simd_r_drive::DataStore;
 mod utils;
 use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
@@ -135,7 +135,7 @@ fn main() {
 
     match &cli.command {
         Commands::Read { key } => {
-            let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
             match storage.get_entry_by_key(key.as_bytes()) {
                 Some(value) => {
@@ -162,7 +162,7 @@ fn main() {
         }
 
         Commands::Write { key, value } => {
-            let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
             // Convert `Option<String>` to `Option<Vec<u8>>` (binary format)
             let value_bytes = value.as_ref().map(|s| s.as_bytes().to_vec());
@@ -188,9 +188,9 @@ fn main() {
 
         Commands::Copy { key, target } => {
             let source_storage =
-                AppendStorage::open(&cli.storage).expect("Failed to open source storage");
+                DataStore::open(&cli.storage).expect("Failed to open source storage");
             let mut target_storage =
-                AppendStorage::open(target).expect("Failed to open target storage");
+                DataStore::open(target).expect("Failed to open target storage");
 
             source_storage
                 .copy_entry(key.as_bytes(), &mut target_storage)
@@ -205,9 +205,9 @@ fn main() {
 
         Commands::Move { key, target } => {
             let mut source_storage =
-                AppendStorage::open(&cli.storage).expect("Failed to open source storage");
+                DataStore::open(&cli.storage).expect("Failed to open source storage");
             let mut target_storage =
-                AppendStorage::open(target).expect("Failed to open target storage");
+                DataStore::open(target).expect("Failed to open target storage");
 
             source_storage
                 .move_entry(key.as_bytes(), &mut target_storage)
@@ -221,7 +221,7 @@ fn main() {
         }
 
         Commands::Delete { key } => {
-            let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            let mut storage = DataStore::open(&cli.storage).expect("Failed to open storage");
             storage
                 .delete_entry(key.as_bytes())
                 .expect("Failed to delete entry");
@@ -229,7 +229,7 @@ fn main() {
         }
 
         Commands::Compact => {
-            let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            let mut storage = DataStore::open(&cli.storage).expect("Failed to open storage");
             info!("Starting compaction...");
             if let Err(e) = storage.compact() {
                 error!("Compaction failed: {}", e);
@@ -239,7 +239,7 @@ fn main() {
         }
 
         Commands::Metadata { key } => {
-            let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
             match storage.get_entry_by_key(key.as_bytes()) {
                 Some(entry) => {
@@ -293,7 +293,7 @@ fn main() {
         }
 
         Commands::Info => {
-            let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
             // Retrieve storage file size
             let storage_size = storage.get_storage_size().unwrap_or(0);

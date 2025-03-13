@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Append-Only Storage Engine
-pub struct AppendStorage {
+pub struct DataStore {
     file: Arc<RwLock<BufWriter<File>>>, // Wrap file in Arc<RwLock<>> for safe concurrent writes
     mmap: Arc<Mutex<Arc<Mmap>>>,        // Atomic pointer to an mmap for zero-copy reads
     last_offset: AtomicU64,
@@ -22,7 +22,7 @@ pub struct AppendStorage {
     path: PathBuf,
 }
 
-impl IntoIterator for AppendStorage {
+impl IntoIterator for DataStore {
     type Item = EntryHandle;
     type IntoIter = EntryIterator;
 
@@ -31,19 +31,19 @@ impl IntoIterator for AppendStorage {
     }
 }
 
-impl From<PathBuf> for AppendStorage {
-    /// Creates an `AppendStorage` instance from a `PathBuf`.
+impl From<PathBuf> for DataStore {
+    /// Creates an `DataStore` instance from a `PathBuf`.
     ///
     /// This allows creating a storage instance **directly from a file path**.
     ///
     /// # Panics:
     /// - If the file cannot be opened or mapped into memory.
     fn from(path: PathBuf) -> Self {
-        AppendStorage::open(&path).expect("Failed to open storage file")
+        DataStore::open(&path).expect("Failed to open storage file")
     }
 }
 
-impl AppendStorage {
+impl DataStore {
     /// Opens an **existing** or **new** append-only storage file.
     ///
     /// This function:
@@ -57,7 +57,7 @@ impl AppendStorage {
     /// - `path`: The **file path** where the storage is located.
     ///
     /// # Returns:
-    /// - `Ok(AppendStorage)`: A **new storage instance**.
+    /// - `Ok(DataStore)`: A **new storage instance**.
     /// - `Err(std::io::Error)`: If any file operation fails.
     pub fn open(path: &Path) -> Result<Self> {
         let file = Self::open_file_in_append_mode(path)?;
@@ -649,7 +649,7 @@ impl AppendStorage {
     }
 
     // TODO: Document
-    pub fn copy_entry(&self, key: &[u8], target: &AppendStorage) -> Result<u64> {
+    pub fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
         let entry_handle = self.get_entry_by_key(key).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -662,7 +662,7 @@ impl AppendStorage {
 
     // TODO: Document return type
     /// Low-level copy functionality.
-    fn copy_entry_handle(&self, entry: &EntryHandle, target: &AppendStorage) -> Result<u64> {
+    fn copy_entry_handle(&self, entry: &EntryHandle, target: &DataStore) -> Result<u64> {
         let metadata = entry.metadata();
 
         // Append to the compacted storage
@@ -672,7 +672,7 @@ impl AppendStorage {
     }
 
     // TODO: Document
-    pub fn move_entry(&self, key: &[u8], target: &AppendStorage) -> Result<u64> {
+    pub fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
         self.copy_entry(key, target)?;
 
         self.delete_entry(key)
@@ -698,8 +698,8 @@ impl AppendStorage {
         let compacted_path = self.path.with_extension("bk");
         debug!("Starting compaction. Writing to: {:?}", compacted_path);
 
-        // 1) Create a new AppendStorage instance for the compacted file
-        let mut compacted_storage = AppendStorage::open(&compacted_path)?;
+        // 1) Create a new DataStore instance for the compacted file
+        let mut compacted_storage = DataStore::open(&compacted_path)?;
 
         // 2) Iterate over all valid entries using your iterator
         for entry in self.iter_entries() {

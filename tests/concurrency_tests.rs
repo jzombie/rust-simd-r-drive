@@ -1,5 +1,5 @@
 use serial_test::serial;
-use simd_r_drive::AppendStorage;
+use simd_r_drive::DataStore;
 use std::sync::Arc;
 use tempfile::tempdir;
 use tokio::sync::Notify;
@@ -12,7 +12,7 @@ async fn concurrent_write_test() {
     let dir = tempdir().expect("Failed to create temp dir");
     let path = dir.path().join("test_storage.bin");
 
-    let storage = Arc::new(AppendStorage::open(&path).unwrap());
+    let storage = Arc::new(DataStore::open(&path).unwrap());
 
     let num_writes = 10;
     let thread_count = 16;
@@ -64,7 +64,7 @@ async fn interleaved_read_write_test() {
     let dir = tempdir().expect("Failed to create temp dir");
     let path = dir.path().join("test_storage.bin");
 
-    let storage = Arc::new(AppendStorage::open(&path).unwrap());
+    let storage = Arc::new(DataStore::open(&path).unwrap());
     let notify_a = Arc::new(Notify::new());
     let notify_b = Arc::new(Notify::new());
 
