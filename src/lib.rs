@@ -22,6 +22,8 @@
 //! // Open or create a new storage file
 //! let mut storage = AppendStorage::open(&PathBuf::from("test_storage.bin")).unwrap();
 //!
+//! // TODO: Add streaming examples
+//!
 //! // Append some key-value entries
 //! storage.append_entry(b"key1", b"value1").unwrap();
 //! storage.append_entry(b"key2", b"value2").unwrap();
