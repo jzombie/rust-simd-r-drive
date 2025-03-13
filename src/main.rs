@@ -118,6 +118,15 @@ enum Commands {
 }
 
 fn main() {
+    // TODO: Replace `stdin_input` with:
+    // let stdin_stream = spawn_stdin_stream();
+
+    // while let Ok(data) = stdin_stream.recv() {
+    //     let mut reader = Cursor::new(data); // Convert received data into a readable stream
+    //     storage
+    //         .append_large_entry_from_reader(key, &mut reader)
+    //         .expect("Failed to append streamed stdin data");
+    // }
     let stdin_input = get_stdin_or_default(None);
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();

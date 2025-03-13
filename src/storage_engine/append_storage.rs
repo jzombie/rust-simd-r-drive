@@ -338,6 +338,7 @@ impl AppendStorage {
         Ok(final_len)
     }
 
+    // TODO: Use the existing file lock instead of re-acquiring
     /// Re-maps the storage file to ensure that the latest updates are visible.
     ///
     /// This method is called **after a write operation** to reload the memory-mapped file
@@ -387,6 +388,7 @@ impl AppendStorage {
         self.append_large_entry_with_key_hash_from_reader(key_hash, reader)
     }
 
+    // TODO: Document
     pub fn append_large_entry_with_key_hash_from_reader<R: Read>(
         &self,
         key_hash: u64,
@@ -402,23 +404,23 @@ impl AppendStorage {
         let mut buffer = vec![0; 8 * 1024 * 1024]; // 8MB chunks
         let mut total_written = 0;
 
-        let mut checksum_state = crc32fast::Hasher::new(); // ✅ Use incremental checksum
+        let mut checksum_state = crc32fast::Hasher::new(); // Use incremental checksum
 
-        // **Stream and write chunks directly to disk**
+        // // **Stream and write chunks directly to disk**
         while let Ok(bytes_read) = reader.read(&mut buffer) {
             if bytes_read == 0 {
                 break;
             }
 
             file.write_all(&buffer[..bytes_read])?;
-            checksum_state.update(&buffer[..bytes_read]); // ✅ Update checksum incrementally
+            checksum_state.update(&buffer[..bytes_read]); // Update checksum incrementally
             total_written += bytes_read;
         }
 
-        let checksum_u32 = checksum_state.finalize(); // ✅ Finalize checksum after writing
+        let checksum_u32 = checksum_state.finalize(); // Finalize checksum after writing
         let checksum = checksum_u32.to_le_bytes();
 
-        // Write metadata **after** payload
+        // // Write metadata **after** payload
         let metadata = EntryMetadata {
             key_hash,
             prev_offset,
@@ -430,9 +432,21 @@ impl AppendStorage {
         let new_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
         self.last_offset.store(new_offset, Ordering::Release);
 
+        // TODO: Don't drop here, use re-existing
+        drop(file);
+
         self.remap_file()?; // **Ensure mmap updates**
 
+        // Associate key indexes AFTER file remap
+        let mut key_index = self.key_index.write().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
+        })?;
+        key_index.insert(key_hash, new_offset - METADATA_SIZE as u64);
+
         Ok(new_offset)
+
+        // TODO: Remove
+        // Ok(0)
     }
 
     // TODO: Document return type
@@ -503,6 +517,7 @@ impl AppendStorage {
 
                 last_offset += entry.len() as u64;
 
+                // TODO: Associate key indexes AFTER file remap
                 // Lock the key index before modifying
                 {
                     let mut key_index = self.key_index.write().map_err(|_| {

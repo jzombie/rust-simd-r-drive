@@ -832,20 +832,19 @@ mod tests {
     #[test]
     fn test_append_large_entry_with_real_stream() {
         use std::fs::File;
-        use std::io::{BufReader, Read, Write};
-        use tempfile::tempdir;
+        use std::io::{BufReader, Write};
 
         let (_dir, storage) = create_temp_storage();
         let large_key = b"streamed_large_entry";
 
-        // **1. Create a temporary file to act as a real stream**
+        // 1. Create a temporary file to act as a real stream
         let file_path = _dir.path().join("test_large_file.bin");
         let mut test_file = File::create(&file_path).expect("Failed to create test file");
 
         let payload_size = 1 * 1024 * 1024; // 1MB
         let test_data = vec![b'X'; payload_size];
 
-        // **2. Write real test data to file**
+        // 2. Write real test data to file
         test_file
             .write_all(&test_data)
             .expect("Failed to write test data");
@@ -854,20 +853,20 @@ mod tests {
         // Compute checksum for validation
         let expected_checksum = compute_checksum(&test_data);
 
-        // **3. Open the file as a streaming reader**
+        // 3. Open the file as a streaming reader
         let mut reader = BufReader::new(File::open(&file_path).expect("Failed to open test file"));
 
-        // **4. Write to storage using the real stream**
+        // 4. Write to storage using the real stream
         storage
             .append_large_entry_from_reader(large_key, &mut reader)
             .expect("Failed to append large entry");
 
-        // **5. Retrieve the entry**
+        // 5. Retrieve the entry
         let retrieved_entry = storage
             .get_entry_by_key(large_key)
             .expect("Failed to retrieve large entry");
 
-        // **6. Verify integrity**
+        // 6. Verify integrity
         assert_eq!(
             retrieved_entry.size(),
             payload_size,
