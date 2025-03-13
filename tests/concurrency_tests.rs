@@ -59,13 +59,9 @@ async fn concurrent_slow_streamed_write_test() {
         let key = *key;
 
         tasks.push(task::spawn(async move {
-            if i == 1 {
-                tokio::time::sleep(Duration::from_millis(50)).await; // Slight delay for Task B
-            }
-
             let file = File::open(&file_path).unwrap();
             let reader = BufReader::new(file);
-            let mut slow_reader = SlowReader::new(reader, Duration::from_millis(10));
+            let mut slow_reader = SlowReader::new(reader, Duration::from_millis(500));
 
             // Call write_stream only once with the full slow reader
             let bytes_written = storage_clone
