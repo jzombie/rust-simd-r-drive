@@ -374,6 +374,10 @@ impl AppendStorage {
     /// Appends a large entry using a streaming `Read` source (e.g., file, network).
     ///
     /// This allows writing entries **larger than RAM** without loading them entirely into memory.
+    /// Appends a large entry using a streaming `Read` source (e.g., file, network).
+    ///
+    /// ✅ **Truly supports writing files larger than RAM**
+    /// ✅ **Computes checksum while writing (no full payload in memory)**
     pub fn append_large_entry_from_reader<R: Read>(
         &self,
         key: &[u8],
@@ -394,9 +398,11 @@ impl AppendStorage {
 
         let prev_offset = self.last_offset.load(Ordering::Acquire);
 
-        let mut hasher = crc32fast::Hasher::new();
+        // TODO: Make the buffer size configurable
         let mut buffer = vec![0; 8 * 1024 * 1024]; // 8MB chunks
         let mut total_written = 0;
+
+        let mut checksum_state = crc32fast::Hasher::new(); // ✅ Use incremental checksum
 
         // **Stream and write chunks directly to disk**
         while let Ok(bytes_read) = reader.read(&mut buffer) {
@@ -405,11 +411,12 @@ impl AppendStorage {
             }
 
             file.write_all(&buffer[..bytes_read])?;
-            hasher.update(&buffer[..bytes_read]); // Compute checksum while writing
+            checksum_state.update(&buffer[..bytes_read]); // ✅ Update checksum incrementally
             total_written += bytes_read;
         }
 
-        let checksum = hasher.finalize();
+        let checksum_u32 = checksum_state.finalize(); // ✅ Finalize checksum after writing
+        let checksum = checksum_u32.to_le_bytes();
 
         // Write metadata **after** payload
         let metadata = EntryMetadata {
