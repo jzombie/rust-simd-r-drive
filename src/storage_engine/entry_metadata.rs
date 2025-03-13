@@ -1,14 +1,4 @@
 use crate::storage_engine::constants::*;
-use log::{debug, info, warn};
-use memmap2::Mmap;
-use std::collections::{HashMap, HashSet};
-use std::convert::From;
-use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Result, Seek, SeekFrom, Write};
-use std::ops::Range;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
 
 /// Metadata structure for an append-only storage entry.
 ///

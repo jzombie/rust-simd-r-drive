@@ -1,15 +1,8 @@
 use crate::storage_engine::digest::*;
 use crate::storage_engine::*;
-use log::{debug, info, warn};
 use memmap2::Mmap;
-use std::collections::{HashMap, HashSet};
-use std::convert::From;
-use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Result, Seek, SeekFrom, Write};
 use std::ops::Range;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
 
 /// Enable `*entry_handle` to act like a `&[u8]`
 impl std::ops::Deref for EntryHandle {

@@ -587,7 +587,7 @@ impl AppendStorage {
         let metadata = entry.metadata();
 
         // Append to the compacted storage
-        let result = target.append_entry_with_key_hash(metadata.key_hash, &entry)?;
+        let result = target.append_entry_with_key_hash(metadata.key_hash, entry)?;
 
         Ok(result)
     }
@@ -596,7 +596,7 @@ impl AppendStorage {
     pub fn move_entry(&mut self, key: &[u8], target: &mut AppendStorage) -> Result<u64> {
         self.copy_entry(key, target)?;
 
-        self.delete_entry(&key)
+        self.delete_entry(key)
     }
 
     /// Deletes a key by appending a **null byte marker**.

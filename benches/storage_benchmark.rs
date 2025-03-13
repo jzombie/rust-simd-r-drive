@@ -26,7 +26,7 @@ fn main() {
 
 /// Writes 1M entries
 fn benchmark_append_entries(path: &PathBuf) {
-    let mut storage = AppendStorage::open(&path).expect("Failed to open storage");
+    let storage = AppendStorage::open(path).expect("Failed to open storage");
     let mut batch = Vec::with_capacity(WRITE_BATCH_SIZE);
 
     let start_time = Instant::now();

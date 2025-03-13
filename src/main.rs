@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use env_logger;
 use indoc::indoc;
 use log::{error, info, warn};
 use simd_r_drive::AppendStorage;
@@ -136,12 +135,12 @@ fn main() {
 
                     if stdout.is_terminal() {
                         // If writing to a terminal, use UTF-8 safe string output
-                        writeln!(handle, "{}", String::from_utf8_lossy(&value.as_slice()))
+                        writeln!(handle, "{}", String::from_utf8_lossy(value.as_slice()))
                             .expect("Failed to write output");
                     } else {
                         // If redirected, output raw binary
                         handle
-                            .write_all(&value.as_slice())
+                            .write_all(value.as_slice())
                             .expect("Failed to write binary output");
                         handle.flush().expect("Failed to flush output");
                     }
@@ -154,7 +153,7 @@ fn main() {
         }
 
         Commands::Write { key, value } => {
-            let mut storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
+            let storage = AppendStorage::open(&cli.storage).expect("Failed to open storage");
 
             // Convert `Option<String>` to `Option<Vec<u8>>` (binary format)
             let value_bytes = value.as_ref().map(|s| s.as_bytes().to_vec());

@@ -14,7 +14,6 @@ mod entry_metadata;
 pub use entry_metadata::EntryMetadata;
 
 pub mod digest;
-pub use digest::*;
 
 mod simd_copy;
 use simd_copy::*;

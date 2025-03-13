@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use bincode;
+    
     use serde::{Deserialize, Serialize};
     use simd_r_drive::{compute_checksum, compute_hash, AppendStorage};
     use std::fs::{metadata, OpenOptions};
@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_append_and_read_last_entry() {
-        let (_dir, mut storage) = create_temp_storage();
+        let (_dir, storage) = create_temp_storage();
 
         let key = b"test_key".as_slice();
         let payload = b"Hello, world!".as_slice();
@@ -36,7 +36,7 @@ mod tests {
 
     #[test]
     fn test_multiple_appends_and_reads() {
-        let (_dir, mut storage) = create_temp_storage();
+        let (_dir, storage) = create_temp_storage();
 
         let entries = vec![
             (b"key1".as_slice(), b"First Entry".as_slice()),
@@ -46,7 +46,7 @@ mod tests {
 
         for (key, payload) in &entries {
             storage
-                .append_entry(*key, *payload)
+                .append_entry(key, payload)
                 .expect("Failed to append entry");
         }
 
@@ -60,13 +60,11 @@ mod tests {
 
     #[test]
     fn test_varying_payload_sizes() {
-        let (_dir, mut storage) = create_temp_storage();
+        let (_dir, storage) = create_temp_storage();
 
-        let payloads = vec![
-            vec![b'a'; 10],   // Small payload
+        let payloads = [vec![b'a'; 10],   // Small payload
             vec![b'b'; 1024], // Medium payload
-            vec![b'c'; 4096], // Large payload
-        ];
+            vec![b'c'; 4096]];
 
         for (i, payload) in payloads.iter().enumerate() {
             storage
@@ -84,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_retrieve_entry_by_key() {
-        let (_dir, mut storage) = create_temp_storage();
+        let (_dir, storage) = create_temp_storage();
 
         let key = b"test_key".as_slice();
         let payload = b"Hello, world!".as_slice();
@@ -108,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_update_entries_with_varying_lengths() {
-        let (_dir, mut storage) = create_temp_storage();
+        let (_dir, storage) = create_temp_storage();
 
         let key1 = b"key1".as_slice();
         let key2 = b"key2".as_slice();
@@ -173,7 +171,7 @@ mod tests {
 
         // Step 1: Write a valid entry and close storage
         {
-            let mut storage = AppendStorage::open(&path).expect("Failed to open storage");
+            let storage = AppendStorage::open(&path).expect("Failed to open storage");
             storage
                 .append_entry(b"key1", b"Valid Entry")
                 .expect("Write failed");
@@ -220,7 +218,7 @@ mod tests {
         if !cfg!(target_os = "windows") {
             // Step 3: Attempt to recover storage and write to it
             {
-                let mut storage = AppendStorage::open(&path).expect("Failed to recover storage");
+                let storage = AppendStorage::open(&path).expect("Failed to recover storage");
 
                 //  Check that the recovered file size matches the original before corruption
                 let file_size_after_recovery =
@@ -285,7 +283,7 @@ mod tests {
 
         // Step 1: Write some entries and close the storage
         {
-            let mut storage = AppendStorage::open(&path).expect("Failed to open storage");
+            let storage = AppendStorage::open(&path).expect("Failed to open storage");
 
             let entries = vec![
                 (b"key1".as_slice(), b"Persistent Entry 1 ..".as_slice()),
@@ -295,7 +293,7 @@ mod tests {
 
             for (key, payload) in &entries {
                 storage
-                    .append_entry(*key, *payload)
+                    .append_entry(key, payload)
                     .expect("Failed to append entry");
             }
 
@@ -508,7 +506,7 @@ mod tests {
             .append_entry(key5, &float_payload2)
             .expect("Append failed");
         storage
-            .append_entry(key6, &mixed_payload2)
+            .append_entry(key6, mixed_payload2)
             .expect("Append failed");
         storage
             .append_entry(key7, &temp_payload2)
@@ -533,7 +531,7 @@ mod tests {
         );
         assert_eq!(
             storage.get_entry_by_key(key6).as_deref(),
-            Some(&mixed_payload2[..])
+            Some(mixed_payload2)
         );
         assert_eq!(
             storage.get_entry_by_key(key7).as_deref(),
@@ -599,7 +597,7 @@ mod tests {
         );
         assert_eq!(
             storage.get_entry_by_key(key6).as_deref(),
-            Some(&mixed_payload2[..])
+            Some(mixed_payload2)
         );
         assert_eq!(storage.get_entry_by_key(key7).as_deref(), None);
 
@@ -618,7 +616,7 @@ mod tests {
 
         // Step 1: Write initial entries and close storage
         {
-            let mut storage = AppendStorage::open(&path).expect("Failed to open storage");
+            let storage = AppendStorage::open(&path).expect("Failed to open storage");
 
             storage
                 .append_entry(b"key1", b"Initial Value 1")
@@ -632,7 +630,7 @@ mod tests {
 
         // Step 2: Reopen storage, update values, and close again
         {
-            let mut storage = AppendStorage::open(&path).expect("Failed to reopen storage");
+            let storage = AppendStorage::open(&path).expect("Failed to reopen storage");
 
             storage
                 .append_entry(b"key1", b"Updated Value 1")
@@ -665,7 +663,7 @@ mod tests {
 
     #[test]
     fn test_copy_entry_between_storages() {
-        let (_dir1, mut source_storage) = create_temp_storage();
+        let (_dir1, source_storage) = create_temp_storage();
         let (_dir2, mut target_storage) = create_temp_storage();
 
         let key = b"copy_key";
@@ -771,7 +769,7 @@ mod tests {
 
     #[test]
     fn test_nested_storage_extraction() {
-        let (_dir1, mut storage1) = create_temp_storage();
+        let (_dir1, storage1) = create_temp_storage();
         let key1 = b"original_key";
         let payload1 = b"Initial Data";
 
@@ -782,10 +780,10 @@ mod tests {
 
         // Step 2: Read the full storage as raw bytes
         let storage1_bytes =
-            std::fs::read(&storage1.get_path()).expect("Failed to read storage file");
+            std::fs::read(storage1.get_path()).expect("Failed to read storage file");
 
         // Step 3: Create a second storage and embed the first storage inside it
-        let (_dir2, mut storage2) = create_temp_storage();
+        let (_dir2, storage2) = create_temp_storage();
         let nested_key = b"nested_storage";
 
         storage2
