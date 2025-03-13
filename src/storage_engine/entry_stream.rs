@@ -15,8 +15,15 @@ use std::io::{self, Read};
 ///
 /// # Example Usage
 /// ```rust
-/// use simd_r_drive::storage_engine::{EntryHandle, EntryStream};
+/// use simd_r_drive::storage_engine::{DataStore, EntryHandle, EntryStream};
 /// use std::io::Read;
+/// use std::path::PathBuf;
+///
+/// let data_store = DataStore::from(PathBuf::from("test_storage.bin"));
+///
+/// // Write some test data
+/// data_store.append_entry(b"test_key", b"test_data");
+/// let entry_handle = data_store.get_entry_by_key(b"test_key").unwrap();
 ///
 /// // Assume `entry_handle` is obtained from storage
 /// let mut stream = EntryStream::from(entry_handle);
@@ -26,7 +33,8 @@ use std::io::{self, Read};
 ///     if bytes_read == 0 {
 ///         break; // EOF
 ///     }
-///     process_chunk(&buffer[..bytes_read]); // Process the chunk
+///     // Replace this with actual processing logic
+///     println!("Read {} bytes", bytes_read);
 /// }
 /// ```
 pub struct EntryStream {
