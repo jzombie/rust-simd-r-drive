@@ -46,7 +46,7 @@ fn benchmark_append_entries(path: &PathBuf) {
                 .map(|(k, v)| (k.as_slice(), v.as_slice()))
                 .collect();
             storage
-                .append_entries(&batch_refs)
+                .batch_write(&batch_refs)
                 .expect("Batch write failed");
             batch.clear();
         }
@@ -58,7 +58,7 @@ fn benchmark_append_entries(path: &PathBuf) {
             .map(|(k, v)| (k.as_slice(), v.as_slice()))
             .collect();
         storage
-            .append_entries(&batch_refs)
+            .batch_write(&batch_refs)
             .expect("Final batch write failed");
     }
 

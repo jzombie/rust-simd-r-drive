@@ -459,21 +459,21 @@ impl DataStore {
     // TODO: Document return type
     /// High-level method: Appends a single entry by key hash
     pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
-        self.batch_write(vec![(key_hash, payload)])
+        self.batch_write_hashed_payloads(vec![(key_hash, payload)])
     }
 
     // TODO: Document return type
     /// Batch append multiple entries as a single transaction
-    pub fn append_entries(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
+    pub fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let hashed_entries: Vec<(u64, &[u8])> = entries
             .iter()
             .map(|(key, payload)| (compute_hash(key), *payload))
             .collect();
-        self.batch_write(hashed_entries)
+        self.batch_write_hashed_payloads(hashed_entries)
     }
 
     /// Core transaction method (Handles locking, writing, flushing)
-    pub fn batch_write(&self, keyed_payloads: Vec<(u64, &[u8])>) -> Result<u64> {
+    pub fn batch_write_hashed_payloads(&self, hashed_payloads: Vec<(u64, &[u8])>) -> Result<u64> {
         {
             let mut file = self.file.write().map_err(|_| {
                 std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
@@ -482,7 +482,7 @@ impl DataStore {
             let mut buffer = Vec::new();
             let mut last_offset = self.last_offset.load(Ordering::Acquire);
 
-            for (key_hash, payload) in keyed_payloads {
+            for (key_hash, payload) in hashed_payloads {
                 if payload.is_empty() {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
