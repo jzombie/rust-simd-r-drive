@@ -1,18 +1,13 @@
-// TODO: Implement
-
 use crate::storage_engine::EntryHandle;
-use memmap2::Mmap;
 use std::io::{self, Read};
-use std::ops::Range;
-use std::sync::Arc;
 
 pub struct EntryStream {
     entry_handle: EntryHandle,
     position: usize, // Tracks how much has been read
 }
 
-impl EntryStream {
-    pub fn new(entry_handle: EntryHandle) -> Self {
+impl From<EntryHandle> for EntryStream {
+    fn from(entry_handle: EntryHandle) -> Self {
         Self {
             position: entry_handle.range.start,
             entry_handle,

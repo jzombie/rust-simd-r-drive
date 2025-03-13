@@ -13,6 +13,9 @@ pub use entry_iterator::EntryIterator;
 mod entry_metadata;
 pub use entry_metadata::EntryMetadata;
 
+mod entry_stream;
+pub use entry_stream::EntryStream;
+
 pub mod digest;
 
 mod simd_copy;

@@ -832,7 +832,7 @@ mod tests {
     #[test]
     fn test_append_large_entry_with_real_stream() {
         use std::fs::File;
-        use std::io::{BufReader, Write};
+        use std::io::{BufReader, Read, Write};
 
         let (_dir, storage) = create_temp_storage();
         let large_key = b"streamed_large_entry";
@@ -866,23 +866,37 @@ mod tests {
             .get_entry_by_key(large_key)
             .expect("Failed to retrieve large entry");
 
-        // 6. Verify integrity
+        // 6. Create an EntryStream from the retrieved entry
+        let mut entry_stream: simd_r_drive::storage_engine::EntryStream = retrieved_entry.into();
+
+        // 7. Read from the stream in chunks and compare
+        let mut buffer = vec![0; 4096]; // 4KB read buffer
+        let mut streamed_data = Vec::new();
+
+        while let Ok(bytes_read) = entry_stream.read(&mut buffer) {
+            if bytes_read == 0 {
+                break;
+            }
+            streamed_data.extend_from_slice(&buffer[..bytes_read]);
+        }
+
+        // 8. Verify integrity
         assert_eq!(
-            retrieved_entry.size(),
+            streamed_data.len(),
             payload_size,
-            "Retrieved entry size does not match expected size"
+            "Streamed entry size does not match expected size"
         );
 
         assert_eq!(
-            retrieved_entry.raw_checksum(),
+            compute_checksum(&streamed_data),
             expected_checksum,
-            "Checksum mismatch for retrieved entry"
+            "Checksum mismatch for streamed entry"
         );
 
         assert_eq!(
-            retrieved_entry.as_slice(),
+            streamed_data.as_slice(),
             test_data.as_slice(),
-            "Retrieved entry data does not match expected data"
+            "Streamed entry data does not match expected data"
         );
     }
 }
