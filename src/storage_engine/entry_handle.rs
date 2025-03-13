@@ -4,6 +4,8 @@ use memmap2::Mmap;
 use std::ops::Range;
 use std::sync::Arc;
 
+// TODO: Rename to `read-handle`?
+
 /// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
 /// Lets you access the bytes of the entry as long as this struct is alive.
 #[derive(Debug)]
@@ -81,6 +83,7 @@ impl EntryHandle {
         self.metadata.checksum
     }
 
+    // TODO: This needs slight reworking if the data came from a large stream
     pub fn is_valid_checksum(&self) -> bool {
         let data = self.as_slice();
         let computed = compute_checksum(data);
