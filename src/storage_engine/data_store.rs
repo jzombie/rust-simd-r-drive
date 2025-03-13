@@ -472,14 +472,8 @@ impl DataStore {
         self.batch_write(hashed_entries)
     }
 
-    // TODO: Document return type
-    /// Batch append multiple entries with precomputed key hashes
-    pub fn append_entries_with_key_hashes(&self, entries: &[(u64, &[u8])]) -> Result<u64> {
-        self.batch_write(entries.to_vec())
-    }
-
     /// Core transaction method (Handles locking, writing, flushing)
-    fn batch_write(&self, entries: Vec<(u64, &[u8])>) -> Result<u64> {
+    pub fn batch_write(&self, entries: Vec<(u64, &[u8])>) -> Result<u64> {
         {
             let mut file = self.file.write().map_err(|_| {
                 std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
