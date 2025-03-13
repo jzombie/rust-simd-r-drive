@@ -570,7 +570,7 @@ impl AppendStorage {
     }
 
     // TODO: Document
-    pub fn copy_entry(&self, key: &[u8], target: &mut AppendStorage) -> Result<u64> {
+    pub fn copy_entry(&self, key: &[u8], target: &AppendStorage) -> Result<u64> {
         let entry_handle = self.get_entry_by_key(key).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -583,7 +583,7 @@ impl AppendStorage {
 
     // TODO: Document return type
     /// Low-level copy functionality.
-    fn copy_entry_handle(&self, entry: &EntryHandle, target: &mut AppendStorage) -> Result<u64> {
+    fn copy_entry_handle(&self, entry: &EntryHandle, target: &AppendStorage) -> Result<u64> {
         let metadata = entry.metadata();
 
         // Append to the compacted storage
@@ -593,7 +593,7 @@ impl AppendStorage {
     }
 
     // TODO: Document
-    pub fn move_entry(&mut self, key: &[u8], target: &mut AppendStorage) -> Result<u64> {
+    pub fn move_entry(&self, key: &[u8], target: &AppendStorage) -> Result<u64> {
         self.copy_entry(key, target)?;
 
         self.delete_entry(key)
@@ -609,7 +609,7 @@ impl AppendStorage {
     ///
     /// # Returns:
     /// - The **new file offset** where the delete marker was appended.
-    pub fn delete_entry(&mut self, key: &[u8]) -> Result<u64> {
+    pub fn delete_entry(&self, key: &[u8]) -> Result<u64> {
         self.append_entry(key, &NULL_BYTE)
     }
 
