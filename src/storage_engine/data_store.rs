@@ -339,11 +339,12 @@ impl DataStore {
         Ok(final_len)
     }
 
+    // TODO: Move indexing in here as well
     // TODO: Use the existing file lock instead of re-acquiring
     /// Re-maps the storage file to ensure that the latest updates are visible.
     ///
-    /// This method is called **after a write operation** to reload the memory-mapped file
-    /// and ensure that newly written data is accessible for reading.
+    /// IMPORTANT: This method should be called **after a write operation** to reload
+    /// the memory-mapped file and ensure that newly written data is accessible for reading.
     fn remap_file(&self) -> std::io::Result<()> {
         // 1) Acquire file read lock
         let file_guard = self.file.read().map_err(|_| {
