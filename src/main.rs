@@ -176,10 +176,8 @@ fn main() {
                 std::process::exit(1);
             }
 
-            let metadata = storage.read_metadata(key_as_bytes);
 
             info!("Stored '{}'", key);
-            info!("Metadata: {:?}", metadata);
         }
 
         Commands::Copy { key, target } => {
