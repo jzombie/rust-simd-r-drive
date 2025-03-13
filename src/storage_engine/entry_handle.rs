@@ -4,6 +4,18 @@ use memmap2::Mmap;
 use std::ops::Range;
 use std::sync::Arc;
 
+/// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
+/// Lets you access the bytes of the entry as long as this struct is alive.
+#[derive(Debug)]
+pub struct EntryHandle {
+    pub(in crate::storage_engine) mmap_arc: Arc<Mmap>,
+
+    /// The payload range
+    pub(in crate::storage_engine) range: Range<usize>,
+
+    pub(in crate::storage_engine) metadata: EntryMetadata,
+}
+
 /// Enable `*entry_handle` to act like a `&[u8]`
 impl std::ops::Deref for EntryHandle {
     type Target = [u8];
@@ -34,21 +46,11 @@ impl PartialEq<Vec<u8>> for EntryHandle {
     }
 }
 
-/// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
-/// Lets you access the bytes of the entry as long as this struct is alive.
-#[derive(Debug)]
-pub struct EntryHandle {
-    pub(in crate::storage_engine) mmap_arc: Arc<Mmap>,
-
-    /// The payload range
-    pub(in crate::storage_engine) range: Range<usize>,
-
-    pub(in crate::storage_engine) metadata: EntryMetadata,
-}
-
 impl EntryHandle {
-    /// Returns the sub-slice of bytes corresponding to the entry.
+    /// Returns a zero-copy reference to the sub-slice of bytes corresponding to the entry.
     pub fn as_slice(&self) -> &[u8] {
+        // Returning a *cloned reference* to the memory-mapped data rather than
+        // cloning the values. This is expected behavior for zero-copy access.
         &self.mmap_arc[self.range.clone()]
     }
 
