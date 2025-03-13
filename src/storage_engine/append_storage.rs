@@ -692,6 +692,7 @@ impl AppendStorage {
         self.append_entry(key, &NULL_BYTE)
     }
 
+    // TODO: Return `Err` if more than one thread
     /// Compacts the storage by keeping only the latest version of each key.
     pub fn compact(&mut self) -> std::io::Result<()> {
         let compacted_path = self.path.with_extension("bk");
