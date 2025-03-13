@@ -204,7 +204,7 @@ fn main() {
         }
 
         Commands::Move { key, target } => {
-            let mut source_storage =
+            let source_storage =
                 DataStore::open(&cli.storage).expect("Failed to open source storage");
             let mut target_storage =
                 DataStore::open(target).expect("Failed to open target storage");
@@ -221,7 +221,7 @@ fn main() {
         }
 
         Commands::Delete { key } => {
-            let mut storage = DataStore::open(&cli.storage).expect("Failed to open storage");
+            let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
             storage
                 .delete_entry(key.as_bytes())
                 .expect("Failed to delete entry");
