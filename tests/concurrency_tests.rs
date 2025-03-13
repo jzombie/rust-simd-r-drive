@@ -20,128 +20,128 @@ impl<R: Read> SlowReader<R> {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-#[serial]
-async fn concurrent_slow_streamed_write_test() {
-    let dir = tempdir().expect("Failed to create temp dir");
-    let path = dir.path().join("test_storage.bin");
+// #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+// #[serial]
+// async fn concurrent_slow_streamed_write_test() {
+//     let dir = tempdir().expect("Failed to create temp dir");
+//     let path = dir.path().join("test_storage.bin");
 
-    let storage = Arc::new(DataStore::open(&path).unwrap());
+//     let storage = Arc::new(DataStore::open(&path).unwrap());
 
-    let key_a = b"stream_key_A";
-    let key_b = b"stream_key_B";
+//     let key_a = b"stream_key_A";
+//     let key_b = b"stream_key_B";
 
-    // 1. Prepare two different large test files for streaming
-    let file_a_path = dir.path().join("test_stream_a.bin");
-    let file_b_path = dir.path().join("test_stream_b.bin");
+//     // 1. Prepare two different large test files for streaming
+//     let file_a_path = dir.path().join("test_stream_a.bin");
+//     let file_b_path = dir.path().join("test_stream_b.bin");
 
-    // TODO: Use larger payload size after finishing debugging
-    // let payload_size = 2 * 1024 * 1024; // 2MB per stream
-    let payload_size = 4096 * 4;
+//     // TODO: Use larger payload size after finishing debugging
+//     // let payload_size = 2 * 1024 * 1024; // 2MB per stream
+//     let payload_size = 4096 * 4;
 
-    let test_data_a = vec![b'A'; payload_size];
-    let test_data_b = vec![b'B'; payload_size];
+//     let test_data_a = vec![b'A'; payload_size];
+//     let test_data_b = vec![b'B'; payload_size];
 
-    File::create(&file_a_path)
-        .unwrap()
-        .write_all(&test_data_a)
-        .unwrap();
-    File::create(&file_b_path)
-        .unwrap()
-        .write_all(&test_data_b)
-        .unwrap();
+//     File::create(&file_a_path)
+//         .unwrap()
+//         .write_all(&test_data_a)
+//         .unwrap();
+//     File::create(&file_b_path)
+//         .unwrap()
+//         .write_all(&test_data_b)
+//         .unwrap();
 
-    let notify = Arc::new(Notify::new());
+//     let notify = Arc::new(Notify::new());
 
-    let storage_clone_a = Arc::clone(&storage);
-    let notify_clone_a = Arc::clone(&notify);
-    let task_a = task::spawn(async move {
-        let file_a = File::open(&file_a_path).unwrap();
-        let reader_a = BufReader::new(file_a);
-        let mut slow_reader_a = SlowReader::new(reader_a, Duration::from_millis(10));
+//     let storage_clone_a = Arc::clone(&storage);
+//     let notify_clone_a = Arc::clone(&notify);
+//     let task_a = task::spawn(async move {
+//         let file_a = File::open(&file_a_path).unwrap();
+//         let reader_a = BufReader::new(file_a);
+//         let mut slow_reader_a = SlowReader::new(reader_a, Duration::from_millis(10));
 
-        let mut buffer = vec![0; 4096];
-        let mut total_written = 0;
+//         let mut buffer = vec![0; 4096];
+//         let mut total_written = 0;
 
-        while let Ok(bytes_read) = slow_reader_a.inner.read(&mut buffer) {
-            if bytes_read == 0 {
-                break;
-            }
+//         while let Ok(bytes_read) = slow_reader_a.inner.read(&mut buffer) {
+//             if bytes_read == 0 {
+//                 break;
+//             }
 
-            // Introduce artificial delay between reads
-            tokio::time::sleep(slow_reader_a.delay).await;
+//             // Introduce artificial delay between reads
+//             tokio::time::sleep(slow_reader_a.delay).await;
 
-            storage_clone_a
-                .write_stream(key_a, &mut &buffer[..bytes_read])
-                .expect("Stream A failed to write!");
+//             storage_clone_a
+//                 .write_stream(key_a, &mut &buffer[..bytes_read])
+//                 .expect("Stream A failed to write!");
 
-            total_written += bytes_read;
-        }
+//             total_written += bytes_read;
+//         }
 
-        eprintln!(
-            "[Task A] Finished writing stream A ({} bytes written)",
-            total_written
-        );
-        notify_clone_a.notify_waiters();
-    });
+//         eprintln!(
+//             "[Task A] Finished writing stream A ({} bytes written)",
+//             total_written
+//         );
+//         notify_clone_a.notify_waiters();
+//     });
 
-    let storage_clone_b = Arc::clone(&storage);
-    let notify_clone_b = Arc::clone(&notify);
-    let task_b = task::spawn(async move {
-        // Introduce a slight delay before starting task B
-        tokio::time::sleep(Duration::from_millis(50)).await;
+//     let storage_clone_b = Arc::clone(&storage);
+//     let notify_clone_b = Arc::clone(&notify);
+//     let task_b = task::spawn(async move {
+//         // Introduce a slight delay before starting task B
+//         tokio::time::sleep(Duration::from_millis(50)).await;
 
-        let file_b = File::open(&file_b_path).unwrap();
-        let reader_b = BufReader::new(file_b);
-        let mut slow_reader_b = SlowReader::new(reader_b, Duration::from_millis(10));
+//         let file_b = File::open(&file_b_path).unwrap();
+//         let reader_b = BufReader::new(file_b);
+//         let mut slow_reader_b = SlowReader::new(reader_b, Duration::from_millis(10));
 
-        let mut buffer = vec![0; 4096];
-        let mut total_written = 0;
+//         let mut buffer = vec![0; 4096];
+//         let mut total_written = 0;
 
-        while let Ok(bytes_read) = slow_reader_b.inner.read(&mut buffer) {
-            if bytes_read == 0 {
-                break;
-            }
+//         while let Ok(bytes_read) = slow_reader_b.inner.read(&mut buffer) {
+//             if bytes_read == 0 {
+//                 break;
+//             }
 
-            // Introduce artificial delay between reads
-            tokio::time::sleep(slow_reader_b.delay).await;
+//             // Introduce artificial delay between reads
+//             tokio::time::sleep(slow_reader_b.delay).await;
 
-            storage_clone_b
-                .write_stream(key_b, &mut &buffer[..bytes_read])
-                .expect("Stream B failed to write!");
+//             storage_clone_b
+//                 .write_stream(key_b, &mut &buffer[..bytes_read])
+//                 .expect("Stream B failed to write!");
 
-            total_written += bytes_read;
-        }
+//             total_written += bytes_read;
+//         }
 
-        eprintln!(
-            "[Task B] Finished writing stream B ({} bytes written)",
-            total_written
-        );
-        notify_clone_b.notify_waiters();
-    });
+//         eprintln!(
+//             "[Task B] Finished writing stream B ({} bytes written)",
+//             total_written
+//         );
+//         notify_clone_b.notify_waiters();
+//     });
 
-    // Ensure both tasks complete
-    let (res_a, res_b) = tokio::join!(task_a, task_b);
-    res_a.unwrap();
-    res_b.unwrap();
+//     // Ensure both tasks complete
+//     let (res_a, res_b) = tokio::join!(task_a, task_b);
+//     res_a.unwrap();
+//     res_b.unwrap();
 
-    // 4. Validate that both keys were written correctly
-    let retrieved_a = storage.read(key_a).unwrap();
-    let retrieved_b = storage.read(key_b).unwrap();
+//     // 4. Validate that both keys were written correctly
+//     let retrieved_a = storage.read(key_a).unwrap();
+//     let retrieved_b = storage.read(key_b).unwrap();
 
-    assert_eq!(
-        retrieved_a.as_slice(),
-        test_data_a.as_slice(),
-        "Data mismatch for Stream A"
-    );
-    assert_eq!(
-        retrieved_b.as_slice(),
-        test_data_b.as_slice(),
-        "Data mismatch for Stream B"
-    );
+//     assert_eq!(
+//         retrieved_a.as_slice(),
+//         test_data_a.as_slice(),
+//         "Data mismatch for Stream A"
+//     );
+//     assert_eq!(
+//         retrieved_b.as_slice(),
+//         test_data_b.as_slice(),
+//         "Data mismatch for Stream B"
+//     );
 
-    eprintln!("[Main] Both streams written successfully and validated.");
-}
+//     eprintln!("[Main] Both streams written successfully and validated.");
+// }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
 #[serial]

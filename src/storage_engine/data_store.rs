@@ -10,7 +10,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 // TODO: Add feature flag to support using `tokio`'s `Mutex` (etc.) instead of the std lib
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -345,17 +345,20 @@ impl DataStore {
     ///
     /// IMPORTANT: This method should be called **after a write operation** to reload
     /// the memory-mapped file and ensure that newly written data is accessible for reading.
-    fn remap_file(&self) -> std::io::Result<()> {
+    fn remap_file(
+        &self,
+        write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
+    ) -> std::io::Result<()> {
         // 1) Acquire file read lock
-        let file_guard = self.file.read().map_err(|_| {
-            std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Failed to acquire file read lock",
-            )
-        })?;
+        // let file_guard = self.file.read().map_err(|_| {
+        //     std::io::Error::new(
+        //         std::io::ErrorKind::Other,
+        //         "Failed to acquire file read lock",
+        //     )
+        // })?;
 
         // 2) Create a new Mmap from the file
-        let new_mmap = unsafe { memmap2::MmapOptions::new().map(file_guard.get_ref())? };
+        let new_mmap = unsafe { memmap2::MmapOptions::new().map(write_guard.get_ref())? };
 
         // 3) Replace the old Arc<Mmap> with a new Arc<Mmap>
         {
@@ -367,7 +370,7 @@ impl DataStore {
         } // Once the guard drops here, other threads can lock again
 
         // 4) Update last_offset (or any other fields)
-        let new_offset = file_guard.get_ref().metadata()?.len();
+        let new_offset = write_guard.get_ref().metadata()?.len();
         self.last_offset
             .store(new_offset, std::sync::atomic::Ordering::Release);
 
@@ -388,9 +391,10 @@ impl DataStore {
 
     // TODO: Document
     fn write_stream_with_key_hash<R: Read>(&self, key_hash: u64, reader: &mut R) -> Result<u64> {
-        let mut file = self.file.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
-        })?;
+        let mut file: std::sync::RwLockWriteGuard<'_, BufWriter<File>> =
+            self.file.write().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
+            })?;
 
         let prev_offset = self.last_offset.load(Ordering::Acquire);
 
@@ -426,10 +430,7 @@ impl DataStore {
         let new_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
         self.last_offset.store(new_offset, Ordering::Release);
 
-        // TODO: Don't drop here, use re-existing
-        drop(file);
-
-        self.remap_file()?; // **Ensure mmap updates**
+        self.remap_file(&file)?; // Ensure mmap updates
 
         // Associate key indexes AFTER file remap
         let mut key_index = self.key_index.write().map_err(|_| {
@@ -469,63 +470,58 @@ impl DataStore {
 
     /// Core transaction method (Handles locking, writing, flushing)
     pub fn batch_write_hashed_payloads(&self, hashed_payloads: Vec<(u64, &[u8])>) -> Result<u64> {
-        {
-            let mut file = self.file.write().map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
-            })?; // Lock only the file, not the whole struct
+        let mut file = self.file.write().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
+        })?; // Lock only the file, not the whole struct
 
-            let mut buffer = Vec::new();
-            let mut last_offset = self.last_offset.load(Ordering::Acquire);
+        let mut buffer = Vec::new();
+        let mut last_offset = self.last_offset.load(Ordering::Acquire);
 
-            for (key_hash, payload) in hashed_payloads {
-                if payload.is_empty() {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        "Payload cannot be empty.",
-                    ));
-                }
-
-                let prev_offset = last_offset;
-                let checksum = compute_checksum(payload);
-
-                let metadata = EntryMetadata {
-                    key_hash,
-                    prev_offset,
-                    checksum,
-                };
-
-                let mut entry = vec![0u8; payload.len() + METADATA_SIZE];
-
-                // Use SIMD to copy payload into buffer
-                simd_copy(&mut entry[..payload.len()], payload);
-
-                // Copy metadata normally (small size, not worth SIMD)
-                entry[payload.len()..].copy_from_slice(&metadata.serialize());
-
-                buffer.extend_from_slice(&entry);
-
-                last_offset += entry.len() as u64;
-
-                // TODO: Associate key indexes AFTER file remap
-                // Lock the key index before modifying
-                {
-                    let mut key_index = self.key_index.write().map_err(|_| {
-                        std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "Failed to acquire index lock",
-                        )
-                    })?;
-                    key_index.insert(key_hash, last_offset - METADATA_SIZE as u64);
-                } // Unlocks automatically here
+        for (key_hash, payload) in hashed_payloads {
+            if payload.is_empty() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Payload cannot be empty.",
+                ));
             }
 
-            file.write_all(&buffer)?;
-            file.flush()?;
+            let prev_offset = last_offset;
+            let checksum = compute_checksum(payload);
 
-            self.last_offset.store(last_offset, Ordering::Release);
+            let metadata = EntryMetadata {
+                key_hash,
+                prev_offset,
+                checksum,
+            };
+
+            let mut entry = vec![0u8; payload.len() + METADATA_SIZE];
+
+            // Use SIMD to copy payload into buffer
+            simd_copy(&mut entry[..payload.len()], payload);
+
+            // Copy metadata normally (small size, not worth SIMD)
+            entry[payload.len()..].copy_from_slice(&metadata.serialize());
+
+            buffer.extend_from_slice(&entry);
+
+            last_offset += entry.len() as u64;
+
+            // TODO: Associate key indexes AFTER file remap
+            // Lock the key index before modifying
+            {
+                let mut key_index = self.key_index.write().map_err(|_| {
+                    std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
+                })?;
+                key_index.insert(key_hash, last_offset - METADATA_SIZE as u64);
+            } // Unlocks automatically here
         }
 
-        self.remap_file()?;
+        file.write_all(&buffer)?;
+        file.flush()?;
+
+        self.last_offset.store(last_offset, Ordering::Release);
+
+        self.remap_file(&file)?; // Ensure mmap updates
 
         Ok(self.last_offset.load(Ordering::Acquire))
     }
