@@ -635,6 +635,20 @@ impl DataStore {
         })
     }
 
+    /// Retrieves metadata for a given key.
+    ///
+    /// This method looks up a key in the storage and returns its associated metadata.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** whose metadata is to be retrieved.
+    ///
+    /// # Returns:
+    /// - `Some(&EntryMetadata)`: Metadata for the key if it exists.
+    /// - `None`: If the key does not exist in the storage.
+    pub fn read_metadata(&self, key: &[u8]) -> Option<EntryMetadata> {
+        self.read(key).map(|entry| entry.metadata().clone())
+    }
+
     // TODO: Document
     pub fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
         let entry_handle = self.read(key).ok_or_else(|| {

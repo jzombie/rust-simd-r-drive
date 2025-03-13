@@ -5,7 +5,6 @@ use simd_r_drive::DataStore;
 mod utils;
 use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
-use stdin_nonblocking::get_stdin_or_default;
 use utils::format_bytes;
 
 // Help text template with placeholder
@@ -118,17 +117,6 @@ enum Commands {
 }
 
 fn main() {
-    // TODO: Replace `stdin_input` with:
-    // let stdin_stream = spawn_stdin_stream();
-
-    // while let Ok(data) = stdin_stream.recv() {
-    //     let mut reader = Cursor::new(data); // Convert received data into a readable stream
-    //     storage
-    //         .append_large_entry_from_reader(key, &mut reader)
-    //         .expect("Failed to append streamed stdin data");
-    // }
-    let stdin_input = get_stdin_or_default(None);
-
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let cli = Cli::parse();
@@ -163,27 +151,35 @@ fn main() {
 
         Commands::Write { key, value } => {
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
+            let key_as_bytes = key.as_bytes();
 
-            // Convert `Option<String>` to `Option<Vec<u8>>` (binary format)
-            let value_bytes = value.as_ref().map(|s| s.as_bytes().to_vec());
+            if let Some(value) = value {
+                // If a direct value is provided, write it normally
+                storage
+                    .write(key_as_bytes, value.as_bytes())
+                    .expect("Failed to write entry");
+            } else if !io::stdin().is_terminal() {
+                // If stdin is piped, use a streaming approach
+                let mut stdin_reader = io::stdin().lock();
 
-            // `stdin_input` is already `Option<Vec<u8>>`, so merge them properly
-            let final_value = value_bytes.or_else(|| stdin_input.clone());
+                // storage
+                //     .write_stream(key_as_bytes, &mut stdin_reader)
+                //     .expect("Failed to write streamed stdin data");
 
-            // Check if the final value is `None` or an empty binary array
-            if final_value.as_deref().map_or(true, |v| v.is_empty()) {
+                if let Err(err) = storage.write_stream(key_as_bytes, &mut stdin_reader) {
+                    error!("Failed to write streamed stdin data: {}", err);
+                    std::process::exit(1);
+                }
+            } else {
+                // If neither a value nor piped stdin is provided, return an error
                 error!("Error: No value provided and stdin is empty.");
                 std::process::exit(1);
             }
 
-            // Unwrap safely since we checked for `None`
-            let final_value = final_value.unwrap();
+            let metadata = storage.read_metadata(key_as_bytes);
 
-            storage
-                .write(key.as_bytes(), &final_value)
-                .expect("Failed to write entry");
-
-            info!("Stored '{}'", key,);
+            info!("Stored '{}'", key);
+            info!("Metadata: {:?}", metadata);
         }
 
         Commands::Copy { key, target } => {

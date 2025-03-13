@@ -26,7 +26,7 @@ use crate::storage_engine::constants::*;
 /// - The checksum is **not cryptographically secure** but serves as a quick integrity check.
 /// - The first entry for a key has `prev_offset = 0`, indicating no previous version.
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EntryMetadata {
     pub(in crate::storage_engine) key_hash: u64, // 8 bytes (hashed key for lookup)
     pub(in crate::storage_engine) prev_offset: u64, // 8 bytes (absolute offset of previous entry)
