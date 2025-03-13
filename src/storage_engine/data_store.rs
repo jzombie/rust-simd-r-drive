@@ -473,7 +473,7 @@ impl DataStore {
     }
 
     /// Core transaction method (Handles locking, writing, flushing)
-    pub fn batch_write(&self, entries: Vec<(u64, &[u8])>) -> Result<u64> {
+    pub fn batch_write(&self, keyed_payloads: Vec<(u64, &[u8])>) -> Result<u64> {
         {
             let mut file = self.file.write().map_err(|_| {
                 std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
@@ -482,7 +482,7 @@ impl DataStore {
             let mut buffer = Vec::new();
             let mut last_offset = self.last_offset.load(Ordering::Acquire);
 
-            for (key_hash, payload) in entries {
+            for (key_hash, payload) in keyed_payloads {
                 if payload.is_empty() {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
