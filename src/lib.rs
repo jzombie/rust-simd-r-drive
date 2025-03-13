@@ -52,8 +52,8 @@
 //!
 //! // Delete an entry
 //! storage.delete_entry(b"key3").unwrap();
-//! let entry = storage.get_entry_by_key(b"key3").unwrap();
-//! assert_eq!(entry.as_slice(), b"A new value");
+//! let entry = storage.get_entry_by_key(b"key3");
+//! assert!(entry.is_none());
 //!
 //! ```
 //!
