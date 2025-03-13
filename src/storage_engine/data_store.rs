@@ -430,13 +430,13 @@ impl DataStore {
         let new_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
         self.last_offset.store(new_offset, Ordering::Release);
 
-        self.remap_file(&file)?; // Ensure mmap updates
-
         // Associate key indexes AFTER file remap
         let mut key_index = self.key_index.write().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
         })?;
         key_index.insert(key_hash, new_offset - METADATA_SIZE as u64);
+
+        self.remap_file(&file)?; // Ensure mmap updates
 
         Ok(new_offset)
 
@@ -494,7 +494,7 @@ impl DataStore {
                 checksum,
             };
 
-            let mut entry = vec![0u8; payload.len() + METADATA_SIZE];
+            let mut entry: Vec<u8> = vec![0u8; payload.len() + METADATA_SIZE];
 
             // Use SIMD to copy payload into buffer
             simd_copy(&mut entry[..payload.len()], payload);
