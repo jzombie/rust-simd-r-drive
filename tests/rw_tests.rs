@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests {
-    
+
     use serde::{Deserialize, Serialize};
     use simd_r_drive::{compute_checksum, compute_hash, AppendStorage};
     use std::fs::{metadata, OpenOptions};
-    use std::io::{Seek, SeekFrom, Write};
+    use std::io::{Read, Seek, SeekFrom, Write};
     use tempfile::tempdir;
 
     /// Helper function to create a temporary file for testing
@@ -62,9 +62,11 @@ mod tests {
     fn test_varying_payload_sizes() {
         let (_dir, storage) = create_temp_storage();
 
-        let payloads = [vec![b'a'; 10],   // Small payload
+        let payloads = [
+            vec![b'a'; 10],   // Small payload
             vec![b'b'; 1024], // Medium payload
-            vec![b'c'; 4096]];
+            vec![b'c'; 4096],
+        ];
 
         for (i, payload) in payloads.iter().enumerate() {
             storage
@@ -824,6 +826,64 @@ mod tests {
             retrieved_entry.as_slice(),
             payload1,
             "Extracted storage does not contain the correct original data"
+        );
+    }
+
+    #[test]
+    fn test_append_large_entry_with_real_stream() {
+        use std::fs::File;
+        use std::io::{BufReader, Read, Write};
+        use tempfile::tempdir;
+
+        let (_dir, storage) = create_temp_storage();
+        let large_key = b"streamed_large_entry";
+
+        // **1. Create a temporary file to act as a real stream**
+        let file_path = _dir.path().join("test_large_file.bin");
+        let mut test_file = File::create(&file_path).expect("Failed to create test file");
+
+        let payload_size = 1 * 1024 * 1024; // 1MB
+        let test_data = vec![b'X'; payload_size];
+
+        // **2. Write real test data to file**
+        test_file
+            .write_all(&test_data)
+            .expect("Failed to write test data");
+        test_file.flush().expect("Failed to flush test data");
+
+        // Compute checksum for validation
+        let expected_checksum = compute_checksum(&test_data);
+
+        // **3. Open the file as a streaming reader**
+        let mut reader = BufReader::new(File::open(&file_path).expect("Failed to open test file"));
+
+        // **4. Write to storage using the real stream**
+        storage
+            .append_large_entry_from_reader(large_key, &mut reader)
+            .expect("Failed to append large entry");
+
+        // **5. Retrieve the entry**
+        let retrieved_entry = storage
+            .get_entry_by_key(large_key)
+            .expect("Failed to retrieve large entry");
+
+        // **6. Verify integrity**
+        assert_eq!(
+            retrieved_entry.size(),
+            payload_size,
+            "Retrieved entry size does not match expected size"
+        );
+
+        assert_eq!(
+            retrieved_entry.raw_checksum(),
+            expected_checksum,
+            "Checksum mismatch for retrieved entry"
+        );
+
+        assert_eq!(
+            retrieved_entry.as_slice(),
+            test_data.as_slice(),
+            "Retrieved entry data does not match expected data"
         );
     }
 }

@@ -7,7 +7,7 @@ use memmap2::Mmap;
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
 use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Result, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -369,6 +369,63 @@ impl AppendStorage {
             .store(new_offset, std::sync::atomic::Ordering::Release);
 
         Ok(())
+    }
+
+    /// Appends a large entry using a streaming `Read` source (e.g., file, network).
+    ///
+    /// This allows writing entries **larger than RAM** without loading them entirely into memory.
+    pub fn append_large_entry_from_reader<R: Read>(
+        &self,
+        key: &[u8],
+        reader: &mut R,
+    ) -> Result<u64> {
+        let key_hash = compute_hash(key);
+        self.append_large_entry_with_key_hash_from_reader(key_hash, reader)
+    }
+
+    pub fn append_large_entry_with_key_hash_from_reader<R: Read>(
+        &self,
+        key_hash: u64,
+        reader: &mut R,
+    ) -> Result<u64> {
+        let mut file = self.file.write().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
+        })?;
+
+        let prev_offset = self.last_offset.load(Ordering::Acquire);
+
+        let mut hasher = crc32fast::Hasher::new();
+        let mut buffer = vec![0; 8 * 1024 * 1024]; // 8MB chunks
+        let mut total_written = 0;
+
+        // **Stream and write chunks directly to disk**
+        while let Ok(bytes_read) = reader.read(&mut buffer) {
+            if bytes_read == 0 {
+                break;
+            }
+
+            file.write_all(&buffer[..bytes_read])?;
+            hasher.update(&buffer[..bytes_read]); // Compute checksum while writing
+            total_written += bytes_read;
+        }
+
+        let checksum = hasher.finalize();
+
+        // Write metadata **after** payload
+        let metadata = EntryMetadata {
+            key_hash,
+            prev_offset,
+            checksum,
+        };
+        file.write_all(&metadata.serialize())?;
+        file.flush()?; // **Ensure data is persisted to disk**
+
+        let new_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
+        self.last_offset.store(new_offset, Ordering::Release);
+
+        self.remap_file()?; // **Ensure mmap updates**
+
+        Ok(new_offset)
     }
 
     // TODO: Document return type
