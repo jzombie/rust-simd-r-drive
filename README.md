@@ -4,6 +4,8 @@
 
 `SIMD R Drive` is a high-performance single-file storage engine optimized for zero-copy binary access.
 
+[Documentation](https://docs.rs/simd-r-drive/latest/simd_r_drive/)
+
 ## Zero-Copy Memory-Mapped Access
 
 TODO: Also mention that it handles larger than RAM scenarios
