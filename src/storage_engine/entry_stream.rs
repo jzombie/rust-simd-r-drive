@@ -1,12 +1,48 @@
 use crate::storage_engine::EntryHandle;
 use std::io::{self, Read};
 
+/// `EntryStream` provides a **streaming interface** over an `EntryHandle`.
+///
+/// This struct allows **reading large entries in chunks** instead of loading
+/// the entire entry into memory. It is useful when working with entries larger
+/// than available RAM.
+///
+/// # ⚠️ **Non Zero-Copy Warning**
+/// Unlike `EntryHandle`, this implementation **performs memory copies**.
+/// Each call to `read()` copies a portion of the entry into a user-provided buffer.
+///
+/// **For zero-copy access**, use `EntryHandle::as_slice()` instead.
+///
+/// # Example Usage
+/// ```rust
+/// use simd_r_drive::storage_engine::{EntryHandle, EntryStream};
+/// use std::io::Read;
+///
+/// // Assume `entry_handle` is obtained from storage
+/// let mut stream = EntryStream::from(entry_handle);
+///
+/// let mut buffer = vec![0; 4096]; // Read in 4KB chunks
+/// while let Ok(bytes_read) = stream.read(&mut buffer) {
+///     if bytes_read == 0 {
+///         break; // EOF
+///     }
+///     process_chunk(&buffer[..bytes_read]); // Process the chunk
+/// }
+/// ```
 pub struct EntryStream {
     entry_handle: EntryHandle,
     position: usize, // Tracks how much has been read
 }
 
 impl From<EntryHandle> for EntryStream {
+    /// Converts an `EntryHandle` into an `EntryStream`.
+    ///
+    /// This allows the entry's data to be read **incrementally** instead of accessing
+    /// the full slice in memory at once.
+    ///
+    /// # ⚠️ **Non Zero-Copy Warning**
+    /// - **Streaming reads require memory copies.**
+    /// - If you need direct access to the full entry **without copying**, use `EntryHandle::as_slice()`.
     fn from(entry_handle: EntryHandle) -> Self {
         Self {
             position: entry_handle.range.start,
@@ -16,6 +52,15 @@ impl From<EntryHandle> for EntryStream {
 }
 
 impl Read for EntryStream {
+    // Reads a chunk of the entry into the provided buffer.
+    ///
+    /// - Returns `Ok(0)` on EOF (no more data).
+    /// - Reads up to `buf.len()` bytes from the entry.
+    /// - Moves the read position forward after each call.
+    ///
+    /// # ⚠️ **Non Zero-Copy Warning**
+    /// - This method **copies** data from the memory-mapped file into the buffer.
+    /// - **Use `EntryHandle::as_slice()` for zero-copy access.**
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let slice = self.entry_handle.as_slice(); // Get zero-copy reference
 
