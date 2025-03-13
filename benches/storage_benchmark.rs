@@ -108,7 +108,7 @@ fn benchmark_random_reads(path: &PathBuf) {
     for _ in 0..NUM_RANDOM_CHECKS {
         let i = rng.random_range(0..NUM_ENTRIES);
         let key = format!("bench-key-{}", i);
-        let entry = storage.get_entry_by_key(key.as_bytes());
+        let entry = storage.read(key.as_bytes());
 
         if let Some(data) = entry {
             let stored_value =

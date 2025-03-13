@@ -25,36 +25,36 @@
 //! // TODO: Add streaming examples
 //!
 //! // Append some key-value entries
-//! storage.append_entry(b"key1", b"value1").unwrap();
-//! storage.append_entry(b"key2", b"value2").unwrap();
-//! storage.append_entry(b"key3", b"value3").unwrap();
-//! storage.append_entry(b"key4", b"value4").unwrap();
-//! storage.append_entry(b"key5", b"value5").unwrap();
+//! storage.write(b"key1", b"value1").unwrap();
+//! storage.write(b"key2", b"value2").unwrap();
+//! storage.write(b"key3", b"value3").unwrap();
+//! storage.write(b"key4", b"value4").unwrap();
+//! storage.write(b"key5", b"value5").unwrap();
 //!
 //! // Retrieve some entries
-//! let entry = storage.get_entry_by_key(b"key1").unwrap();
+//! let entry = storage.read(b"key1").unwrap();
 //! assert_eq!(entry.as_slice(), b"value1");
 //!
-//! let entry = storage.get_entry_by_key(b"key2").unwrap();
+//! let entry = storage.read(b"key2").unwrap();
 //! assert_eq!(entry.as_slice(), b"value2");
 //!
-//! let entry = storage.get_entry_by_key(b"key3").unwrap();
+//! let entry = storage.read(b"key3").unwrap();
 //! assert_eq!(entry.as_slice(), b"value3");
 //!
-//! let entry = storage.get_entry_by_key(b"key4").unwrap();
+//! let entry = storage.read(b"key4").unwrap();
 //! assert_eq!(entry.as_slice(), b"value4");
 //!
-//! let entry = storage.get_entry_by_key(b"key5").unwrap();
+//! let entry = storage.read(b"key5").unwrap();
 //! assert_eq!(entry.as_slice(), b"value5");
 //!
 //! // Overwrite an entry
-//! storage.append_entry(b"key3", b"A new value").unwrap();
-//! let entry = storage.get_entry_by_key(b"key3").unwrap();
+//! storage.write(b"key3", b"A new value").unwrap();
+//! let entry = storage.read(b"key3").unwrap();
 //! assert_eq!(entry.as_slice(), b"A new value");
 //!
 //! // Delete an entry
 //! storage.delete_entry(b"key3").unwrap();
-//! let entry = storage.get_entry_by_key(b"key3");
+//! let entry = storage.read(b"key3");
 //! assert!(entry.is_none());
 //!
 //! ```

@@ -137,7 +137,7 @@ fn main() {
         Commands::Read { key } => {
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
-            match storage.get_entry_by_key(key.as_bytes()) {
+            match storage.read(key.as_bytes()) {
                 Some(value) => {
                     let stdout = io::stdout();
                     let mut handle = stdout.lock();
@@ -180,7 +180,7 @@ fn main() {
             let final_value = final_value.unwrap();
 
             storage
-                .append_entry(key.as_bytes(), &final_value)
+                .write(key.as_bytes(), &final_value)
                 .expect("Failed to write entry");
 
             info!("Stored '{}'", key,);
@@ -241,7 +241,7 @@ fn main() {
         Commands::Metadata { key } => {
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
-            match storage.get_entry_by_key(key.as_bytes()) {
+            match storage.read(key.as_bytes()) {
                 Some(entry) => {
                     println!(
                         "\n{:=^50}\n\

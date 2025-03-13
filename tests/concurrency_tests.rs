@@ -26,7 +26,7 @@ async fn concurrent_write_test() {
                 let value = format!("thread{}_value{}", thread_id, i).into_bytes();
 
                 // Directly call the method without attempting to mutate the Arc
-                storage_clone.append_entry(&key, &value).unwrap();
+                storage_clone.write(&key, &value).unwrap();
 
                 eprintln!("[Thread {}] Wrote: {:?} -> {:?}", thread_id, key, value);
                 tokio::time::sleep(Duration::from_millis(5)).await; // Simulate delays
@@ -45,7 +45,7 @@ async fn concurrent_write_test() {
             let key = format!("thread{}_key{}", thread_id, i).into_bytes();
             let value = format!("thread{}_value{}", thread_id, i).into_bytes();
 
-            let stored_value = storage.get_entry_by_key(&key);
+            let stored_value = storage.read(&key);
             eprintln!(
                 "[Main] Verifying {} -> {:?} (Found: {:?})",
                 String::from_utf8_lossy(&key),
@@ -77,7 +77,7 @@ async fn interleaved_read_write_test() {
 
         // Step 1: Write initial data
         let value_a1 = b"value_from_A1";
-        storage_clone_a.append_entry(key, value_a1).unwrap();
+        storage_clone_a.write(key, value_a1).unwrap();
         eprintln!("[Thread A] Wrote: {:?}", value_a1);
 
         // Step 2: Notify Thread B that it can read now
@@ -86,7 +86,7 @@ async fn interleaved_read_write_test() {
         // Step 5: Wait for Thread B to write before reading the updated value
         notify_b_clone.notified().await;
 
-        let result = storage_clone_a.get_entry_by_key(key);
+        let result = storage_clone_a.read(key);
         eprintln!("[Thread A] Read updated value: {:?}", result.as_slice());
         assert_eq!(result.as_deref(), Some(b"value_from_B".as_ref()));
     });
@@ -101,13 +101,13 @@ async fn interleaved_read_write_test() {
         // Step 3: Wait for Thread A to write before reading
         notify_a_clone.notified().await;
 
-        let result = storage_clone_b.get_entry_by_key(key);
+        let result = storage_clone_b.read(key);
         eprintln!("[Thread B] Read initial value: {:?}", result);
         assert_eq!(result.as_deref(), Some(b"value_from_A1".as_ref()));
 
         // Step 4: Write new data
         let value_b = b"value_from_B";
-        storage_clone_b.append_entry(key, value_b).unwrap();
+        storage_clone_b.write(key, value_b).unwrap();
         eprintln!("[Thread B] Wrote: {:?}", value_b);
 
         // Step 6: Notify Thread A that it can now read the updated value
@@ -121,7 +121,7 @@ async fn interleaved_read_write_test() {
     res_b.unwrap();
 
     // Final Check: Ensure storage contains the latest value
-    let final_value = storage.get_entry_by_key(b"shared_key");
+    let final_value = storage.read(b"shared_key");
     eprintln!("[Main] FINAL VALUE: {:?}", final_value);
     assert_eq!(final_value.as_deref(), Some(b"value_from_B".as_ref()));
 }

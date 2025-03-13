@@ -451,14 +451,14 @@ impl DataStore {
 
     // TODO: Document return type
     /// High-level method: Appends a single entry by key
-    pub fn append_entry(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
+    pub fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
-        self.append_entry_with_key_hash(key_hash, payload)
+        self.write_with_key_hash(key_hash, payload)
     }
 
     // TODO: Document return type
     /// High-level method: Appends a single entry by key hash
-    pub fn append_entry_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
+    pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write(vec![(key_hash, payload)])
     }
 
@@ -604,7 +604,7 @@ impl DataStore {
     /// // TODO: Update return type
     /// - `Some(&[u8])` containing the latest value associated with the key.
     /// - `None` if the key does not exist.
-    pub fn get_entry_by_key(&self, key: &[u8]) -> Option<EntryHandle> {
+    pub fn read(&self, key: &[u8]) -> Option<EntryHandle> {
         let key_hash = compute_hash(key);
 
         // 1) Lock the mutex to get our Arc<Mmap>
@@ -650,7 +650,7 @@ impl DataStore {
 
     // TODO: Document
     pub fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
-        let entry_handle = self.get_entry_by_key(key).ok_or_else(|| {
+        let entry_handle = self.read(key).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 format!("Key not found: {:?}", key),
@@ -666,7 +666,7 @@ impl DataStore {
         let metadata = entry.metadata();
 
         // Append to the compacted storage
-        let result = target.append_entry_with_key_hash(metadata.key_hash, entry)?;
+        let result = target.write_with_key_hash(metadata.key_hash, entry)?;
 
         Ok(result)
     }
@@ -689,7 +689,7 @@ impl DataStore {
     /// # Returns:
     /// - The **new file offset** where the delete marker was appended.
     pub fn delete_entry(&self, key: &[u8]) -> Result<u64> {
-        self.append_entry(key, &NULL_BYTE)
+        self.write(key, &NULL_BYTE)
     }
 
     // TODO: Return `Err` if more than one thread
