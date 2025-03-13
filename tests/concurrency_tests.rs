@@ -35,8 +35,10 @@ async fn concurrent_slow_streamed_write_test() {
     let file_a_path = dir.path().join("test_stream_a.bin");
     let file_b_path = dir.path().join("test_stream_b.bin");
 
+    // TODO: Use larger payload size after finishing debugging
     // let payload_size = 2 * 1024 * 1024; // 2MB per stream
     let payload_size = 4096 * 4;
+
     let test_data_a = vec![b'A'; payload_size];
     let test_data_b = vec![b'B'; payload_size];
 
