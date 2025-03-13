@@ -379,21 +379,13 @@ impl DataStore {
     ///
     /// ✅ **Truly supports writing files larger than RAM**
     /// ✅ **Computes checksum while writing (no full payload in memory)**
-    pub fn append_large_entry_from_reader<R: Read>(
-        &self,
-        key: &[u8],
-        reader: &mut R,
-    ) -> Result<u64> {
+    pub fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64> {
         let key_hash = compute_hash(key);
-        self.append_large_entry_with_key_hash_from_reader(key_hash, reader)
+        self.write_stream_with_key_hash(key_hash, reader)
     }
 
     // TODO: Document
-    pub fn append_large_entry_with_key_hash_from_reader<R: Read>(
-        &self,
-        key_hash: u64,
-        reader: &mut R,
-    ) -> Result<u64> {
+    fn write_stream_with_key_hash<R: Read>(&self, key_hash: u64, reader: &mut R) -> Result<u64> {
         let mut file = self.file.write().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
         })?;
@@ -456,7 +448,8 @@ impl DataStore {
         self.write_with_key_hash(key_hash, payload)
     }
 
-    // TODO: Document return type
+    // TODO: Document return type (note: This should be considered "unsafe"
+    // but is necessary for data transfer operations between storage files)
     /// High-level method: Appends a single entry by key hash
     pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write_hashed_payloads(vec![(key_hash, payload)])

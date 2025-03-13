@@ -745,7 +745,7 @@ mod tests {
     }
 
     #[test]
-    fn test_append_large_entry_with_real_stream() {
+    fn test_write_and_read_streams() {
         use std::fs::File;
         use std::io::{BufReader, Read, Write};
 
@@ -773,7 +773,7 @@ mod tests {
 
         // 4. Write to storage using the real stream
         storage
-            .append_large_entry_from_reader(large_key, &mut reader)
+            .write_stream(large_key, &mut reader)
             .expect("Failed to append large entry");
 
         // 5. Retrieve the entry
