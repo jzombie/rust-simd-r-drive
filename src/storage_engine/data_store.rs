@@ -715,7 +715,7 @@ impl DataStore {
         let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
 
-        // 5) Extract the actual entry range
+        // Extract the actual entry range
         let entry_start = metadata.prev_offset as usize;
         let entry_end = offset as usize;
         if entry_start >= entry_end || entry_end > mmap_arc.len() {
@@ -727,7 +727,7 @@ impl DataStore {
             return None;
         }
 
-        // 6) Return a handle that *owns* the Arc and the slice range
+        // Return a handle that *owns* the Arc and the slice range
         Some(EntryHandle {
             mmap_arc,
             range: entry_start..entry_end,
