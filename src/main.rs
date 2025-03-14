@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use indoc::indoc;
 use log::{error, info, warn};
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, EntryStream};
 mod utils;
 use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
@@ -126,23 +126,20 @@ fn main() {
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
             match storage.read(key.as_bytes()) {
-                Some(value) => {
+                Some(entry_handle) => {
                     
                     let stdout = io::stdout();
-                    let mut handle = stdout.lock();
+                    let mut stdout_handle = stdout.lock();
 
                     if stdout.is_terminal() {
                         // If writing to a terminal, use UTF-8 safe string output
-                        writeln!(handle, "{}", String::from_utf8_lossy(value.as_slice()))
+                        writeln!(stdout_handle, "{}", String::from_utf8_lossy(entry_handle.as_slice()))
                             .expect("Failed to write output");
                     } else {
-                        // TODO: Use streaming writer instead
+                        let mut output_stream = EntryStream::from(entry_handle);
 
-                        // If redirected, output raw binary
-                        handle
-                            .write_all(value.as_slice())
-                            .expect("Failed to write binary output");
-                        handle.flush().expect("Failed to flush output");
+                        io::copy(&mut output_stream, &mut stdout_handle).expect("Failed to write binary output");
+                        stdout_handle.flush().expect("Failed to flush output");
                     }
                 }
                 None => {
