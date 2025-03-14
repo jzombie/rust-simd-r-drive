@@ -2,19 +2,8 @@
 mod tests {
 
     use serde::{Deserialize, Serialize};
-    use simd_r_drive::{compute_checksum, compute_hash, DataStore};
-    use std::fs::{metadata, OpenOptions};
-    use std::io::{Read, Seek, SeekFrom, Write};
+    use simd_r_drive::DataStore;
     use tempfile::tempdir;
-
-    /// Helper function to create a temporary file for testing
-    fn create_temp_storage() -> (tempfile::TempDir, DataStore) {
-        let dir = tempdir().expect("Failed to create temp dir");
-        let path = dir.path().join("test_storage.bin");
-
-        let storage = DataStore::open(&path).expect("Failed to open storage");
-        (dir, storage)
-    }
 
     #[test]
     fn test_compact_storage_with_mixed_types() {

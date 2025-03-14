@@ -1,10 +1,7 @@
 #[cfg(test)]
 mod tests {
 
-    use serde::{Deserialize, Serialize};
     use simd_r_drive::{compute_checksum, compute_hash, DataStore};
-    use std::fs::{metadata, OpenOptions};
-    use std::io::{Read, Seek, SeekFrom, Write};
     use tempfile::tempdir;
 
     /// Helper function to create a temporary file for testing

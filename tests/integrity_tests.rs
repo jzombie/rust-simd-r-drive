@@ -1,9 +1,8 @@
 #[cfg(test)]
 mod tests {
 
-    use serde::{Deserialize, Serialize};
-    use simd_r_drive::{compute_checksum, compute_hash, DataStore};
-    use std::fs::{metadata, OpenOptions};
+    use simd_r_drive::DataStore;
+    use std::fs::OpenOptions;
     use std::io::{Read, Seek, SeekFrom, Write};
     use tempfile::tempdir;
 
