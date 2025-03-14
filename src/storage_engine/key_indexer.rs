@@ -21,14 +21,14 @@ impl KeyIndexer {
     ///
     /// # Parameters:
     /// - `mmap`: A reference to the **memory-mapped file**.
-    /// - `last_offset`: The **final byte offset** in the file (starting point for scanning).
+    /// - `tail_offset`: The **final byte offset** in the file (starting point for scanning).
     ///
     /// # Returns:
     /// - A `HashMap<u64, u64>` mapping `key_hash` → `latest offset`.
-    pub fn build(mmap: &Mmap, last_offset: u64) -> Self {
+    pub fn build(mmap: &Mmap, tail_offset: u64) -> Self {
         let mut index = HashMap::with_hasher(Xxh3BuildHasher);
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
-        let mut cursor = last_offset;
+        let mut cursor = tail_offset;
 
         while cursor >= METADATA_SIZE as u64 {
             let metadata_offset = cursor as usize - METADATA_SIZE;

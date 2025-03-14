@@ -132,7 +132,7 @@ As content is added, the memory-mapped pages and the indexing are synchronized b
 
 - **Memory mapping (`mmap`) is protected by `Mutex<Arc<Mmap>>`**: The memory-mapped file reference is wrapped in a `Mutex<Arc<Mmap>>` to prevent unsafe remapping while reads are in progress. This ensures that readers always have a valid view of the storage file.
 
-- **Atomic offsets ensure correct ordering**: The last written offset (`last_offset`) is managed using `AtomicU64`, avoiding unnecessary locking while ensuring correct sequential writes.
+- **Atomic offsets ensure correct ordering**: The last written offset (`tail_offset`) is managed using `AtomicU64`, avoiding unnecessary locking while ensuring correct sequential writes.
 
 
 #### Safe vs. Not Safe

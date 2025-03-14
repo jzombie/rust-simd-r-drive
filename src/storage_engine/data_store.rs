@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub struct DataStore {
     file: Arc<RwLock<BufWriter<File>>>,
     mmap: Arc<Mutex<Arc<Mmap>>>,
-    last_offset: AtomicU64,
+    tail_offset: AtomicU64,
     key_indexer: Arc<RwLock<KeyIndexer>>,
     path: PathBuf,
 }
@@ -95,7 +95,7 @@ impl DataStore {
         Ok(Self {
             file: Arc::new(RwLock::new(file)), // Wrap in RwLock
             mmap: Arc::new(Mutex::new(Arc::new(mmap))),
-            last_offset: final_len.into(),
+            tail_offset: final_len.into(),
             key_indexer: Arc::new(RwLock::new(key_indexer)),
             path: path.to_path_buf(),
         })
@@ -167,8 +167,11 @@ impl DataStore {
     /// # Parameters:
     /// - `write_guard`: A locked reference to the `BufWriter<File>`, ensuring that
     ///   writes are completed before remapping and indexing.
-    /// - `key_hash_offsets`: A slice of `(key_hash, last_offset)` tuples containing
+    /// - `key_hash_offsets`: A slice of `(key_hash, tail_offset)` tuples containing
     ///   the latest key mappings to be added to the index.
+    /// - `tail_offset`: The **new absolute file offset** after the most recent write.
+    ///   This represents the byte position where the next write operation should begin.
+    ///   It is updated to reflect the latest valid data in the storage.
     ///
     /// # Returns:
     /// - `Ok(())` if the reindexing process completes successfully.
@@ -194,6 +197,7 @@ impl DataStore {
         &self,
         write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
         key_hash_offsets: &[(u64, u64)],
+        tail_offset: u64,
     ) -> std::io::Result<()> {
         // Create a new Mmap from the file
         let new_mmap = Self::init_mmap(write_guard)?;
@@ -204,17 +208,19 @@ impl DataStore {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
         })?;
 
-        // Update last_offset (or any other fields)
+        // Update tail_offset (or any other fields)
         let new_offset = write_guard.get_ref().metadata()?.len();
-        self.last_offset
+        self.tail_offset
             .store(new_offset, std::sync::atomic::Ordering::Release);
 
-        for (key_hash, last_offset) in key_hash_offsets.iter() {
-            key_indexer_guard.insert(*key_hash, *last_offset);
+        for (key_hash, tail_offset) in key_hash_offsets.iter() {
+            key_indexer_guard.insert(*key_hash, *tail_offset);
         }
 
         // Overwrite the old Arc<Mmap> with the new one
         *mmap_guard = Arc::new(new_mmap);
+
+        self.tail_offset.store(tail_offset, Ordering::Release);
 
         // These are automatically dropped by Rust once leaving scope, but calling them for good measure
         drop(mmap_guard);
@@ -250,19 +256,14 @@ impl DataStore {
     /// # Returns:
     /// - An `EntryIterator` instance for iterating over valid entries.
     pub fn iter_entries(&self) -> EntryIterator {
-        // 1. Lock the mutex
+        // Briefly acquire the guard and release so that others can proceed
         let guard = self.mmap.lock().unwrap();
-
-        // 2. Clone the Arc<Mmap>
         let mmap_clone = guard.clone();
-
-        // 3. Drop guard so others can proceed
         drop(guard);
 
-        // 4. Get the actual last offset
-        let last_offset = self.last_offset.load(Ordering::Acquire);
+        let tail_offset = self.tail_offset.load(Ordering::Acquire);
 
-        EntryIterator::new(mmap_clone, last_offset)
+        EntryIterator::new(mmap_clone, tail_offset)
     }
 
     /// Recovers the **latest valid chain** of entries from the storage file.
@@ -406,7 +407,7 @@ impl DataStore {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
         })?;
 
-        let prev_offset = self.last_offset.load(Ordering::Acquire);
+        let prev_offset = self.tail_offset.load(Ordering::Acquire);
 
         let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE]; // 64KB buffer
         let mut aligned_buffer = vec![0; WRITE_STREAM_BUFFER_SIZE]; // Aligned buffer for SIMD copy
@@ -439,12 +440,15 @@ impl DataStore {
         file.write_all(&metadata.serialize())?;
         file.flush()?; // Ensure data is written to disk
 
-        let new_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
-        self.last_offset.store(new_offset, Ordering::Release);
+        let tail_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
 
-        self.reindex(&file, &vec![(key_hash, new_offset - METADATA_SIZE as u64)])?;
+        self.reindex(
+            &file,
+            &vec![(key_hash, tail_offset - METADATA_SIZE as u64)],
+            tail_offset,
+        )?;
 
-        Ok(new_offset)
+        Ok(tail_offset)
     }
 
     /// Writes an entry with a given key and payload.
@@ -552,7 +556,7 @@ impl DataStore {
         })?; // Lock only the file, not the whole struct
 
         let mut buffer = Vec::new();
-        let mut last_offset = self.last_offset.load(Ordering::Acquire);
+        let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
 
         let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(hashed_payloads.len());
 
@@ -564,7 +568,7 @@ impl DataStore {
                 ));
             }
 
-            let prev_offset = last_offset;
+            let prev_offset = tail_offset;
             let checksum = compute_checksum(payload);
 
             let metadata = EntryMetadata {
@@ -585,19 +589,17 @@ impl DataStore {
 
             buffer.extend_from_slice(&entry);
 
-            last_offset += entry.len() as u64;
+            tail_offset += entry.len() as u64;
 
-            key_hash_offsets.push((key_hash, last_offset - METADATA_SIZE as u64));
+            key_hash_offsets.push((key_hash, tail_offset - METADATA_SIZE as u64));
         }
 
         file.write_all(&buffer)?;
         file.flush()?;
 
-        self.last_offset.store(last_offset, Ordering::Release);
+        self.reindex(&file, &key_hash_offsets, tail_offset)?; // Ensure mmap updates
 
-        self.reindex(&file, &key_hash_offsets)?; // Ensure mmap updates
-
-        Ok(self.last_offset.load(Ordering::Acquire))
+        Ok(self.tail_offset.load(Ordering::Acquire))
     }
 
     /// Reads the last entry stored in the database.
@@ -622,13 +624,13 @@ impl DataStore {
         drop(guard);
 
         // 4) Use `mmap_arc` to find the last entry boundaries
-        let last_offset = self.last_offset.load(std::sync::atomic::Ordering::Acquire);
+        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
 
-        if last_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
+        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
             return None;
         }
 
-        let metadata_offset = (last_offset - METADATA_SIZE as u64) as usize;
+        let metadata_offset = (tail_offset - METADATA_SIZE as u64) as usize;
         if metadata_offset + METADATA_SIZE > mmap_arc.len() {
             return None;
         }
@@ -671,9 +673,9 @@ impl DataStore {
         let mmap_arc = Arc::clone(&*guard); // Clone so we can drop the lock quickly
         drop(guard);
 
-        // 2) Re-check last_offset, ensure the file is big enough
-        let last_offset = self.last_offset.load(std::sync::atomic::Ordering::Acquire);
-        if last_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
+        // 2) Re-check tail_offset, ensure the file is big enough
+        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
+        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
             return None;
         }
 
