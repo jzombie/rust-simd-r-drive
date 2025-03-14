@@ -714,6 +714,22 @@ impl DataStore {
     }
 
     // TODO: Document
+    pub fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
+        let old_entry = self.read(old_key).ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
+        })?;
+
+        let mut old_entry_stream = EntryStream::from(old_entry);
+
+        self.write_stream(new_key, &mut old_entry_stream)?;
+
+        let new_offset = self.delete_entry(old_key)?;
+
+        Ok(new_offset)
+    }
+
+    // TODO: Document
+    // TODO: Prevent copying to same store, and instead suggest "rename"
     pub fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
         let entry_handle = self.read(key).ok_or_else(|| {
             std::io::Error::new(
