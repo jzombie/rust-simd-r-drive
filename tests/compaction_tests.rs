@@ -127,10 +127,6 @@ mod tests {
         // Step 4: Reopen Storage and Verify Data Integrity
         let storage = DataStore::open(&path).expect("Failed to reopen storage after compaction");
 
-        // for entry in storage.iter_entries() {
-        //     eprintln!("Entry: {:?}", entry);
-        // }
-
         // Verify that only the latest versions remain
         assert_eq!(storage.read(key1).as_deref(), Some(text_payload2));
         assert_eq!(storage.read(key2).as_deref(), Some(&binary_payload2[..]));
