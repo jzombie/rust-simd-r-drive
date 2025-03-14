@@ -377,19 +377,48 @@ impl DataStore {
         Ok(())
     }
 
-    /// Appends a large entry using a streaming `Read` source (e.g., file, network).
+    /// Writes an entry using a streaming `Read` source (e.g., file, network).
     ///
-    /// This allows writing entries **larger than RAM** without loading them entirely into memory.
-    /// Appends a large entry using a streaming `Read` source (e.g., file, network).
+    /// This method is designed for **large entries** that may exceed available RAM,
+    /// allowing them to be written in chunks without loading the full payload into memory.
     ///
-    /// ✅ **Truly supports writing files larger than RAM**
-    /// ✅ **Computes checksum while writing (no full payload in memory)**
+    /// # Parameters:
+    /// - `key`: The **binary key** for the entry.
+    /// - `reader`: A **streaming reader** (`Read` trait) supplying the entry's content.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
+    ///
+    /// # Notes:
+    /// - Internally, this method delegates to `write_stream_with_key_hash`, computing
+    ///   the key hash first.
+    /// - If the entry is **small enough to fit in memory**, consider using `write()`
+    ///   or `batch_write()` instead if you don't want to stream the data in.
+    ///
+    /// # Streaming Behavior:
+    /// - The `reader` is **read incrementally in 64KB chunks** (`WRITE_STREAM_BUFFER_SIZE`).
+    /// - Data is immediately **written to disk** as it is read.
+    /// - **A checksum is computed incrementally** during the write.
+    /// - Metadata is appended **after** the full entry is written.
     pub fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.write_stream_with_key_hash(key_hash, reader)
     }
 
-    // TODO: Document
+    /// Writes an entry using a **precomputed key hash** and a streaming `Read` source.
+    ///
+    /// This is a **low-level** method that operates like `write_stream`, but requires
+    /// the key to be hashed beforehand. It is primarily used internally to avoid
+    /// redundant hash computations when writing multiple entries.
+    ///
+    /// # Parameters:
+    /// - `key_hash`: The **precomputed hash** of the key.
+    /// - `reader`: A **streaming reader** (`Read` trait) supplying the entry's content.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
     fn write_stream_with_key_hash<R: Read>(&self, key_hash: u64, reader: &mut R) -> Result<u64> {
         let mut file: std::sync::RwLockWriteGuard<'_, BufWriter<File>> =
             self.file.write().map_err(|_| {
