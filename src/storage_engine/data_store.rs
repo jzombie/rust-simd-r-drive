@@ -156,6 +156,35 @@ impl DataStore {
         unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }
     }
 
+    /// Returns a cloned `Arc<Mmap>`, providing a shared reference to the memory-mapped file.
+    ///
+    /// # How It Works:
+    /// - Acquires the `Mutex<Arc<Mmap>>` lock to access the current memory-mapped file.
+    /// - Clones the `Arc<Mmap>` to create another reference to the **same underlying memory**.
+    /// - Releases the lock immediately (`drop(guard)`) to allow other threads to proceed.
+    ///
+    /// # Important:
+    /// - **Cloning the `Arc<Mmap>` does not duplicate the memory-mapped file.**  
+    ///   Instead, it creates a new reference to the existing memory region,  
+    ///   ensuring efficient, zero-copy access.
+    /// - The returned `Arc<Mmap>` remains valid as long as at least one reference exists.
+    ///
+    /// # Returns:
+    /// - A **shared reference** (`Arc<Mmap>`) to the current memory-mapped file.
+    ///
+    /// # Safety:
+    /// - The returned `Arc<Mmap>` must not be used after a file truncation or remap.
+    ///   Ensure proper synchronization when modifying the underlying storage.
+    #[inline]
+    fn get_mmap_arc(&self) -> Arc<Mmap> {
+        // Briefly acquire the guard and release so that others can proceed
+        let guard = self.mmap.lock().unwrap();
+        let mmap_clone = guard.clone();
+        drop(guard);
+
+        mmap_clone
+    }
+
     /// Re-maps the storage file and updates the key index after a write operation.
     ///
     /// This function performs two key tasks:
@@ -256,10 +285,7 @@ impl DataStore {
     /// # Returns:
     /// - An `EntryIterator` instance for iterating over valid entries.
     pub fn iter_entries(&self) -> EntryIterator {
-        // Briefly acquire the guard and release so that others can proceed
-        let guard = self.mmap.lock().unwrap();
-        let mmap_clone = guard.clone();
-        drop(guard);
+        let mmap_clone = self.get_mmap_arc();
 
         let tail_offset = self.tail_offset.load(Ordering::Acquire);
 
@@ -614,14 +640,7 @@ impl DataStore {
     /// - `None` if the storage is empty or corrupted.
     /// Zero-copy: no bytes are duplicated, just reference-counted.
     pub fn read_last_entry(&self) -> Option<EntryHandle> {
-        // 1) Lock the `Mutex<Arc<Mmap>>` to safely access the current map
-        let guard = self.mmap.lock().unwrap();
-
-        // 2) Clone the inner Arc<Mmap> so we can drop the lock quickly
-        let mmap_arc = Arc::clone(&*guard);
-
-        // 3) Release the lock (other threads can proceed)
-        drop(guard);
+        let mmap_arc = self.get_mmap_arc();
 
         // 4) Use `mmap_arc` to find the last entry boundaries
         let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
@@ -668,21 +687,18 @@ impl DataStore {
     pub fn read(&self, key: &[u8]) -> Option<EntryHandle> {
         let key_hash = compute_hash(key);
 
-        // 1) Lock the mutex to get our Arc<Mmap>
-        let guard = self.mmap.lock().unwrap();
-        let mmap_arc = Arc::clone(&*guard); // Clone so we can drop the lock quickly
-        drop(guard);
+        let mmap_arc = self.get_mmap_arc();
 
-        // 2) Re-check tail_offset, ensure the file is big enough
+        // Re-check tail_offset, ensure the file is big enough
         let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
         if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
             return None;
         }
 
-        // 3) Look up the offset in the in-memory key index
+        // Look up the offset in the in-memory key index
         let offset = *self.key_indexer.read().ok()?.get(&key_hash)?;
 
-        // 4) Grab the metadata from the mapped file
+        // Grab the metadata from the mapped file
         if offset as usize + METADATA_SIZE > mmap_arc.len() {
             return None;
         }
@@ -841,12 +857,9 @@ impl DataStore {
         let mut unique_entry_size: u64 = 0;
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
 
-        // 1) Briefly lock the Mutex to clone the Arc<Mmap>
-        let guard = self.mmap.lock().unwrap();
-        let mmap_arc = Arc::clone(&*guard);
-        drop(guard);
+        let mmap_arc = self.get_mmap_arc();
 
-        // 2) Now we can safely iterate zero-copy
+        // Now we can safely iterate zero-copy
         for entry in self.iter_entries() {
             // Convert pointer offsets relative to `mmap_arc`
             let entry_start_offset = entry.as_ptr() as usize - mmap_arc.as_ptr() as usize;
@@ -866,7 +879,7 @@ impl DataStore {
             }
         }
 
-        // 3) Return the difference between total size and the unique size
+        //  Return the difference between total size and the unique size
         total_size.saturating_sub(unique_entry_size)
     }
 
@@ -891,8 +904,7 @@ impl DataStore {
     /// - This function is only available in **test** and **debug** builds.
     #[cfg(any(test, debug_assertions))]
     pub fn get_mmap_arc_for_testing(&self) -> Arc<Mmap> {
-        // Lock the Mutex and clone the Arc<Mmap>
-        self.mmap.lock().unwrap().clone()
+        self.get_mmap_arc()
     }
 
     /// Provides direct access to the raw pointer of the underlying memory map for testing.
@@ -909,7 +921,8 @@ impl DataStore {
     /// - This function is only available in **test** and **debug** builds.
     #[cfg(any(test, debug_assertions))]
     pub fn arc_ptr(&self) -> *const u8 {
-        let mmap_guard = self.mmap.lock().unwrap();
-        mmap_guard.as_ptr()
+        let mmap_arc = self.get_mmap_arc();
+
+        mmap_arc.as_ptr()
     }
 }
