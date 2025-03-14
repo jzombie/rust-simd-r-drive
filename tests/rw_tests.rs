@@ -847,4 +847,48 @@ mod tests {
             "Old key should no longer exist after renaming"
         );
     }
+
+    #[test]
+    fn test_clone_arc_retains_same_memory_address() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"test_key";
+        let payload = b"Test Data";
+
+        // Write entry to storage
+        storage.write(key, payload).expect("Failed to write entry");
+
+        // Retrieve the entry handle
+        let entry_handle = storage.read(key).expect("Failed to read entry");
+
+        // Clone the entry handle
+        let cloned_entry = entry_handle.clone_arc();
+
+        // Ensure the payload remains the same
+        assert_eq!(
+            entry_handle.as_slice(),
+            cloned_entry.as_slice(),
+            "Cloned entry's data should match the original"
+        );
+
+        // Ensure the memory addresses are the same
+        let original_address_range = entry_handle.address_range();
+        let cloned_address_range = cloned_entry.address_range();
+
+        assert_eq!(
+            original_address_range.start, cloned_address_range.start,
+            "Cloned entry should retain the same start memory address"
+        );
+        assert_eq!(
+            original_address_range.end, cloned_address_range.end,
+            "Cloned entry should retain the same end memory address"
+        );
+
+        // Ensure they share the same mmap reference
+        assert_eq!(
+            entry_handle.as_slice().as_ptr(),
+            cloned_entry.as_slice().as_ptr(),
+            "Cloned entry should point to the same memory location"
+        );
+    }
 }

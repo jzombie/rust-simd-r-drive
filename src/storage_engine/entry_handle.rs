@@ -16,6 +16,14 @@ pub struct EntryHandle {
     pub(in crate::storage_engine) metadata: EntryMetadata,
 }
 
+impl EntryHandle {
+    /// Allow unit tests to access the underlying memory map.
+    #[cfg(test)]
+    pub fn arc_ptr(&self) -> *const Mmap {
+        Arc::as_ptr(&self.mmap_arc)
+    }
+}
+
 /// Enable `*entry_handle` to act like a `&[u8]`
 impl std::ops::Deref for EntryHandle {
     type Target = [u8];
