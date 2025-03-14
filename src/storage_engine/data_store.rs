@@ -101,14 +101,41 @@ impl DataStore {
         })
     }
 
-    // TODO: Rename to reindex
-    // TODO: Move indexing in here as well
-    // TODO: Use the existing file lock instead of re-acquiring
-    /// Re-maps the storage file to ensure that the latest updates are visible.
+    /// Re-maps the storage file and updates the key index after a write operation.
     ///
-    /// IMPORTANT: This method should be called **after a write operation** to reload
-    /// the memory-mapped file and ensure that newly written data is accessible for reading.
-    fn remap_file(
+    /// This function performs two key tasks:
+    /// 1. **Re-maps the file (`mmap`)**: Ensures that newly written data is visible
+    ///    to readers by creating a fresh memory-mapped view of the storage file.
+    /// 2. **Updates the key index**: Inserts new key hash-to-offset mappings into
+    ///    the in-memory key index, ensuring efficient key lookups for future reads.
+    ///
+    /// # Parameters:
+    /// - `write_guard`: A locked reference to the `BufWriter<File>`, ensuring that
+    ///   writes are completed before remapping and indexing.
+    /// - `key_hash_offsets`: A slice of `(key_hash, last_offset)` tuples containing
+    ///   the latest key mappings to be added to the index.
+    ///
+    /// # Returns:
+    /// - `Ok(())` if the reindexing process completes successfully.
+    /// - `Err(std::io::Error)` if file metadata retrieval, memory mapping, or
+    ///   key index updates fail.
+    ///
+    /// # Important:
+    /// - **The write operation must be flushed before calling `reindex`** to ensure
+    ///   all pending writes are persisted and visible in the new memory-mapped file.
+    ///   This prevents potential inconsistencies where written data is not reflected
+    ///   in the remapped view.
+    ///
+    /// # Safety:
+    /// - This function should be called **immediately after a write operation**
+    ///   to ensure the file is in a consistent state before remapping.
+    /// - The function acquires locks on both the `mmap` and `key_indexer`
+    ///   to prevent race conditions while updating shared structures.
+    ///
+    /// # Locks Acquired:
+    /// - `mmap` (`Mutex<Arc<Mmap>>`) is locked to update the memory-mapped file.
+    /// - `key_indexer` (`RwLock<HashMap<u64, u64>>`) is locked to modify key mappings.
+    fn reindex(
         &self,
         write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
         key_hash_offsets: &[(u64, u64)],
@@ -412,7 +439,7 @@ impl DataStore {
         let new_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
         self.last_offset.store(new_offset, Ordering::Release);
 
-        self.remap_file(&file, &vec![(key_hash, new_offset - METADATA_SIZE as u64)])?; // Ensure mmap updates
+        self.reindex(&file, &vec![(key_hash, new_offset - METADATA_SIZE as u64)])?; // Ensure mmap updates
 
         Ok(new_offset)
     }
@@ -563,7 +590,7 @@ impl DataStore {
 
         self.last_offset.store(last_offset, Ordering::Release);
 
-        self.remap_file(&file, &key_hash_offsets)?; // Ensure mmap updates
+        self.reindex(&file, &key_hash_offsets)?; // Ensure mmap updates
 
         Ok(self.last_offset.load(Ordering::Acquire))
     }
