@@ -54,7 +54,28 @@ impl EntryHandle {
         &self.mmap_arc[self.range.clone()]
     }
 
-    // TODO: Document
+    /// Creates a new `EntryHandle` with the same memory-mapped reference.
+    ///
+    /// This method provides a way to duplicate an `EntryHandle` **without cloning the underlying data**.
+    /// Instead, it increments the reference count on the `Arc<Mmap>`, ensuring that the same memory-mapped
+    /// file remains accessible across multiple handles.
+    ///
+    /// # Usage
+    ///
+    /// - This is useful when multiple parts of the system need to access the same entry
+    ///   without creating redundant copies.
+    /// - Unlike `Clone`, which is not implemented for `EntryHandle`, this method allows controlled
+    ///   duplication without unnecessary allocations.
+    ///
+    /// # Returns
+    /// - A new `EntryHandle` referencing the same underlying data and metadata.
+    ///
+    /// # Zero-Copy Guarantee
+    /// - Both the original and cloned handle will refer to the same memory-mapped region.
+    /// - The `Arc<Mmap>` ensures the mapped file stays valid as long as any handle is in scope.
+    ///
+    /// # Safety Considerations
+    /// - Do **not** use this method if you need to modify data, as all handles share the same immutable mapping.
     pub fn clone_arc(&self) -> Self {
         Self {
             mmap_arc: Arc::clone(&self.mmap_arc), // Keeps same mmap reference
