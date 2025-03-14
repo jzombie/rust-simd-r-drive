@@ -958,10 +958,11 @@ mod tests {
         let entry_handle = storage.read(key).expect("Failed to read entry");
 
         // Get direct access to mmap for testing
-        let mmap_arc = storage.get_mmap_arc_for_testing();
+        let mmap_arc = storage.get_mmap_arc_for_testing(); // Get Arc<Mmap>
+        let mmap_ptr = mmap_arc.as_ptr(); // Get the raw pointer
+        let mmap_len = mmap_arc.len(); // Get the length
 
-        //  Ensure the entry slice references the mmap memory region
-        let mmap_ptr = mmap_arc.as_ptr();
+        // Ensure the entry slice references the mmap memory region
         let entry_ptr = entry_handle.as_slice().as_ptr();
 
         assert!(
@@ -970,7 +971,7 @@ mod tests {
         );
 
         assert!(
-            (entry_ptr as usize) < (mmap_ptr as usize + mmap_arc.len()),
+            (entry_ptr as usize) < (mmap_ptr as usize + mmap_len),
             "Entry pointer should be within the mmap memory bounds"
         );
 

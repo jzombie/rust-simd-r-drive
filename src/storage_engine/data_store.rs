@@ -44,13 +44,6 @@ impl From<PathBuf> for DataStore {
 }
 
 impl DataStore {
-    /// Allow unit tests to access the underlying memory map.
-    #[cfg(any(test, debug_assertions))]
-    pub fn get_mmap_arc_for_testing(&self) -> Arc<Mmap> {
-        // Lock the Mutex and clone the Arc<Mmap>
-        self.mmap.lock().unwrap().clone()
-    }
-
     /// Opens an **existing** or **new** append-only storage file.
     ///
     /// This function:
@@ -880,5 +873,37 @@ impl DataStore {
     /// - `Err(std::io::Error)` if the file cannot be accessed.
     pub fn get_storage_size(&self) -> Result<u64> {
         std::fs::metadata(&self.path).map(|meta| meta.len())
+    }
+
+    /// Provides access to the shared memory-mapped file (`Arc<Mmap>`) for testing.
+    ///
+    /// This method returns a cloned `Arc<Mmap>`, allowing test cases to inspect
+    /// the memory-mapped region while ensuring reference counting remains intact.
+    ///
+    /// # Notes:
+    /// - The returned `Arc<Mmap>` ensures safe access without invalidating the mmap.
+    /// - This function is only available in **test** and **debug** builds.
+    #[cfg(any(test, debug_assertions))]
+    pub fn get_mmap_arc_for_testing(&self) -> Arc<Mmap> {
+        // Lock the Mutex and clone the Arc<Mmap>
+        self.mmap.lock().unwrap().clone()
+    }
+
+    /// Provides direct access to the raw pointer of the underlying memory map for testing.
+    ///
+    /// This method retrieves a raw pointer (`*const u8`) to the start of the memory-mapped file.
+    /// It is useful for validating zero-copy behavior and memory alignment in test cases.
+    ///
+    /// # Safety Considerations:
+    /// - The pointer remains valid **as long as** the mmap is not remapped or dropped.
+    /// - Dereferencing this pointer outside of controlled test environments **is unsafe**
+    ///   and may result in undefined behavior.
+    ///
+    /// # Notes:
+    /// - This function is only available in **test** and **debug** builds.
+    #[cfg(any(test, debug_assertions))]
+    pub fn arc_ptr(&self) -> *const u8 {
+        let mmap_guard = self.mmap.lock().unwrap();
+        mmap_guard.as_ptr()
     }
 }
