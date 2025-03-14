@@ -2,7 +2,7 @@
 mod tests {
 
     use serde::{Deserialize, Serialize};
-    use simd_r_drive::{compute_checksum, compute_hash, DataStore};
+    use simd_r_drive::{compute_checksum, compute_hash, DataStore, EntryHandle};
     use std::fs::{metadata, OpenOptions};
     use std::io::{Seek, SeekFrom, Write};
     use tempfile::tempdir;
@@ -889,6 +889,58 @@ mod tests {
             entry_handle.as_slice().as_ptr(),
             cloned_entry.as_slice().as_ptr(),
             "Cloned entry should point to the same memory location"
+        );
+    }
+
+    #[test]
+    fn test_clone_arc_zero_copy_behavior() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"zero_copy_test";
+        let payload = b"Zero-copy validation data";
+
+        // Write entry to storage
+        storage.write(key, payload).expect("Failed to write entry");
+
+        // Retrieve the entry handle
+        let entry_handle = storage.read(key).expect("Failed to read entry");
+
+        // Clone the entry handle
+        let cloned_entry = entry_handle.clone_arc();
+
+        // Ensure they reference the same memory region
+        assert_eq!(
+            entry_handle.as_slice().as_ptr(),
+            cloned_entry.as_slice().as_ptr(),
+            "Cloned entry should point to the same memory location"
+        );
+
+        // Validate data integrity (same content)
+        assert_eq!(
+            entry_handle.as_slice(),
+            cloned_entry.as_slice(),
+            "Cloned entry's data should match the original"
+        );
+
+        // Ensure address ranges are identical
+        assert_eq!(
+            entry_handle.address_range(),
+            cloned_entry.address_range(),
+            "Memory address range should remain the same"
+        );
+
+        // Validate checksum remains unchanged
+        assert_eq!(
+            entry_handle.checksum(),
+            cloned_entry.checksum(),
+            "Checksum mismatch: Cloned entry should have the same checksum"
+        );
+
+        // Ensure cloned entry remains valid even after dropping original
+        drop(entry_handle);
+        assert!(
+            !cloned_entry.as_slice().is_empty(),
+            "Cloned entry should remain accessible after the original is dropped"
         );
     }
 }
