@@ -749,7 +749,25 @@ impl DataStore {
         self.read(key).map(|entry| entry.metadata().clone())
     }
 
-    // TODO: Document
+    // TODO: Prevent renaming to self
+    /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
+    ///
+    /// This function:
+    /// - Reads the existing entry associated with `old_key`.
+    /// - Writes the same data under `new_key`.
+    /// - Deletes the `old_key` by appending a tombstone entry.
+    ///
+    /// # Parameters:
+    /// - `old_key`: The **original key** of the entry to be renamed.
+    /// - `new_key`: The **new key** under which the entry will be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(new_offset)`: The file offset where the new entry was written.
+    /// - `Err(std::io::Error)`: If the old key is not found or if a write operation fails.
+    ///
+    /// # Notes:
+    /// - This operation **does not modify** the original entry but instead appends a new copy.
+    /// - The old key is **logically deleted** via an append-only tombstone.
     pub fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
         let old_entry = self.read(old_key).ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
@@ -764,8 +782,24 @@ impl DataStore {
         Ok(new_offset)
     }
 
-    // TODO: Document
     // TODO: Prevent copying to same store, and instead suggest "rename"
+    /// Copies an entry to a **different storage container**.
+    ///
+    /// This function:
+    /// - Reads the entry associated with `key` in the current storage.
+    /// - Writes it to the `target` storage.
+    ///
+    /// # Parameters:
+    /// - `key`: The **key** of the entry to be copied.
+    /// - `target`: The **destination storage** where the entry should be copied.
+    ///
+    /// # Returns:
+    /// - `Ok(target_offset)`: The file offset where the copied entry was written in the target storage.
+    /// - `Err(std::io::Error)`: If the key is not found or if the write operation fails.
+    ///
+    /// # Notes:
+    /// - Copying within the **same** storage is unnecessary; use `rename_entry` instead.
+    /// - This operation does **not** delete the original entry.
     pub fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
         let entry_handle = self.read(key).ok_or_else(|| {
             std::io::Error::new(
@@ -777,8 +811,23 @@ impl DataStore {
         self.copy_entry_handle(&entry_handle, target)
     }
 
-    // TODO: Document return type
-    /// Low-level copy functionality.
+    /// Copies an entry handle to a **different storage container**.
+    ///
+    /// This function:
+    /// - Extracts metadata and content from the given `EntryHandle`.
+    /// - Writes the entry into the `target` storage.
+    ///
+    /// # Parameters:
+    /// - `entry`: The **entry handle** to be copied.
+    /// - `target`: The **destination storage** where the entry should be copied.
+    ///
+    /// # Returns:
+    /// - `Ok(target_offset)`: The file offset where the copied entry was written.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - This is a **low-level function** used by `copy_entry` and related operations.
+    /// - The `entry` remains **unchanged** in the original storage.
     fn copy_entry_handle(&self, entry: &EntryHandle, target: &DataStore) -> Result<u64> {
         let metadata = entry.metadata();
 
@@ -790,7 +839,24 @@ impl DataStore {
         Ok(target_offset)
     }
 
-    // TODO: Document
+    /// Moves an entry from the current storage to a **different storage container**.
+    ///
+    /// This function:
+    /// - Copies the entry from the current storage to `target`.
+    /// - Marks the original entry as deleted.
+    ///
+    /// # Parameters:
+    /// - `key`: The **key** of the entry to be moved.
+    /// - `target`: The **destination storage** where the entry should be moved.
+    ///
+    /// # Returns:
+    /// - `Ok(target_offset)`: The file offset where the entry was written in the target storage.
+    /// - `Err(std::io::Error)`: If the key is not found, or if the copy/delete operation fails.
+    ///
+    /// # Notes:
+    /// - Moving an entry within the **same** storage is unnecessary; use `rename_entry` instead.
+    /// - The original entry is **logically deleted** by appending a tombstone, maintaining
+    ///   the append-only structure.
     pub fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
         self.copy_entry(key, target)?;
 
