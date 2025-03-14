@@ -8,9 +8,27 @@
 
 ## Zero-Copy Memory-Mapped Access
 
-TODO: Also mention that it handles larger than RAM scenarios
-
 `SIMD R Drive` is a schema-less, append-only binary storage engine designed for high-performance runtime read/write access. It provides zero-copy reads by memory-mapping the storage file (`mmap`), allowing direct data access without additional deserialization. Unlike `FlatBuffers`, which also supports zero-copy reads but requires predefined schemas, `SIMD R Drive` operates without IDLs or schemas, enabling flexible, raw binary storage optimized for real-time applications.
+
+Additionally, `SIMD R Drive` is designed to handle datasets larger than available RAM by leveraging memory mapping. The system transparently accesses only the necessary portions of the file, reducing memory pressure and enabling efficient storage operations on large-scale datasets.
+
+## Streaming Support
+
+In addition to zero-copy reads, `SIMD R Drive` supports streaming individual entries without requiring the entire entry to be loaded into memory at once. When an entry is accessed, a handle to the entry can be obtained, and a streaming output can be attached directly to it. This allows efficient data transfer while minimizing memory usage.
+
+Unlike zero-copy reads, streamed entries are not zero-copy because the data is transferred through a buffer during streaming. However, this approach ensures that even large entries can be processed efficiently without needing to fit entirely within RAM.
+
+> `SIMD R Drive` also supports streaming writes, individual writes, and batch writes.
+
+## SIMD Acceleration
+
+`SIMD R Drive` leverages SIMD (Single Instruction, Multiple Data) acceleration to optimize performance in key operations, specifically focusing on **write** operations and indexing efficiency.
+
+- **SIMD-Optimized File Writing (`simd_copy`)**: During write operations, `SIMD R Drive` employs a specialized SIMD-accelerated memory copy function (`simd_copy`) to efficiently transfer data into buffers before writing to disk. This reduces CPU overhead and speeds up bulk writes by leveraging vectorized memory operations instead of relying on standard byte-wise copying. The use of `simd_copy` ensures that data is efficiently staged in memory before being flushed to disk, optimizing write throughput.
+
+- **SIMD-Accelerated Hashing (`xxh3_64`)**: The hashing mechanism used for indexing (`xxh3_64`) is optimized with SIMD extensions. This improves key lookups and indexing efficiency, particularly for large datasets with high query throughput.
+
+By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU cycles spent on memory movement and hashing, leading to optimized storage performance in high-throughput, write-heavy workloads. Note that **SIMD is not used for reading or zero-copy memory-mapped access**, as those operations benefit from direct memory access without additional transformations.
 
 ## Single-File Storage Engine with Raw Binary Storage
 
