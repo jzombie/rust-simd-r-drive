@@ -168,18 +168,29 @@ impl EntryHandle {
         self.metadata.checksum
     }
 
-    // TODO: This needs slight reworking if the data came from a large stream
     /// Validates the integrity of the entry using its stored checksum.
     ///
-    /// This method computes the checksum of the payload and compares it
-    /// against the stored checksum value.
+    /// This method computes the checksum of the payload **in chunks** (streaming)
+    /// to match how it was originally computed during writes. This ensures that
+    /// large entries and small entries are handled consistently.
     ///
     /// # Returns
     /// - `true` if the computed checksum matches the stored value.
     /// - `false` if the data has been corrupted.
     pub fn is_valid_checksum(&self) -> bool {
+        let mut hasher = crc32fast::Hasher::new();
+        let chunk_size = 4096; // Process in 4KB chunks
         let data = self.as_slice();
-        let computed = compute_checksum(data);
+
+        // Compute checksum in a streaming manner
+        let mut offset = 0;
+        while offset < data.len() {
+            let end = std::cmp::min(offset + chunk_size, data.len());
+            hasher.update(&data[offset..end]);
+            offset = end;
+        }
+
+        let computed = hasher.finalize().to_le_bytes();
         self.metadata.checksum == computed
     }
 
