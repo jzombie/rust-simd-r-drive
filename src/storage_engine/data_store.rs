@@ -410,18 +410,16 @@ impl DataStore {
         let new_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
         self.last_offset.store(new_offset, Ordering::Release);
 
+        self.remap_file(&file)?; // Ensure mmap updates
+
+        // TODO: Move into remap
         // Associate key indexes AFTER file remap
         let mut key_indexer = self.key_indexer.write().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
         })?;
         key_indexer.insert(key_hash, new_offset - METADATA_SIZE as u64);
 
-        self.remap_file(&file)?; // Ensure mmap updates
-
         Ok(new_offset)
-
-        // TODO: Remove
-        // Ok(0)
     }
 
     /// Writes an entry with a given key and payload.
