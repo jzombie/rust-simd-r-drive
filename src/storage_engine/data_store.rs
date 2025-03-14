@@ -1,7 +1,7 @@
 use crate::storage_engine::constants::*;
 use crate::storage_engine::digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use crate::storage_engine::simd_copy;
-use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata};
+use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, KeyIndexer};
 use log::{debug, info, warn};
 use memmap2::Mmap;
 use std::collections::{HashMap, HashSet};
@@ -15,10 +15,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Append-Only Storage Engine
 pub struct DataStore {
-    file: Arc<RwLock<BufWriter<File>>>, // Wrap file in Arc<RwLock<>> for safe concurrent writes`
-    mmap: Arc<Mutex<Arc<Mmap>>>,        // Atomic pointer to an mmap for zero-copy reads
+    file: Arc<RwLock<BufWriter<File>>>,
+    mmap: Arc<Mutex<Arc<Mmap>>>,
     last_offset: AtomicU64,
-    key_index: Arc<RwLock<HashMap<u64, u64, Xxh3BuildHasher>>>, // Wrap in RwLock for safe writes
+    key_indexer: Arc<RwLock<KeyIndexer>>,
     path: PathBuf,
 }
 
@@ -90,13 +90,13 @@ impl DataStore {
             return Self::open(path);
         }
 
-        let key_index = Self::build_key_index(&mmap, final_len);
+        let key_indexer = KeyIndexer::build(&mmap, final_len);
 
         Ok(Self {
             file: Arc::new(RwLock::new(file)), // Wrap in RwLock
             mmap: Arc::new(Mutex::new(Arc::new(mmap))),
             last_offset: final_len.into(),
-            key_index: Arc::new(RwLock::new(key_index)), // Wrap HashMap in RwLock
+            key_indexer: Arc::new(RwLock::new(key_indexer)),
             path: path.to_path_buf(),
         })
     }
@@ -199,53 +199,6 @@ impl DataStore {
         let last_offset = self.last_offset.load(Ordering::Acquire);
 
         EntryIterator::new(mmap_clone, last_offset)
-    }
-
-    /// Builds an in-memory index for **fast key lookups**.
-    ///
-    /// This function **scans the storage file** and constructs a **hashmap**
-    /// mapping each key's hash to its **latest** entry's file offset.
-    ///
-    /// # How It Works:
-    /// - Iterates **backward** from the latest offset to find the most recent version of each key.
-    /// - Skips duplicate keys to keep only the **most recent** entry.
-    /// - Stores the **latest offset** of each unique key in the index.
-    ///
-    /// # Parameters:
-    /// - `mmap`: A reference to the **memory-mapped file**.
-    /// - `last_offset`: The **final byte offset** in the file (starting point for scanning).
-    ///
-    /// # Returns:
-    /// - A `HashMap<u64, u64>` mapping `key_hash` → `latest offset`.
-    fn build_key_index(mmap: &Mmap, last_offset: u64) -> HashMap<u64, u64, Xxh3BuildHasher> {
-        let mut index = HashMap::with_hasher(Xxh3BuildHasher);
-        let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
-        let mut cursor = last_offset;
-
-        while cursor >= METADATA_SIZE as u64 {
-            let metadata_offset = cursor as usize - METADATA_SIZE;
-            let metadata_bytes = &mmap[metadata_offset..metadata_offset + METADATA_SIZE];
-            let metadata = EntryMetadata::deserialize(metadata_bytes);
-
-            // If this key is already seen, skip it (to keep the latest entry only)
-            if seen_keys.contains(&metadata.key_hash) {
-                cursor = metadata.prev_offset;
-                continue;
-            }
-
-            // Mark key as seen and store its latest offset
-            seen_keys.insert(metadata.key_hash);
-            index.insert(metadata.key_hash, metadata_offset as u64);
-
-            // Stop when reaching the first valid entry
-            if metadata.prev_offset == 0 {
-                break;
-            }
-
-            cursor = metadata.prev_offset;
-        }
-
-        index
     }
 
     /// Recovers the **latest valid chain** of entries from the storage file.
@@ -458,10 +411,10 @@ impl DataStore {
         self.last_offset.store(new_offset, Ordering::Release);
 
         // Associate key indexes AFTER file remap
-        let mut key_index = self.key_index.write().map_err(|_| {
+        let mut key_indexer = self.key_indexer.write().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
         })?;
-        key_index.insert(key_hash, new_offset - METADATA_SIZE as u64);
+        key_indexer.insert(key_hash, new_offset - METADATA_SIZE as u64);
 
         self.remap_file(&file)?; // Ensure mmap updates
 
@@ -610,10 +563,10 @@ impl DataStore {
             // TODO: Associate key indexes AFTER file remap
             // Lock the key index before modifying
             {
-                let mut key_index = self.key_index.write().map_err(|_| {
+                let mut key_indexer = self.key_indexer.write().map_err(|_| {
                     std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
                 })?;
-                key_index.insert(key_hash, last_offset - METADATA_SIZE as u64);
+                key_indexer.insert(key_hash, last_offset - METADATA_SIZE as u64);
             } // Unlocks automatically here
         }
 
@@ -705,7 +658,7 @@ impl DataStore {
         }
 
         // 3) Look up the offset in the in-memory key index
-        let offset = *self.key_index.read().ok()?.get(&key_hash)?;
+        let offset = *self.key_indexer.read().ok()?.get(&key_hash)?;
 
         // 4) Grab the metadata from the mapped file
         if offset as usize + METADATA_SIZE > mmap_arc.len() {
