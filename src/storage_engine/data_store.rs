@@ -9,7 +9,6 @@ use std::convert::From;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-// TODO: Add feature flag to support using `tokio`'s `Mutex` (etc.) instead of the std lib
 use std::sync::{Arc, Mutex, RwLock};
 
 use std::sync::atomic::{AtomicU64, Ordering};
