@@ -119,27 +119,25 @@ impl DataStore {
         // Lock the mutex to get a mutable reference to the current Arc<Mmap>
         let mut mmap_guard = self.mmap.lock().unwrap();
 
+        let mut key_indexer_guard = self.key_indexer.write().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
+        })?;
+
         // Update last_offset (or any other fields)
         let new_offset = write_guard.get_ref().metadata()?.len();
         self.last_offset
             .store(new_offset, std::sync::atomic::Ordering::Release);
 
-        // Update the key index
-        {
-            let mut key_indexer = self.key_indexer.write().map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
-            })?;
-
-            for (key_hash, last_offset) in key_hash_offsets.iter() {
-                key_indexer.insert(*key_hash, *last_offset);
-            }
+        for (key_hash, last_offset) in key_hash_offsets.iter() {
+            key_indexer_guard.insert(*key_hash, *last_offset);
         }
 
         // Overwrite the old Arc<Mmap> with the new one
         *mmap_guard = Arc::new(new_mmap);
 
-        // Calling this isn't necessary in Rust, but for good measure...
+        // These are automatically dropped by Rust once leaving scope, but calling them for good measure
         drop(mmap_guard);
+        drop(key_indexer_guard);
 
         Ok(())
     }
