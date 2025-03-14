@@ -44,6 +44,13 @@ impl From<PathBuf> for DataStore {
 }
 
 impl DataStore {
+    /// Allow unit tests to access the underlying memory map.
+    #[cfg(any(test, debug_assertions))]
+    pub fn get_mmap_arc_for_testing(&self) -> Arc<Mmap> {
+        // Lock the Mutex and clone the Arc<Mmap>
+        self.mmap.lock().unwrap().clone()
+    }
+
     /// Opens an **existing** or **new** append-only storage file.
     ///
     /// This function:

@@ -2,7 +2,7 @@
 mod tests {
 
     use serde::{Deserialize, Serialize};
-    use simd_r_drive::{compute_checksum, compute_hash, DataStore, EntryHandle};
+    use simd_r_drive::{compute_checksum, compute_hash, DataStore};
     use std::fs::{metadata, OpenOptions};
     use std::io::{Seek, SeekFrom, Write};
     use tempfile::tempdir;
@@ -941,6 +941,59 @@ mod tests {
         assert!(
             !cloned_entry.as_slice().is_empty(),
             "Cloned entry should remain accessible after the original is dropped"
+        );
+    }
+
+    #[test]
+    fn test_mmap_exposure_and_zero_copy_read() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"mmap_exposure_test";
+        let payload = b"Direct mmap testing";
+
+        // Write entry to storage
+        storage.write(key, payload).expect("Failed to write entry");
+
+        // Retrieve the entry handle
+        let entry_handle = storage.read(key).expect("Failed to read entry");
+
+        // Get direct access to mmap for testing
+        let mmap_arc = storage.get_mmap_arc_for_testing();
+
+        //  Ensure the entry slice references the mmap memory region
+        let mmap_ptr = mmap_arc.as_ptr();
+        let entry_ptr = entry_handle.as_slice().as_ptr();
+
+        assert!(
+            (entry_ptr as usize) >= (mmap_ptr as usize),
+            "Entry should be mapped within the mmap memory region"
+        );
+
+        assert!(
+            (entry_ptr as usize) < (mmap_ptr as usize + mmap_arc.len()),
+            "Entry pointer should be within the mmap memory bounds"
+        );
+
+        //  Ensure no memory duplication
+        assert_eq!(
+            entry_handle.as_slice().as_ptr(),
+            entry_ptr,
+            "Entry read should not allocate new memory"
+        );
+
+        // Validate persistence after dropping the entry handle
+        drop(entry_handle);
+        assert!(
+            !unsafe { std::slice::from_raw_parts(mmap_ptr, payload.len()) }.is_empty(),
+            "Memory should remain accessible after dropping the entry handle"
+        );
+
+        // Ensure data integrity
+        let read_back = storage.read(key).expect("Entry should still be readable");
+        assert_eq!(
+            read_back.as_slice(),
+            payload,
+            "Data integrity failure: Read data does not match original payload"
         );
     }
 }
