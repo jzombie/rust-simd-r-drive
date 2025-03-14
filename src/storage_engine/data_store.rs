@@ -113,32 +113,18 @@ impl DataStore {
         write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
         key_hash_offsets: &[(u64, u64)],
     ) -> std::io::Result<()> {
-        // 1) Acquire file read lock
-        // let file_guard = self.file.read().map_err(|_| {
-        //     std::io::Error::new(
-        //         std::io::ErrorKind::Other,
-        //         "Failed to acquire file read lock",
-        //     )
-        // })?;
-
-        // 2) Create a new Mmap from the file
+        // Create a new Mmap from the file
         let new_mmap = Self::init_mmap(write_guard)?;
 
-        // 3) Replace the old Arc<Mmap> with a new Arc<Mmap>
-        {
-            // Lock the mutex to get a mutable reference to the current Arc<Mmap>
-            let mut guard = self.mmap.lock().unwrap();
+        // Lock the mutex to get a mutable reference to the current Arc<Mmap>
+        let mut mmap_guard = self.mmap.lock().unwrap();
 
-            // Overwrite the old Arc<Mmap> with the new one
-            *guard = Arc::new(new_mmap);
-        } // Once the guard drops here, other threads can lock again
-
-        // 4) Update last_offset (or any other fields)
+        // Update last_offset (or any other fields)
         let new_offset = write_guard.get_ref().metadata()?.len();
         self.last_offset
             .store(new_offset, std::sync::atomic::Ordering::Release);
 
-        // Lock the key index before modifying
+        // Update the key index
         {
             let mut key_indexer = self.key_indexer.write().map_err(|_| {
                 std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
@@ -148,6 +134,12 @@ impl DataStore {
                 key_indexer.insert(*key_hash, *last_offset);
             }
         }
+
+        // Overwrite the old Arc<Mmap> with the new one
+        *mmap_guard = Arc::new(new_mmap);
+
+        // Calling this isn't necessary in Rust, but for good measure...
+        drop(mmap_guard);
 
         Ok(())
     }
