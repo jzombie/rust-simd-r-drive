@@ -101,6 +101,57 @@ impl DataStore {
         })
     }
 
+    // TODO: Rename to reindex
+    // TODO: Move indexing in here as well
+    // TODO: Use the existing file lock instead of re-acquiring
+    /// Re-maps the storage file to ensure that the latest updates are visible.
+    ///
+    /// IMPORTANT: This method should be called **after a write operation** to reload
+    /// the memory-mapped file and ensure that newly written data is accessible for reading.
+    fn remap_file(
+        &self,
+        write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
+        key_hash_offsets: &[(u64, u64)],
+    ) -> std::io::Result<()> {
+        // 1) Acquire file read lock
+        // let file_guard = self.file.read().map_err(|_| {
+        //     std::io::Error::new(
+        //         std::io::ErrorKind::Other,
+        //         "Failed to acquire file read lock",
+        //     )
+        // })?;
+
+        // 2) Create a new Mmap from the file
+        let new_mmap = Self::init_mmap(write_guard)?;
+
+        // 3) Replace the old Arc<Mmap> with a new Arc<Mmap>
+        {
+            // Lock the mutex to get a mutable reference to the current Arc<Mmap>
+            let mut guard = self.mmap.lock().unwrap();
+
+            // Overwrite the old Arc<Mmap> with the new one
+            *guard = Arc::new(new_mmap);
+        } // Once the guard drops here, other threads can lock again
+
+        // 4) Update last_offset (or any other fields)
+        let new_offset = write_guard.get_ref().metadata()?.len();
+        self.last_offset
+            .store(new_offset, std::sync::atomic::Ordering::Release);
+
+        // Lock the key index before modifying
+        {
+            let mut key_indexer = self.key_indexer.write().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
+            })?;
+
+            for (key_hash, last_offset) in key_hash_offsets.iter() {
+                key_indexer.insert(*key_hash, *last_offset);
+            }
+        }
+
+        Ok(())
+    }
+
     /// Returns the storage file path.
     ///
     /// # Returns:
@@ -289,57 +340,6 @@ impl DataStore {
 
         let final_len = best_valid_offset.unwrap_or(0);
         Ok(final_len)
-    }
-
-    // TODO: Rename to reindex
-    // TODO: Move indexing in here as well
-    // TODO: Use the existing file lock instead of re-acquiring
-    /// Re-maps the storage file to ensure that the latest updates are visible.
-    ///
-    /// IMPORTANT: This method should be called **after a write operation** to reload
-    /// the memory-mapped file and ensure that newly written data is accessible for reading.
-    fn remap_file(
-        &self,
-        write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
-        key_hash_offsets: &[(u64, u64)],
-    ) -> std::io::Result<()> {
-        // 1) Acquire file read lock
-        // let file_guard = self.file.read().map_err(|_| {
-        //     std::io::Error::new(
-        //         std::io::ErrorKind::Other,
-        //         "Failed to acquire file read lock",
-        //     )
-        // })?;
-
-        // 2) Create a new Mmap from the file
-        let new_mmap = unsafe { memmap2::MmapOptions::new().map(write_guard.get_ref())? };
-
-        // 3) Replace the old Arc<Mmap> with a new Arc<Mmap>
-        {
-            // Lock the mutex to get a mutable reference to the current Arc<Mmap>
-            let mut guard = self.mmap.lock().unwrap();
-
-            // Overwrite the old Arc<Mmap> with the new one
-            *guard = Arc::new(new_mmap);
-        } // Once the guard drops here, other threads can lock again
-
-        // 4) Update last_offset (or any other fields)
-        let new_offset = write_guard.get_ref().metadata()?.len();
-        self.last_offset
-            .store(new_offset, std::sync::atomic::Ordering::Release);
-
-        // Lock the key index before modifying
-        {
-            let mut key_indexer = self.key_indexer.write().map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
-            })?;
-
-            for (key_hash, last_offset) in key_hash_offsets.iter() {
-                key_indexer.insert(*key_hash, *last_offset);
-            }
-        }
-
-        Ok(())
     }
 
     /// Writes an entry using a streaming `Read` source (e.g., file, network).
