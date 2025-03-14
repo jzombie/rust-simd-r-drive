@@ -1055,4 +1055,62 @@ mod tests {
             "Checksum validation should fail after corruption"
         );
     }
+
+    #[test]
+    fn test_checksum_consistency_across_write_methods() {
+        use std::io::Cursor;
+
+        let (_dir, storage) = create_temp_storage();
+
+        let key1 = b"checksum_test_write";
+        let key2 = b"checksum_test_stream";
+
+        let identical_payload = b"Consistent Checksum Payload";
+        let different_payload = b"Different Payload Data";
+
+        // Write using `write`
+        storage
+            .write(key1, identical_payload)
+            .expect("Failed to write entry");
+
+        // Write using `write_stream`
+        let mut stream_reader = Cursor::new(identical_payload);
+        storage
+            .write_stream(key2, &mut stream_reader)
+            .expect("Failed to write stream entry");
+
+        // Read both entries
+        let entry1 = storage.read(key1).expect("Failed to read entry from write");
+        let entry2 = storage
+            .read(key2)
+            .expect("Failed to read entry from write_stream");
+
+        // Ensure checksums match
+        assert_eq!(
+            entry1.checksum(),
+            entry2.checksum(),
+            "Checksums should be identical when writing the same content via different methods"
+        );
+
+        // Write different content using `write`
+        let key3 = b"checksum_test_different";
+        storage
+            .write(key3, different_payload)
+            .expect("Failed to write different entry");
+
+        let entry3 = storage.read(key3).expect("Failed to read different entry");
+
+        // Ensure checksum is different for different content
+        assert_ne!(
+            entry1.checksum(),
+            entry3.checksum(),
+            "Checksums should differ for different content"
+        );
+
+        assert_ne!(
+            entry2.checksum(),
+            entry3.checksum(),
+            "Checksums should differ for different content written via different methods"
+        );
+    }
 }
