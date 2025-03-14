@@ -90,8 +90,6 @@ impl Iterator for EntryIterator {
             return self.next();
         }
 
-        // Some(entry_data.into())
-
         Some(EntryHandle {
             mmap_arc: Arc::clone(&self.mmap),
             range: entry_start..entry_end,
