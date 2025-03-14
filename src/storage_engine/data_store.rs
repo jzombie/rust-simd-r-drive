@@ -4,7 +4,7 @@ use crate::storage_engine::simd_copy;
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, KeyIndexer};
 use log::{debug, info, warn};
 use memmap2::Mmap;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::convert::From;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Read, Result, Seek, SeekFrom, Write};
@@ -291,6 +291,7 @@ impl DataStore {
         Ok(final_len)
     }
 
+    // TODO: Rename to reindex
     // TODO: Move indexing in here as well
     // TODO: Use the existing file lock instead of re-acquiring
     /// Re-maps the storage file to ensure that the latest updates are visible.
@@ -300,6 +301,7 @@ impl DataStore {
     fn remap_file(
         &self,
         write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
+        key_hash_offsets: &[(u64, u64)],
     ) -> std::io::Result<()> {
         // 1) Acquire file read lock
         // let file_guard = self.file.read().map_err(|_| {
@@ -325,6 +327,17 @@ impl DataStore {
         let new_offset = write_guard.get_ref().metadata()?.len();
         self.last_offset
             .store(new_offset, std::sync::atomic::Ordering::Release);
+
+        // Lock the key index before modifying
+        {
+            let mut key_indexer = self.key_indexer.write().map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
+            })?;
+
+            for (key_hash, last_offset) in key_hash_offsets.iter() {
+                key_indexer.insert(*key_hash, *last_offset);
+            }
+        }
 
         Ok(())
     }
@@ -410,14 +423,7 @@ impl DataStore {
         let new_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
         self.last_offset.store(new_offset, Ordering::Release);
 
-        self.remap_file(&file)?; // Ensure mmap updates
-
-        // TODO: Move into remap
-        // Associate key indexes AFTER file remap
-        let mut key_indexer = self.key_indexer.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
-        })?;
-        key_indexer.insert(key_hash, new_offset - METADATA_SIZE as u64);
+        self.remap_file(&file, &vec![(key_hash, new_offset - METADATA_SIZE as u64)])?; // Ensure mmap updates
 
         Ok(new_offset)
     }
@@ -529,6 +535,8 @@ impl DataStore {
         let mut buffer = Vec::new();
         let mut last_offset = self.last_offset.load(Ordering::Acquire);
 
+        let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(hashed_payloads.len());
+
         for (key_hash, payload) in hashed_payloads {
             if payload.is_empty() {
                 return Err(std::io::Error::new(
@@ -558,14 +566,7 @@ impl DataStore {
 
             last_offset += entry.len() as u64;
 
-            // TODO: Associate key indexes AFTER file remap
-            // Lock the key index before modifying
-            {
-                let mut key_indexer = self.key_indexer.write().map_err(|_| {
-                    std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
-                })?;
-                key_indexer.insert(key_hash, last_offset - METADATA_SIZE as u64);
-            } // Unlocks automatically here
+            key_hash_offsets.push((key_hash, last_offset - METADATA_SIZE as u64));
         }
 
         file.write_all(&buffer)?;
@@ -573,7 +574,7 @@ impl DataStore {
 
         self.last_offset.store(last_offset, Ordering::Release);
 
-        self.remap_file(&file)?; // Ensure mmap updates
+        self.remap_file(&file, &key_hash_offsets)?; // Ensure mmap updates
 
         Ok(self.last_offset.load(Ordering::Acquire))
     }
