@@ -16,6 +16,7 @@
   - [High-Performance Append-Only Design](#high-performance-append-only-design)
     - [Storage Validation Chain](#storage-validation-chain)
     - [Optimized Metadata Storage & Automatic Recovery](#optimized-metadata-storage--automatic-recovery)
+    - [Hardware Accelerated, Automated Indexing](#hardware-accelerated-automated-indexing)
 - [Thread Safety and Concurrency Handling](#thread-safety-and-concurrency-handling)
     - [Thread Safety Matrix](#thread-safety-matrix)
 - [Multiple Write Modes](#multiple-write-modes)
@@ -104,7 +105,17 @@ Because metadata is appended after each payload, there is no unnecessary seeking
 
 - Automatically recovers from partially written or corrupt files.
 
+#### Hardware Accelerated, Automated Indexing
 
+Content retrieval is optimized using hashed keys, managed internally by a `HashMap` powered by the `xxh3_64` hashing algorithm. This algorithm takes advantage of hardware acceleration where available:
+
+  - SSE2 – Universally supported on x86_64, enabled by default.
+  - AVX2 – Offers additional performance gains on capable CPUs.
+  - Neon – Default on aarch64 targets, providing SIMD acceleration.
+
+This indexing system works seamlessly with memory-mapped (`mmap`) pages, enabling high-speed random access. Benchmarks show that 1 million seeks—retrieving 8-byte entries—typically complete in well under 1 second, demonstrating reasonable query performance.
+
+As content is added, the memory mapped pages and the indexing are synchronized between threads in a multi-threaded application.
 
 ## Thread Safety and Concurrency Handling
 
