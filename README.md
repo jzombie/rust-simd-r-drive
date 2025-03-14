@@ -18,6 +18,7 @@
     - [Optimized Metadata Storage & Automatic Recovery](#optimized-metadata-storage--automatic-recovery)
     - [Hardware Accelerated, Automated Indexing](#hardware-accelerated-automated-indexing)
 - [Thread Safety and Concurrency Handling](#thread-safety-and-concurrency-handling)
+    - [Safe vs. Not Safe](#safe-vs-not-safe)
     - [Thread Safety Matrix](#thread-safety-matrix)
 - [Multiple Write Modes](#multiple-write-modes)
   - [Single Entry](#single-entry)
@@ -131,7 +132,14 @@ As content is added, the memory-mapped pages and the indexing are synchronized b
 
 - **Atomic offsets ensure correct ordering**: The last written offset (`last_offset`) is managed using `AtomicU64`, avoiding unnecessary locking while ensuring correct sequential writes.
 
-These mechanisms ensure that `SIMD R Drive` can handle concurrent reads and writes safely in a **single-process, multi-threaded** environment. However, **multiple instances of the application accessing the same file are not synchronized**, meaning external file locking should be used if multiple processes need to coordinate access to the same storage file.
+
+#### Safe vs. Not Safe
+
+The built-in concurrency mechanisms ensure that `SIMD R Drive` can handle concurrent reads and writes safely in a **single-process, multi-threaded** environment.
+
+However, **multiple instances of the application accessing the same file are not synchronized**, meaning external file locking should be used if multiple processes need to coordinate access to the same storage file.
+
+> It is not the intention of this core library to provide multiple instance file locking, outside of a multi-threaded environment running in a single process.
 
 #### Thread Safety Matrix
 
