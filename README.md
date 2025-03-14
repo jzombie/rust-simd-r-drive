@@ -14,7 +14,8 @@
   - [No Assumptions About Your Data or Resource-Wasting Serialization Overhead](#no-assumptions-about-your-data-or-resource-wasting-serialization-overhead)
   - [No Predefined Schemas](#no-predefined-schemas)
   - [High-Performance Append-Only Design](#high-performance-append-only-design)
-- [Optimized Metadata Storage & Automatic Recovery](#optimized-metadata-storage--automatic-recovery)
+    - [Storage Validation Chain](#storage-validation-chain)
+    - [Optimized Metadata Storage & Automatic Recovery](#optimized-metadata-storage--automatic-recovery)
 - [Thread Safety and Concurrency Handling](#thread-safety-and-concurrency-handling)
     - [Thread Safety Matrix](#thread-safety-matrix)
 - [Multiple Write Modes](#multiple-write-modes)
@@ -84,10 +85,18 @@ Think of it as a self-contained binary filesystem—capable of storing and retri
 </div>
 
 
+#### Storage Validation Chain
+
+Each payload is immediately followed by a metadata entry containing previous offsets, hashes, and checksums, forming a linked chain that can be efficiently traversed from the end of the file to the beginning. This chain is validated on load, ensuring data integrity while remaining extremely fast.
+
+This design allows seamless nesting of storage containers within other containers without requiring any byte manipulation inside the nested structures.
+
+Additionally, it serves as a recovery mechanism, detecting incomplete writes caused by unexpected interruptions. If an entry is found to be partially written, it is automatically discarded to prevent file corruption.
+
+Because metadata is appended after each payload, there is no unnecessary seeking. When a file is opened, the system reads the metadata from the end and reconstructs the entire chain back to byte 0. A chain is only considered valid if it can be walked back to byte 0 without gaps. If the last chain is incomplete, the system automatically scans backward until a fully valid chain is found—ensuring consistent data recovery, even in storage containers larger than RAM.
 
 
-
-## Optimized Metadata Storage & Automatic Recovery
+#### Optimized Metadata Storage & Automatic Recovery
 
 - Metadata is appended at the end of payloads, reducing unnecessary disk seeks.
 
