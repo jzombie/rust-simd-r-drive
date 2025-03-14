@@ -54,6 +54,15 @@ impl EntryHandle {
         &self.mmap_arc[self.range.clone()]
     }
 
+    // TODO: Document
+    pub fn clone_arc(&self) -> Self {
+        Self {
+            mmap_arc: Arc::clone(&self.mmap_arc), // Keeps same mmap reference
+            range: self.range.clone(),
+            metadata: self.metadata.clone(),
+        }
+    }
+
     /// Returns a reference to the entry’s parsed metadata.
     pub fn metadata(&self) -> &EntryMetadata {
         &self.metadata

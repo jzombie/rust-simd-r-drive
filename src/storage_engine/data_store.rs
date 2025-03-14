@@ -1,7 +1,7 @@
 use crate::storage_engine::constants::*;
 use crate::storage_engine::digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use crate::storage_engine::simd_copy;
-use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, KeyIndexer};
+use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
 use log::{debug, info, warn};
 use memmap2::Mmap;
 use std::collections::HashSet;
@@ -104,7 +104,7 @@ impl DataStore {
     /// Workaround for directly opening in **append mode** causing permissions issues on Windows
     ///
     /// The file is opened normally and the **cursor is moved to the end.
-    /// 
+    ///
     /// Unix family unaffected by this issue, but this standardizes their handling.
     ///
     /// # Parameters:
@@ -397,7 +397,11 @@ impl DataStore {
     /// # Returns:
     /// - `Ok(offset)`: The file offset where the entry was written.
     /// - `Err(std::io::Error)`: If a write or I/O operation fails.
-    fn write_stream_with_key_hash<R: Read>(&self, key_hash: u64, reader: &mut R) -> Result<u64> {
+    pub fn write_stream_with_key_hash<R: Read>(
+        &self,
+        key_hash: u64,
+        reader: &mut R,
+    ) -> Result<u64> {
         let mut file: std::sync::RwLockWriteGuard<'_, BufWriter<File>> =
             self.file.write().map_err(|_| {
                 std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
@@ -746,10 +750,12 @@ impl DataStore {
     fn copy_entry_handle(&self, entry: &EntryHandle, target: &DataStore) -> Result<u64> {
         let metadata = entry.metadata();
 
-        // Append to the compacted storage
-        let result = target.write_with_key_hash(metadata.key_hash, entry)?;
+        let mut entry_stream = EntryStream::from(entry.clone_arc()); // Convert to Arc to keep ownership
 
-        Ok(result)
+        let target_offset =
+            target.write_stream_with_key_hash(metadata.key_hash, &mut entry_stream)?;
+
+        Ok(target_offset)
     }
 
     // TODO: Document
@@ -779,15 +785,15 @@ impl DataStore {
         let compacted_path = self.path.with_extension("bk");
         debug!("Starting compaction. Writing to: {:?}", compacted_path);
 
-        // 1) Create a new DataStore instance for the compacted file
+        // Create a new DataStore instance for the compacted file
         let mut compacted_storage = DataStore::open(&compacted_path)?;
 
-        // 2) Iterate over all valid entries using your iterator
+        // Iterate over all valid entries using your iterator
         for entry in self.iter_entries() {
             self.copy_entry_handle(&entry, &mut compacted_storage)?;
         }
 
-        // 4) Flush the compacted file
+        // Flush the compacted file
         {
             let mut file_guard = compacted_storage.file.write().map_err(|e| {
                 std::io::Error::new(std::io::ErrorKind::Other, format!("Lock poisoned: {}", e))
