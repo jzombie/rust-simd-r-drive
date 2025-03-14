@@ -87,7 +87,7 @@ enum Commands {
         target: PathBuf,
     },
 
-    /// Move an entry from one storage file to another (copy and delete)
+    /// Move an entry from one storage file to another
     Move {
         /// The key to move
         key: String,
@@ -95,6 +95,13 @@ enum Commands {
         /// Target storage file
         #[arg(value_name = "target")]
         target: PathBuf,
+    },
+
+    /// Renames an entry
+    Rename {
+        old_key: String,
+
+        new_key: String
     },
 
     /// Delete a key
@@ -207,6 +214,21 @@ fn main() {
                 .ok(); // Ignore the success case
 
             info!("Moved key '{}' to {:?}", key, target);
+        }
+
+        Commands::Rename { old_key, new_key } => {
+            let storage =
+                DataStore::open(&cli.storage).expect("Failed to open source storage");
+
+                storage
+                .rename_entry(old_key.as_bytes(), new_key.as_bytes())
+                .map_err(|err| {
+                    error!("Could not rename entry. Received error: {}", err.to_string());
+                    std::process::exit(1);
+                })
+                .ok(); // Ignore the success case
+
+            info!("Renamed key '{}' to {}", old_key, new_key);
         }
 
         Commands::Delete { key } => {
