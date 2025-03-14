@@ -472,22 +472,71 @@ impl DataStore {
         // Ok(0)
     }
 
-    // TODO: Document return type
-    /// High-level method: Appends a single entry by key
+    /// Writes an entry with a given key and payload.
+    ///
+    /// This method computes the hash of the key and delegates to `write_with_key_hash()`.
+    /// It is a **high-level API** for adding new entries to the storage.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** associated with the entry.
+    /// - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - If you need streaming support, use `write_stream` instead.
+    /// - If multiple entries with the **same key** are written, the most recent
+    ///   entry will be retrieved when reading.
+    /// - This method **locks the file for writing** to ensure consistency.
+    /// - For writing **multiple entries at once**, use `batch_write()`.
     pub fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.write_with_key_hash(key_hash, payload)
     }
 
-    // TODO: Document return type (note: This should be considered "unsafe"
-    // but is necessary for data transfer operations between storage files)
-    /// High-level method: Appends a single entry by key hash
+    /// Writes an entry using a **precomputed key hash** and a payload.
+    ///
+    /// This method is a **low-level** alternative to `write()`, allowing direct
+    /// specification of the key hash. It is mainly used for optimized workflows
+    /// where the key hash is already known, avoiding redundant computations.
+    ///
+    /// # Parameters:
+    /// - `key_hash`: The **precomputed hash** of the key.
+    /// - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - The caller is responsible for ensuring that `key_hash` is correctly computed.
+    /// - This method **locks the file for writing** to maintain consistency.
+    /// - If writing **multiple entries**, consider using `batch_write_hashed_payloads()`.
     pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write_hashed_payloads(vec![(key_hash, payload)])
     }
 
-    // TODO: Document return type
-    /// Batch append multiple entries as a single transaction
+    /// Writes multiple key-value pairs as a **single transaction**.
+    ///
+    /// This method computes the hashes of the provided keys and delegates to
+    /// `batch_write_hashed_payloads()`, ensuring all writes occur in a single
+    /// locked operation for efficiency.
+    ///
+    /// # Parameters:
+    /// - `entries`: A **slice of key-value pairs**, where:
+    ///   - `key`: The **binary key** for the entry.
+    ///   - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(final_offset)`: The file offset after all writes.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - This method improves efficiency by **minimizing file lock contention**.
+    /// - If a large number of entries are written, **batching reduces overhead**.
+    /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
     pub fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let hashed_entries: Vec<(u64, &[u8])> = entries
             .iter()
@@ -496,7 +545,32 @@ impl DataStore {
         self.batch_write_hashed_payloads(hashed_entries)
     }
 
-    /// Core transaction method (Handles locking, writing, flushing)
+    /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
+    ///
+    /// This method efficiently appends multiple entries in a **batch operation**,
+    /// reducing lock contention and improving performance for bulk writes.
+    ///
+    /// # Parameters:
+    /// - `hashed_payloads`: A **vector of precomputed key hashes and payloads**, where:
+    ///   - `key_hash`: The **precomputed hash** of the key.
+    ///   - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(final_offset)`: The file offset after all writes.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - **File locking is performed only once** for all writes, improving efficiency.
+    /// - If an entry's `payload` is empty, an error is returned.
+    /// - This method uses **SIMD-accelerated memory copy (`simd_copy`)** to optimize write
+    ///   performance.
+    /// - **Metadata (checksums, offsets) is written after payloads** to ensure data integrity.
+    /// - After writing, the memory-mapped file (`mmap`) is **remapped** to reflect updates.
+    ///
+    /// # Efficiency Considerations:
+    /// - **Faster than multiple `write()` calls**, since it reduces lock contention.
+    /// - Suitable for **bulk insertions** where key hashes are known beforehand.
+    /// - If keys are available but not hashed, use `batch_write()` instead.
     pub fn batch_write_hashed_payloads(&self, hashed_payloads: Vec<(u64, &[u8])>) -> Result<u64> {
         let mut file = self.file.write().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
