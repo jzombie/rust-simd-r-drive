@@ -402,45 +402,47 @@ impl DataStore {
         key_hash: u64,
         reader: &mut R,
     ) -> Result<u64> {
-        let mut file: std::sync::RwLockWriteGuard<'_, BufWriter<File>> =
-            self.file.write().map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
-            })?;
+        let mut file = self.file.write().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
+        })?;
 
         let prev_offset = self.last_offset.load(Ordering::Acquire);
 
-        let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE]; // 64KB chunks
+        let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE]; // 64KB buffer
+        let mut aligned_buffer = vec![0; WRITE_STREAM_BUFFER_SIZE]; // Aligned buffer for SIMD copy
         let mut total_written = 0;
+        let mut checksum_state = crc32fast::Hasher::new();
 
-        let mut checksum_state = crc32fast::Hasher::new(); // Use incremental checksum
-
-        // Stream and write chunks directly to disk
         while let Ok(bytes_read) = reader.read(&mut buffer) {
             if bytes_read == 0 {
                 break;
             }
 
-            file.write_all(&buffer[..bytes_read])?;
-            checksum_state.update(&buffer[..bytes_read]); // Update checksum incrementally
+            // Use SIMD to optimize memory copy
+            simd_copy(&mut aligned_buffer[..bytes_read], &buffer[..bytes_read]);
+
+            file.write_all(&aligned_buffer[..bytes_read])?;
+            checksum_state.update(&aligned_buffer[..bytes_read]); // Update checksum
             total_written += bytes_read;
         }
 
-        let checksum_u32 = checksum_state.finalize(); // Finalize checksum after writing
+        let checksum_u32 = checksum_state.finalize();
         let checksum = checksum_u32.to_le_bytes();
 
-        // // Write metadata **after** payload
         let metadata = EntryMetadata {
             key_hash,
             prev_offset,
             checksum,
         };
+
+        // Write metadata **after** payload
         file.write_all(&metadata.serialize())?;
-        file.flush()?; // **Ensure data is persisted to disk**
+        file.flush()?; // Ensure data is written to disk
 
         let new_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
         self.last_offset.store(new_offset, Ordering::Release);
 
-        self.reindex(&file, &vec![(key_hash, new_offset - METADATA_SIZE as u64)])?; // Ensure mmap updates
+        self.reindex(&file, &vec![(key_hash, new_offset - METADATA_SIZE as u64)])?;
 
         Ok(new_offset)
     }
