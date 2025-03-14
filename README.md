@@ -8,12 +8,13 @@
 
 ## Table of Contents
 
-- [Single-File Storage Container for Arbitrary Data](#single-file-storage-container-for-arbitrary-data)
 - [Zero-Copy Memory-Mapped Access](#zero-copy-memory-mapped-access)
+- [Single-File Storage Container for Binary Data](#single-file-storage-container-for-binary-data)
+  - [No Assumptions About Your Data or Resource-Wasting Serialization Overhead](#no-assumptions-about-your-data-or-resource-wasting-serialization-overhead)
+  - [No Predefined Schemas](#no-predefined-schemas)
+  - [High-Performance Append-Only Design](#high-performance-append-only-design)
 - [Nestable Storage (Recursive Embedding)](#nestable-storage-recursive-embedding)
-- [High-Performance Append-Only Design](#high-performance-append-only-design)
 - [Optimized Metadata Storage & Automatic Recovery](#optimized-metadata-storage--automatic-recovery)
-- [No Assumptions About Your Data](#no-assumptions-about-your-data)
 - [Thread Safety and Concurrency Handling](#thread-safety-and-concurrency-handling)
     - [Thread Safety Matrix](#thread-safety-matrix)
 - [Multiple Write Modes](#multiple-write-modes)
@@ -21,19 +22,10 @@
   - [Batch Entry](#batch-entry)
   - [Streaming](#streaming)
 - [Multiple Read Modes](#multiple-read-modes)
-  - [Direct memory access](#direct-memory-access)
+- [Direct memory access](#direct-memory-access)
   - [Streaming](#streaming)
 - [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
 
-
-
-## Single-File Storage Container for Arbitrary Data
-
-- Stores any binary format without interpretation or modification.
-
-- Treats payloads as raw bytes (`&[u8]`) for maximum flexibility.
-
-- No enforced endianness or serialization—applications must handle encoding/decoding.
 
 ## Zero-Copy Memory-Mapped Access
 
@@ -41,15 +33,33 @@
 
 Additionally, `SIMD R Drive` is designed to handle datasets larger than available RAM by leveraging memory mapping. The system transparently accesses only the necessary portions of the file, reducing memory pressure and enabling efficient storage operations on large-scale datasets.
 
-## Nestable Storage (Recursive Embedding)
+## Single-File Storage Container for Binary Data
 
-- Supports embedding entire storage instances within itself.
+- Stores any binary format without interpretation or modification.
 
-- Enables structured data hierarchies while keeping all content queryable.
+- Treats payloads as raw bytes (`&[u8]`) for maximum flexibility.
 
-- Extract nested storages and operate on them independently.
+- No enforced endianness or serialization—applications must handle encoding/decoding.
 
-## High-Performance Append-Only Design
+### No Assumptions About Your Data or Resource-Wasting Serialization Overhead
+
+This storage engine is intentionally designed as a low-level library, meaning it does not interpret or modify stored data. The payload is treated as raw bytes (`&[u8]`), ensuring that data is stored and retrieved exactly as written. This approach provides maximum flexibility, allowing users to store arbitrary binary formats without constraints.
+
+`SIMD R Drive` does not enforce endianness or serialization formats, leaving these concerns to the application. If an application requires a specific encoding (e.g., little-endian numbers), it must explicitly convert the data before storing it and decode it after retrieval. This design ensures optimal performance while avoiding unnecessary overhead from automatic transformations.
+
+By focusing solely on efficient data storage and retrieval, `SIMD R Drive` provides a lightweight and flexible foundation for applications that require high-speed access to structured or unstructured binary data without the complexity of schema management.
+
+### No Predefined Schemas
+
+`SIMD R Drive` is fully append-only, ensuring that only the most recent version of each data point is retrieved during queries.
+
+While the storage file grows continuously, the library provides explicit compaction to reduce file size when needed.
+
+Metadata is stored at the end of each payload, minimizing disk seeks and enabling efficient integrity checks.
+
+Think of it as a self-contained binary filesystem—capable of storing and retrieving any data format without predefined schemas.
+
+### High-Performance Append-Only Design
 
 - Uses sequential, append-based writes to minimize disk overhead.
 
@@ -60,6 +70,16 @@ Additionally, `SIMD R Drive` is designed to handle datasets larger than availabl
 </div>
 
 
+
+
+## Nestable Storage (Recursive Embedding)
+
+- Supports embedding entire storage instances within itself.
+
+- Enables structured data hierarchies while keeping all content queryable.
+
+- Extract nested storages and operate on them independently.
+
 ## Optimized Metadata Storage & Automatic Recovery
 
 - Metadata is appended at the end of payloads, reducing unnecessary disk seeks.
@@ -68,13 +88,6 @@ Additionally, `SIMD R Drive` is designed to handle datasets larger than availabl
 
 - Automatically recovers from partially written or corrupt files.
 
-## No Assumptions About Your Data
-
-This storage engine is intentionally designed as a low-level library, meaning it does not interpret or modify stored data. The payload is treated as raw bytes (`&[u8]`), ensuring that data is stored and retrieved exactly as written. This approach provides maximum flexibility, allowing users to store arbitrary binary formats without constraints.
-
-`SIMD R Drive` does not enforce endianness or serialization formats, leaving these concerns to the application. If an application requires a specific encoding (e.g., little-endian numbers), it must explicitly convert the data before storing it and decode it after retrieval. This design ensures optimal performance while avoiding unnecessary overhead from automatic transformations.
-
-By focusing solely on efficient data storage and retrieval, `SIMD R Drive` provides a lightweight and flexible foundation for applications that require high-speed access to structured or unstructured binary data without the complexity of schema management.
 
 
 ## Thread Safety and Concurrency Handling
@@ -128,7 +141,7 @@ Writes large data entries using a streaming `Read` source, without requiring ful
 
 Read data using different retrieval methods based on performance and memory needs.
 
-### Direct memory access
+## Direct memory access
 
 Retrieves stored data using zero-copy memory mapping (`mmap`), allowing efficient access without extra allocations.
 
