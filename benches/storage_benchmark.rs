@@ -1,5 +1,5 @@
 use rand::Rng;
-use simd_r_drive::AppendStorage;
+use simd_r_drive::DataStore;
 use std::fs::remove_file;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -26,7 +26,7 @@ fn main() {
 
 /// Writes 1M entries
 fn benchmark_append_entries(path: &PathBuf) {
-    let mut storage = AppendStorage::open(&path).expect("Failed to open storage");
+    let storage = DataStore::open(path).expect("Failed to open storage");
     let mut batch = Vec::with_capacity(WRITE_BATCH_SIZE);
 
     let start_time = Instant::now();
@@ -46,7 +46,7 @@ fn benchmark_append_entries(path: &PathBuf) {
                 .map(|(k, v)| (k.as_slice(), v.as_slice()))
                 .collect();
             storage
-                .append_entries(&batch_refs)
+                .batch_write(&batch_refs)
                 .expect("Batch write failed");
             batch.clear();
         }
@@ -58,7 +58,7 @@ fn benchmark_append_entries(path: &PathBuf) {
             .map(|(k, v)| (k.as_slice(), v.as_slice()))
             .collect();
         storage
-            .append_entries(&batch_refs)
+            .batch_write(&batch_refs)
             .expect("Final batch write failed");
     }
 
@@ -74,7 +74,7 @@ fn benchmark_append_entries(path: &PathBuf) {
 }
 
 fn benchmark_sequential_reads(path: &PathBuf) {
-    let storage = AppendStorage::open(path).expect("Failed to open storage");
+    let storage = DataStore::open(path).expect("Failed to open storage");
 
     let start_time = Instant::now();
     let mut count = 0;
@@ -101,14 +101,14 @@ fn benchmark_sequential_reads(path: &PathBuf) {
 
 /// Random read benchmark
 fn benchmark_random_reads(path: &PathBuf) {
-    let storage = AppendStorage::open(path).expect("Failed to open storage");
+    let storage = DataStore::open(path).expect("Failed to open storage");
     let mut rng = rand::rng();
 
     let start_time = Instant::now();
     for _ in 0..NUM_RANDOM_CHECKS {
         let i = rng.random_range(0..NUM_ENTRIES);
         let key = format!("bench-key-{}", i);
-        let entry = storage.get_entry_by_key(key.as_bytes());
+        let entry = storage.read(key.as_bytes());
 
         if let Some(data) = entry {
             let stored_value =

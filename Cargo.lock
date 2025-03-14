@@ -678,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.2.0-alpha"
+version = "0.2.0-alpha.1"
 dependencies = [
  "bincode",
  "clap",
@@ -691,7 +691,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
- "stdin-nonblocking",
  "tempfile",
  "tokio",
  "xxhash-rust",
@@ -711,12 +710,6 @@ name = "smallvec"
 version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fcf8323ef1faaee30a44a340193b1ac6814fd9b7b4e88e9d4519a3e4abe1cfd"
-
-[[package]]
-name = "stdin-nonblocking"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e49ac44a0dbefff31a3e094e3d63ee99b98a6a9635cb22e8204176c76db1376"
 
 [[package]]
 name = "strsim"
