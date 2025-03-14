@@ -814,4 +814,37 @@ mod tests {
             "Streamed entry data does not match expected data"
         );
     }
+
+    #[test]
+    fn test_rename_entry() {
+        let (_dir, storage) = create_temp_storage();
+
+        let old_key = b"old_key";
+        let new_key = b"new_key";
+        let payload = b"Data for renaming";
+
+        // Step 1: Write an entry with the old key
+        storage
+            .write(old_key, payload)
+            .expect("Failed to append entry");
+
+        // Step 2: Rename the entry
+        storage
+            .rename_entry(old_key, new_key)
+            .expect("Failed to rename entry");
+
+        // Step 3: Ensure the new key exists and has the same data
+        let renamed_entry = storage.read(new_key).expect("Renamed entry should exist");
+        assert_eq!(
+            renamed_entry.as_slice(),
+            payload,
+            "Renamed entry data should match the original"
+        );
+
+        // Step 4: Ensure the old key no longer exists
+        assert!(
+            storage.read(old_key).is_none(),
+            "Old key should no longer exist after renaming"
+        );
+    }
 }
