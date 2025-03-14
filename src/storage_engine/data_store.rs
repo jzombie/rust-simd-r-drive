@@ -116,9 +116,8 @@ impl DataStore {
         // Create a new Mmap from the file
         let new_mmap = Self::init_mmap(write_guard)?;
 
-        // Lock the mutex to get a mutable reference to the current Arc<Mmap>
+        // Obtain the lock guards
         let mut mmap_guard = self.mmap.lock().unwrap();
-
         let mut key_indexer_guard = self.key_indexer.write().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
         })?;
