@@ -2,14 +2,14 @@
 
 **Work in progress.**
 
-`SIMD R Drive` is a high-performance single-file storage engine optimized for zero-copy binary access.
+`SIMD R Drive` is a high-performance storage engine using a single-file storage container optimized for zero-copy binary access.
 
 [Documentation](https://docs.rs/simd-r-drive/latest/simd_r_drive/)
 
 ## Table of Contents
 
 - [Embedded & Scalable Binary Storage](#embedded--scalable-binary-storage)
-  - [Single-File Container for Arbitrary Data](#single-file-container-for-arbitrary-data)
+  - [Single-File Storage Container for Arbitrary Data](#single-file-storage-container-for-arbitrary-data)
   - [Zero-Copy Memory-Mapped Access](#zero-copy-memory-mapped-access)
   - [Nestable Storage (Recursive Embedding)](#nestable-storage-recursive-embedding)
   - [High-Performance Append-Only Design](#high-performance-append-only-design)
@@ -30,7 +30,7 @@
 
 ## Embedded & Scalable Binary Storage
 
-### Single-File Container for Arbitrary Data
+### Single-File Storage Container for Arbitrary Data
 
 - Stores any binary format without interpretation or modification.
 
