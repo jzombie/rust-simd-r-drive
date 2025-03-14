@@ -113,18 +113,35 @@ These mechanisms ensure that `SIMD R Drive` can handle concurrent reads and writ
 
 ### Multiple Write Modes
 
-Write data using a mixture of:
+Write data using different methods optimized for various use cases.
 
 #### Single Entry
+
+Writes a single key-value pair to the storage in an atomic operation.  Write are immediately flushed to disk.
+
 #### Batch Entry
+
+Writes multiple key-value pairs in a single locked operation, reducing disk I/O overhead, as writes are flushed to disk at the end of the batch.
+
 #### Streaming
+
+Writes large data entries using a streaming `Read` source, without requiring full in-memory allocation.
 
 ### Multiple Read Modes
 
-Read data using a mixture of:
+Read data using different retrieval methods based on performance and memory needs.
 
 #### Direct memory access
+
+Retrieves stored data using zero-copy memory mapping (`mmap`), allowing efficient access without extra allocations.
+
+Large entries can be accessed without full in-memory loading, but reading them as a single slice may increase memory usage.
+
 #### Streaming
+
+Reads large entries incrementally, ensuring only small portions are processed at a time.
+
+This avoids high memory overhead while still leveraging `mmap` for efficient access.
 
 ### Streaming Support
 
