@@ -4,7 +4,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use simd_r_drive::{compute_checksum, compute_hash, DataStore};
     use std::fs::{metadata, OpenOptions};
-    use std::io::{Read, Seek, SeekFrom, Write};
+    use std::io::{Seek, SeekFrom, Write};
     use tempfile::tempdir;
 
     /// Helper function to create a temporary file for testing
@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn test_update_and_delete_entry() {
-        let (_dir, mut storage) = create_temp_storage();
+        let (_dir, storage) = create_temp_storage();
 
         let key1 = b"key1";
         let key2 = b"key2";
@@ -635,7 +635,7 @@ mod tests {
 
     #[test]
     fn test_move_entry_between_storages() {
-        let (_dir1, mut source_storage) = create_temp_storage();
+        let (_dir1, source_storage) = create_temp_storage();
         let (_dir2, mut target_storage) = create_temp_storage();
 
         let key = b"move_key";
