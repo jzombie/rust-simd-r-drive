@@ -59,12 +59,6 @@
 //!
 //! ```
 //!
-//! ## Modules
-//! - `data_store` - Core storage implementation.
-//! - `digest` - Hashing utilities for fast key lookups.
-//! - `constants` - Constants and configuration settings.
-//! - `entry` - Structures representing storage entries.
-//!
 //! ## Performance Considerations
 //! - **Use memory-mapped reads** for best performance.
 //! - **Batch writes** to reduce file I/O overhead.
