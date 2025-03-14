@@ -22,9 +22,10 @@
   - [Batch Entry](#batch-entry)
   - [Streaming](#streaming)
 - [Multiple Read Modes](#multiple-read-modes)
-- [Direct memory access](#direct-memory-access)
+  - [Direct memory access](#direct-memory-access)
   - [Streaming](#streaming)
 - [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
+
 
 
 ## Zero-Copy Memory-Mapped Access
@@ -141,7 +142,7 @@ Writes large data entries using a streaming `Read` source, without requiring ful
 
 Read data using different retrieval methods based on performance and memory needs.
 
-## Direct memory access
+### Direct memory access
 
 Retrieves stored data using zero-copy memory mapping (`mmap`), allowing efficient access without extra allocations.
 
