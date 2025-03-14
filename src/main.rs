@@ -127,6 +127,7 @@ fn main() {
 
             match storage.read(key.as_bytes()) {
                 Some(value) => {
+                    
                     let stdout = io::stdout();
                     let mut handle = stdout.lock();
 
@@ -135,6 +136,8 @@ fn main() {
                         writeln!(handle, "{}", String::from_utf8_lossy(value.as_slice()))
                             .expect("Failed to write output");
                     } else {
+                        // TODO: Use streaming writer instead
+
                         // If redirected, output raw binary
                         handle
                             .write_all(value.as_slice())
