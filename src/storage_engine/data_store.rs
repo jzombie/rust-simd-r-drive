@@ -101,6 +101,61 @@ impl DataStore {
         })
     }
 
+    /// Workaround for directly opening in **append mode** causing permissions issues on Windows
+    ///
+    /// The file is opened normally and the **cursor is moved to the end.
+    /// 
+    /// Unix family unaffected by this issue, but this standardizes their handling.
+    ///
+    /// # Parameters:
+    /// - `path`: The **file path** of the storage file.
+    ///
+    /// # Returns:
+    /// - `Ok(BufWriter<File>)`: A buffered writer pointing to the file.
+    /// - `Err(std::io::Error)`: If the file could not be opened.
+    fn open_file_in_append_mode(path: &Path) -> Result<BufWriter<File>> {
+        // Note: If using `append` here, Windows may throw an error with the message:
+        // "Failed to open storage". A workaround is to open the file normally, then
+        // move the cursor to the end of the file.
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)?;
+
+        file.seek(SeekFrom::End(0))?; // Move cursor to end to prevent overwriting
+
+        Ok(BufWriter::new(file))
+    }
+
+    /// Initializes a memory-mapped file for fast access.
+    ///
+    /// This function creates a memory-mapped file (`mmap`) from a `BufWriter<File>`.
+    /// It provides a read-only view of the file, allowing efficient direct access to
+    /// stored data without unnecessary copies.
+    ///
+    /// # Parameters:
+    /// - `file`: A reference to a `BufWriter<File>`, which must be flushed before
+    ///   mapping to ensure all written data is visible.
+    ///
+    /// # Returns:
+    /// - `Ok(Mmap)`: A memory-mapped view of the file.
+    /// - `Err(std::io::Error)`: If the mapping fails.
+    ///
+    /// # Notes:
+    /// - The `BufWriter<File>` should be flushed before calling this function to
+    ///   ensure that all pending writes are persisted.
+    /// - The memory mapping remains valid as long as the underlying file is not truncated
+    ///   or modified in ways that invalidate the mapping.
+    ///
+    /// # Safety:
+    /// - This function uses an **unsafe** operation (`memmap2::MmapOptions::map`).
+    ///   The caller must ensure that the mapped file is not resized or closed while
+    ///   the mapping is in use, as this could lead to undefined behavior.
+    fn init_mmap(file: &BufWriter<File>) -> Result<Mmap> {
+        unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }
+    }
+
     /// Re-maps the storage file and updates the key index after a write operation.
     ///
     /// This function performs two key tasks:
@@ -185,64 +240,6 @@ impl DataStore {
         https://doc.rust-lang.org/std/path/struct.PathBuf.html
         */
         self.path.clone()
-    }
-
-    /// Initializes a memory-mapped file for fast access.
-    ///
-    /// This function creates a memory-mapped file (`mmap`) from a `BufWriter<File>`.
-    /// It provides a read-only view of the file, allowing efficient direct access to
-    /// stored data without unnecessary copies.
-    ///
-    /// # Parameters:
-    /// - `file`: A reference to a `BufWriter<File>`, which must be flushed before
-    ///   mapping to ensure all written data is visible.
-    ///
-    /// # Returns:
-    /// - `Ok(Mmap)`: A memory-mapped view of the file.
-    /// - `Err(std::io::Error)`: If the mapping fails.
-    ///
-    /// # Notes:
-    /// - The `BufWriter<File>` should be flushed before calling this function to
-    ///   ensure that all pending writes are persisted.
-    /// - The memory mapping remains valid as long as the underlying file is not truncated
-    ///   or modified in ways that invalidate the mapping.
-    ///
-    /// # Safety:
-    /// - This function uses an **unsafe** operation (`memmap2::MmapOptions::map`).
-    ///   The caller must ensure that the mapped file is not resized or closed while
-    ///   the mapping is in use, as this could lead to undefined behavior.
-    fn init_mmap(file: &BufWriter<File>) -> Result<Mmap> {
-        unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }
-    }
-
-    /// Opens the storage file in **append mode**.
-    ///
-    /// This function opens the file with both **read and write** access.
-    /// If the file does not exist, it is created automatically.
-    ///
-    /// # Windows Note:
-    /// - Directly opening in **append mode** can cause issues on Windows.
-    /// - Instead, the file is opened normally and the **cursor is moved to the end**.
-    ///
-    /// # Parameters:
-    /// - `path`: The **file path** of the storage file.
-    ///
-    /// # Returns:
-    /// - `Ok(BufWriter<File>)`: A buffered writer pointing to the file.
-    /// - `Err(std::io::Error)`: If the file could not be opened.
-    fn open_file_in_append_mode(path: &Path) -> Result<BufWriter<File>> {
-        // Note: If using `append` here, Windows may throw an error with the message:
-        // "Failed to open storage". A workaround is to open the file normally, then
-        // move the cursor to the end of the file.
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)?;
-
-        file.seek(SeekFrom::End(0))?; // Move cursor to end to prevent overwriting
-
-        Ok(BufWriter::new(file))
     }
 
     /// Retrieves an iterator over all valid entries in the storage.
