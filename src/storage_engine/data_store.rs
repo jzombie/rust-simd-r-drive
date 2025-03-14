@@ -573,7 +573,9 @@ impl DataStore {
                 checksum,
             };
 
-            let mut entry: Vec<u8> = vec![0u8; payload.len() + METADATA_SIZE];
+            let payload_len = payload.len();
+
+            let mut entry: Vec<u8> = vec![0u8; payload_len + METADATA_SIZE];
 
             // Use SIMD to copy payload into buffer
             simd_copy(&mut entry[..payload.len()], payload);
