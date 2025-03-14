@@ -10,10 +10,10 @@
 
 - [Zero-Copy Memory-Mapped Access](#zero-copy-memory-mapped-access)
 - [Single-File Storage Container for Binary Data](#single-file-storage-container-for-binary-data)
+  - [Nestable Storage (Recursive Embedding)](#nestable-storage-recursive-embedding)
   - [No Assumptions About Your Data or Resource-Wasting Serialization Overhead](#no-assumptions-about-your-data-or-resource-wasting-serialization-overhead)
   - [No Predefined Schemas](#no-predefined-schemas)
   - [High-Performance Append-Only Design](#high-performance-append-only-design)
-- [Nestable Storage (Recursive Embedding)](#nestable-storage-recursive-embedding)
 - [Optimized Metadata Storage & Automatic Recovery](#optimized-metadata-storage--automatic-recovery)
 - [Thread Safety and Concurrency Handling](#thread-safety-and-concurrency-handling)
     - [Thread Safety Matrix](#thread-safety-matrix)
@@ -43,6 +43,17 @@ Additionally, `SIMD R Drive` is designed to handle datasets larger than availabl
 - Treats payloads as raw bytes (`&[u8]`) for maximum flexibility.
 
 - No enforced endianness or serialization—applications must handle encoding/decoding.
+
+### Nestable Storage (Recursive Embedding)
+
+Since `SIMD R Drive` stores raw binary data, it can also store instances of itself, enabling recursive embedding.
+
+A storage file can be read as a stream and nested within another instance. While unconventional, this demonstrates its extreme flexibility.
+
+Taking it further, an application binary can be stored as raw bytes inside the container, which is then nested within itself.
+
+Upon unpacking, the original binary remains fully intact and executable—allowing it to be retrieved and run again after adjusting file permissions.
+
 
 ### No Assumptions About Your Data or Resource-Wasting Serialization Overhead
 
@@ -75,13 +86,6 @@ Think of it as a self-contained binary filesystem—capable of storing and retri
 
 
 
-## Nestable Storage (Recursive Embedding)
-
-- Supports embedding entire storage instances within itself.
-
-- Enables structured data hierarchies while keeping all content queryable.
-
-- Extract nested storages and operate on them independently.
 
 ## Optimized Metadata Storage & Automatic Recovery
 
