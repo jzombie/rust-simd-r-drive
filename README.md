@@ -8,29 +8,26 @@
 
 ## Table of Contents
 
-- [Embedded & Scalable Binary Storage](#embedded--scalable-binary-storage)
-  - [Single-File Storage Container for Arbitrary Data](#single-file-storage-container-for-arbitrary-data)
-  - [Zero-Copy Memory-Mapped Access](#zero-copy-memory-mapped-access)
-  - [Nestable Storage (Recursive Embedding)](#nestable-storage-recursive-embedding)
-  - [High-Performance Append-Only Design](#high-performance-append-only-design)
-  - [Optimized Metadata Storage & Automatic Recovery](#optimized-metadata-storage--automatic-recovery)
-  - [No Assumptions About Your Data](#no-assumptions-about-your-data)
-  - [Thread Safety and Concurrency Handling](#thread-safety-and-concurrency-handling)
+- [Single-File Storage Container for Arbitrary Data](#single-file-storage-container-for-arbitrary-data)
+- [Zero-Copy Memory-Mapped Access](#zero-copy-memory-mapped-access)
+- [Nestable Storage (Recursive Embedding)](#nestable-storage-recursive-embedding)
+- [High-Performance Append-Only Design](#high-performance-append-only-design)
+- [Optimized Metadata Storage & Automatic Recovery](#optimized-metadata-storage--automatic-recovery)
+- [No Assumptions About Your Data](#no-assumptions-about-your-data)
+- [Thread Safety and Concurrency Handling](#thread-safety-and-concurrency-handling)
     - [Thread Safety Matrix](#thread-safety-matrix)
-  - [Multiple Write Modes](#multiple-write-modes)
-    - [Single Entry](#single-entry)
-    - [Batch Entry](#batch-entry)
-    - [Streaming](#streaming)
-  - [Multiple Read Modes](#multiple-read-modes)
-    - [Direct memory access](#direct-memory-access)
-    - [Streaming](#streaming)
-  - [Streaming Support](#streaming-support)
-  - [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
+- [Multiple Write Modes](#multiple-write-modes)
+  - [Single Entry](#single-entry)
+  - [Batch Entry](#batch-entry)
+  - [Streaming](#streaming)
+- [Multiple Read Modes](#multiple-read-modes)
+  - [Direct memory access](#direct-memory-access)
+  - [Streaming](#streaming)
+- [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
 
 
-## Embedded & Scalable Binary Storage
 
-### Single-File Storage Container for Arbitrary Data
+## Single-File Storage Container for Arbitrary Data
 
 - Stores any binary format without interpretation or modification.
 
@@ -38,13 +35,13 @@
 
 - No enforced endianness or serialization—applications must handle encoding/decoding.
 
-### Zero-Copy Memory-Mapped Access
+## Zero-Copy Memory-Mapped Access
 
 `SIMD R Drive` is a schema-less, append-only binary storage engine designed for high-performance runtime read/write access. It provides zero-copy reads by memory-mapping the storage file (`mmap`), allowing direct data access without additional deserialization. Unlike `FlatBuffers`, which also supports zero-copy reads but requires predefined schemas, `SIMD R Drive` operates without IDLs or schemas, enabling flexible, raw binary storage optimized for real-time applications.
 
 Additionally, `SIMD R Drive` is designed to handle datasets larger than available RAM by leveraging memory mapping. The system transparently accesses only the necessary portions of the file, reducing memory pressure and enabling efficient storage operations on large-scale datasets.
 
-### Nestable Storage (Recursive Embedding)
+## Nestable Storage (Recursive Embedding)
 
 - Supports embedding entire storage instances within itself.
 
@@ -52,7 +49,7 @@ Additionally, `SIMD R Drive` is designed to handle datasets larger than availabl
 
 - Extract nested storages and operate on them independently.
 
-### High-Performance Append-Only Design
+## High-Performance Append-Only Design
 
 - Uses sequential, append-based writes to minimize disk overhead.
 
@@ -63,7 +60,7 @@ Additionally, `SIMD R Drive` is designed to handle datasets larger than availabl
 </div>
 
 
-### Optimized Metadata Storage & Automatic Recovery
+## Optimized Metadata Storage & Automatic Recovery
 
 - Metadata is appended at the end of payloads, reducing unnecessary disk seeks.
 
@@ -71,7 +68,7 @@ Additionally, `SIMD R Drive` is designed to handle datasets larger than availabl
 
 - Automatically recovers from partially written or corrupt files.
 
-### No Assumptions About Your Data
+## No Assumptions About Your Data
 
 This storage engine is intentionally designed as a low-level library, meaning it does not interpret or modify stored data. The payload is treated as raw bytes (`&[u8]`), ensuring that data is stored and retrieved exactly as written. This approach provides maximum flexibility, allowing users to store arbitrary binary formats without constraints.
 
@@ -80,7 +77,7 @@ This storage engine is intentionally designed as a low-level library, meaning it
 By focusing solely on efficient data storage and retrieval, `SIMD R Drive` provides a lightweight and flexible foundation for applications that require high-speed access to structured or unstructured binary data without the complexity of schema management.
 
 
-### Thread Safety and Concurrency Handling
+## Thread Safety and Concurrency Handling
 
 `SIMD R Drive` supports concurrent access using a combination of **read/write locks (`RwLock`)**, **atomic operations (`AtomicU64`)**, and **reference counting (`Arc`)** to ensure safe access across multiple threads. 
 
@@ -111,47 +108,42 @@ These mechanisms ensure that `SIMD R Drive` can handle concurrent reads and writ
 - ⚠️ **Not safe for multiple processes sharing the same file** unless an external file locking mechanism is used.
 - **If multiple instances need to access the same file, external locking (e.g., `flock`, advisory locking) is required** to prevent corruption.
 
-### Multiple Write Modes
+## Multiple Write Modes
 
 Write data using different methods optimized for various use cases.
 
-#### Single Entry
+### Single Entry
 
 Writes a single key-value pair to the storage in an atomic operation.  Write are immediately flushed to disk.
 
-#### Batch Entry
+### Batch Entry
 
 Writes multiple key-value pairs in a single locked operation, reducing disk I/O overhead, as writes are flushed to disk at the end of the batch.
 
-#### Streaming
+### Streaming
 
 Writes large data entries using a streaming `Read` source, without requiring full in-memory allocation.
 
-### Multiple Read Modes
+## Multiple Read Modes
 
 Read data using different retrieval methods based on performance and memory needs.
 
-#### Direct memory access
+### Direct memory access
 
 Retrieves stored data using zero-copy memory mapping (`mmap`), allowing efficient access without extra allocations.
 
 Large entries can be accessed without full in-memory loading, but reading them as a single slice may increase memory usage.
 
-#### Streaming
+### Streaming
 
 Reads large entries incrementally, ensuring only small portions are processed at a time.
 
 This avoids high memory overhead while still leveraging `mmap` for efficient access.
 
-### Streaming Support
+> Streaming reads are non-zero-copy since they are read through a buffer.
 
-In addition to zero-copy reads, `SIMD R Drive` supports streaming individual entries without requiring the entire entry to be loaded into memory at once. When an entry is accessed, a handle to the entry can be obtained, and a streaming output can be attached directly to it. This allows efficient data transfer while minimizing memory usage.
 
-Unlike zero-copy reads, streamed entries are not zero-copy because the data is transferred through a buffer during streaming. However, this approach ensures that even large entries can be processed efficiently without needing to fit entirely within RAM.
-
-> `SIMD R Drive` also supports streaming writes, individual writes, and batch writes.
-
-### SIMD Write & Query Acceleration
+## SIMD Write & Query Acceleration
 
 `SIMD R Drive` leverages SIMD (Single Instruction, Multiple Data) acceleration to optimize performance in key operations, specifically focusing on **write** operations and indexing efficiency.
 
