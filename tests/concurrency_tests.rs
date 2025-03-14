@@ -8,29 +8,29 @@ use tokio::sync::Notify;
 use tokio::task;
 use tokio::time::Duration;
 
-/// Simulated slow reader (delays are applied in the reading loop)
-struct SlowReader<R: Read> {
-    inner: R,
-    delay: Duration,
-}
-
-impl<R: Read> SlowReader<R> {
-    fn new(inner: R, delay: Duration) -> Self {
-        Self { inner, delay }
-    }
-}
-
-impl<R: Read> Read for SlowReader<R> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        // Simulate network or disk latency
-        std::thread::sleep(self.delay);
-        self.inner.read(buf)
-    }
-}
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[serial]
 async fn concurrent_slow_streamed_write_test() {
+    /// Simulated slow reader (delays are applied in the reading loop)
+    struct SlowReader<R: Read> {
+        inner: R,
+        delay: Duration,
+    }
+
+    impl<R: Read> SlowReader<R> {
+        fn new(inner: R, delay: Duration) -> Self {
+            Self { inner, delay }
+        }
+    }
+
+    impl<R: Read> Read for SlowReader<R> {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            // Simulate network or disk latency
+            std::thread::sleep(self.delay);
+            self.inner.read(buf)
+        }
+    }
+
     let dir = tempdir().expect("Failed to create temp dir");
     let path = dir.path().join("test_storage.bin");
 
@@ -61,7 +61,7 @@ async fn concurrent_slow_streamed_write_test() {
         tasks.push(task::spawn(async move {
             let file = File::open(&file_path).unwrap();
             let reader = BufReader::new(file);
-            let mut slow_reader = SlowReader::new(reader, Duration::from_millis(500));
+            let mut slow_reader = SlowReader::new(reader, Duration::from_millis(100));
 
             // Call write_stream only once with the full slow reader
             let bytes_written = storage_clone

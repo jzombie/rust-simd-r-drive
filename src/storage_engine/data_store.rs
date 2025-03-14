@@ -399,12 +399,12 @@ impl DataStore {
         let prev_offset = self.last_offset.load(Ordering::Acquire);
 
         // TODO: Make the buffer size configurable
-        let mut buffer = vec![0; 8 * 1024 * 1024]; // 8MB chunks
+        let mut buffer = vec![0; 64 * 1024]; // 64KB chunks
         let mut total_written = 0;
 
         let mut checksum_state = crc32fast::Hasher::new(); // Use incremental checksum
 
-        // // **Stream and write chunks directly to disk**
+        // Stream and write chunks directly to disk
         while let Ok(bytes_read) = reader.read(&mut buffer) {
             if bytes_read == 0 {
                 break;
