@@ -9,6 +9,16 @@ use std::convert::From;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+
+// Experimented with using a feature flag to enable `tokio::sync::Mutex`
+// and `tokio::sync::RwLock` for async compatibility but decided to hold off for now.
+// The current implementation remains on `std::sync::{Mutex, RwLock}` because:
+// - The existing code is **blocking**, and there is no immediate need for async locks.
+// - Switching to `tokio::sync` would require `.await` at locking points, leading
+//   to refactoring without clear performance benefits at this stage.
+// - Lock contention has not yet been identified as a bottleneck, so there's no
+//   strong reason to introduce async synchronization primitives.
+// This decision may be revisited if future profiling shows tangible benefits.
 use std::sync::{Arc, Mutex, RwLock};
 
 use std::sync::atomic::{AtomicU64, Ordering};
