@@ -398,8 +398,7 @@ impl DataStore {
 
         let prev_offset = self.last_offset.load(Ordering::Acquire);
 
-        // TODO: Make the buffer size configurable
-        let mut buffer = vec![0; 64 * 1024]; // 64KB chunks
+        let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE]; // 64KB chunks
         let mut total_written = 0;
 
         let mut checksum_state = crc32fast::Hasher::new(); // Use incremental checksum
