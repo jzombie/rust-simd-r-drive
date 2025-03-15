@@ -878,9 +878,12 @@ impl DataStore {
     }
 
     // TODO: Return `Err` if more than one thread
+    // TODO: Verify original file exists before compact
     /// Compacts the storage by keeping only the latest version of each key.
     pub fn compact(&mut self) -> std::io::Result<()> {
+        // TODO: Add extension to existing path instead of creating temp extension without existing
         let compacted_path = self.path.with_extension("bk");
+        
         debug!("Starting compaction. Writing to: {:?}", compacted_path);
 
         // Create a new DataStore instance for the compacted file
