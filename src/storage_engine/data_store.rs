@@ -1,25 +1,34 @@
 use crate::storage_engine::constants::*;
 use crate::storage_engine::digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use crate::storage_engine::simd_copy;
-use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata};
+use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
 use log::{debug, info, warn};
 use memmap2::Mmap;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::convert::From;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-// TODO: Add feature flag to support using `tokio`'s `Mutex` (etc.) instead of the std lib
+
+// Experimented with using a feature flag to enable `tokio::sync::Mutex`
+// and `tokio::sync::RwLock` for async compatibility but decided to hold off for now.
+// The current implementation remains on `std::sync::{Mutex, RwLock}` because:
+// - The existing code is **blocking**, and there is no immediate need for async locks.
+// - Switching to `tokio::sync` would require `.await` at locking points, leading
+//   to refactoring without clear performance benefits at this stage.
+// - Lock contention has not yet been identified as a bottleneck, so there's no
+//   strong reason to introduce async synchronization primitives.
+// This decision may be revisited if future profiling shows tangible benefits.
 use std::sync::{Arc, Mutex, RwLock};
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Append-Only Storage Engine
 pub struct DataStore {
-    file: Arc<RwLock<BufWriter<File>>>, // Wrap file in Arc<RwLock<>> for safe concurrent writes`
-    mmap: Arc<Mutex<Arc<Mmap>>>,        // Atomic pointer to an mmap for zero-copy reads
-    last_offset: AtomicU64,
-    key_index: Arc<RwLock<HashMap<u64, u64, Xxh3BuildHasher>>>, // Wrap in RwLock for safe writes
+    file: Arc<RwLock<BufWriter<File>>>,
+    mmap: Arc<Mutex<Arc<Mmap>>>,
+    tail_offset: AtomicU64,
+    key_indexer: Arc<RwLock<KeyIndexer>>,
     path: PathBuf,
 }
 
@@ -91,34 +100,42 @@ impl DataStore {
             return Self::open(path);
         }
 
-        let key_index = Self::build_key_index(&mmap, final_len);
+        let key_indexer = KeyIndexer::build(&mmap, final_len);
 
         Ok(Self {
             file: Arc::new(RwLock::new(file)), // Wrap in RwLock
             mmap: Arc::new(Mutex::new(Arc::new(mmap))),
-            last_offset: final_len.into(),
-            key_index: Arc::new(RwLock::new(key_index)), // Wrap HashMap in RwLock
+            tail_offset: final_len.into(),
+            key_indexer: Arc::new(RwLock::new(key_indexer)),
             path: path.to_path_buf(),
         })
     }
 
-    /// Returns the storage file path.
+    /// Workaround for directly opening in **append mode** causing permissions issues on Windows
+    ///
+    /// The file is opened normally and the **cursor is moved to the end.
+    ///
+    /// Unix family unaffected by this issue, but this standardizes their handling.
+    ///
+    /// # Parameters:
+    /// - `path`: The **file path** of the storage file.
     ///
     /// # Returns:
-    /// - A `PathBuf` containing the path to the storage file.
-    pub fn get_path(&self) -> PathBuf {
-        /*
-        This function **does not** clone or duplicate the actual storage file.
-        It only returns a clone of the in-memory `PathBuf` reference that
-        represents the file path.
+    /// - `Ok(BufWriter<File>)`: A buffered writer pointing to the file.
+    /// - `Err(std::io::Error)`: If the file could not be opened.
+    fn open_file_in_append_mode(path: &Path) -> Result<BufWriter<File>> {
+        // Note: If using `append` here, Windows may throw an error with the message:
+        // "Failed to open storage". A workaround is to open the file normally, then
+        // move the cursor to the end of the file.
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)?;
 
-        `PathBuf::clone()` creates a shallow copy of the path, which is
-        inexpensive since it only duplicates the internal path buffer.
+        file.seek(SeekFrom::End(0))?; // Move cursor to end to prevent overwriting
 
-        For more details, see:
-        https://doc.rust-lang.org/std/path/struct.PathBuf.html
-        */
-        self.path.clone()
+        Ok(BufWriter::new(file))
     }
 
     /// Initializes a memory-mapped file for fast access.
@@ -149,34 +166,125 @@ impl DataStore {
         unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }
     }
 
-    /// Opens the storage file in **append mode**.
+    /// Returns a cloned `Arc<Mmap>`, providing a shared reference to the memory-mapped file.
     ///
-    /// This function opens the file with both **read and write** access.
-    /// If the file does not exist, it is created automatically.
+    /// # How It Works:
+    /// - Acquires the `Mutex<Arc<Mmap>>` lock to access the current memory-mapped file.
+    /// - Clones the `Arc<Mmap>` to create another reference to the **same underlying memory**.
+    /// - Releases the lock immediately (`drop(guard)`) to allow other threads to proceed.
     ///
-    /// # Windows Note:
-    /// - Directly opening in **append mode** can cause issues on Windows.
-    /// - Instead, the file is opened normally and the **cursor is moved to the end**.
-    ///
-    /// # Parameters:
-    /// - `path`: The **file path** of the storage file.
+    /// # Important:
+    /// - **Cloning the `Arc<Mmap>` does not duplicate the memory-mapped file.**  
+    ///   Instead, it creates a new reference to the existing memory region,  
+    ///   ensuring efficient, zero-copy access.
+    /// - The returned `Arc<Mmap>` remains valid as long as at least one reference exists.
     ///
     /// # Returns:
-    /// - `Ok(BufWriter<File>)`: A buffered writer pointing to the file.
-    /// - `Err(std::io::Error)`: If the file could not be opened.
-    fn open_file_in_append_mode(path: &Path) -> Result<BufWriter<File>> {
-        // Note: If using `append` here, Windows may throw an error with the message:
-        // "Failed to open storage". A workaround is to open the file normally, then
-        // move the cursor to the end of the file.
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)?;
+    /// - A **shared reference** (`Arc<Mmap>`) to the current memory-mapped file.
+    ///
+    /// # Safety:
+    /// - The returned `Arc<Mmap>` must not be used after a file truncation or remap.
+    ///   Ensure proper synchronization when modifying the underlying storage.
+    #[inline]
+    fn get_mmap_arc(&self) -> Arc<Mmap> {
+        // Briefly acquire the guard and release so that others can proceed
+        let guard = self.mmap.lock().unwrap();
+        let mmap_clone = guard.clone();
+        drop(guard);
 
-        file.seek(SeekFrom::End(0))?; // Move cursor to end to prevent overwriting
+        mmap_clone
+    }
 
-        Ok(BufWriter::new(file))
+    /// Re-maps the storage file and updates the key index after a write operation.
+    ///
+    /// This function performs two key tasks:
+    /// 1. **Re-maps the file (`mmap`)**: Ensures that newly written data is visible
+    ///    to readers by creating a fresh memory-mapped view of the storage file.
+    /// 2. **Updates the key index**: Inserts new key hash-to-offset mappings into
+    ///    the in-memory key index, ensuring efficient key lookups for future reads.
+    ///
+    /// # Parameters:
+    /// - `write_guard`: A locked reference to the `BufWriter<File>`, ensuring that
+    ///   writes are completed before remapping and indexing.
+    /// - `key_hash_offsets`: A slice of `(key_hash, tail_offset)` tuples containing
+    ///   the latest key mappings to be added to the index.
+    /// - `tail_offset`: The **new absolute file offset** after the most recent write.
+    ///   This represents the byte position where the next write operation should begin.
+    ///   It is updated to reflect the latest valid data in the storage.
+    ///
+    /// # Returns:
+    /// - `Ok(())` if the reindexing process completes successfully.
+    /// - `Err(std::io::Error)` if file metadata retrieval, memory mapping, or
+    ///   key index updates fail.
+    ///
+    /// # Important:
+    /// - **The write operation must be flushed before calling `reindex`** to ensure
+    ///   all pending writes are persisted and visible in the new memory-mapped file.
+    ///   This prevents potential inconsistencies where written data is not reflected
+    ///   in the remapped view.
+    ///
+    /// # Safety:
+    /// - This function should be called **immediately after a write operation**
+    ///   to ensure the file is in a consistent state before remapping.
+    /// - The function acquires locks on both the `mmap` and `key_indexer`
+    ///   to prevent race conditions while updating shared structures.
+    ///
+    /// # Locks Acquired:
+    /// - `mmap` (`Mutex<Arc<Mmap>>`) is locked to update the memory-mapped file.
+    /// - `key_indexer` (`RwLock<HashMap<u64, u64>>`) is locked to modify key mappings.
+    fn reindex(
+        &self,
+        write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
+        key_hash_offsets: &[(u64, u64)],
+        tail_offset: u64,
+    ) -> std::io::Result<()> {
+        // Create a new Mmap from the file
+        let new_mmap = Self::init_mmap(write_guard)?;
+
+        // Obtain the lock guards
+        let mut mmap_guard = self.mmap.lock().unwrap();
+        let mut key_indexer_guard = self.key_indexer.write().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
+        })?;
+
+        // Update tail_offset (or any other fields)
+        let new_offset = write_guard.get_ref().metadata()?.len();
+        self.tail_offset
+            .store(new_offset, std::sync::atomic::Ordering::Release);
+
+        for (key_hash, tail_offset) in key_hash_offsets.iter() {
+            key_indexer_guard.insert(*key_hash, *tail_offset);
+        }
+
+        // Overwrite the old Arc<Mmap> with the new one
+        *mmap_guard = Arc::new(new_mmap);
+
+        self.tail_offset.store(tail_offset, Ordering::Release);
+
+        // These are automatically dropped by Rust once leaving scope, but calling them for good measure
+        drop(mmap_guard);
+        drop(key_indexer_guard);
+
+        Ok(())
+    }
+
+    /// Returns the storage file path.
+    ///
+    /// # Returns:
+    /// - A `PathBuf` containing the path to the storage file.
+    pub fn get_path(&self) -> PathBuf {
+        /*
+        This function **does not** clone or duplicate the actual storage file.
+        It only returns a clone of the in-memory `PathBuf` reference that
+        represents the file path.
+
+        `PathBuf::clone()` creates a shallow copy of the path, which is
+        inexpensive since it only duplicates the internal path buffer.
+
+        For more details, see:
+        https://doc.rust-lang.org/std/path/struct.PathBuf.html
+        */
+        self.path.clone()
     }
 
     /// Retrieves an iterator over all valid entries in the storage.
@@ -187,66 +295,11 @@ impl DataStore {
     /// # Returns:
     /// - An `EntryIterator` instance for iterating over valid entries.
     pub fn iter_entries(&self) -> EntryIterator {
-        // 1. Lock the mutex
-        let guard = self.mmap.lock().unwrap();
+        let mmap_clone = self.get_mmap_arc();
 
-        // 2. Clone the Arc<Mmap>
-        let mmap_clone = guard.clone();
+        let tail_offset = self.tail_offset.load(Ordering::Acquire);
 
-        // 3. Drop guard so others can proceed
-        drop(guard);
-
-        // 4. Get the actual last offset
-        let last_offset = self.last_offset.load(Ordering::Acquire);
-
-        EntryIterator::new(mmap_clone, last_offset)
-    }
-
-    /// Builds an in-memory index for **fast key lookups**.
-    ///
-    /// This function **scans the storage file** and constructs a **hashmap**
-    /// mapping each key's hash to its **latest** entry's file offset.
-    ///
-    /// # How It Works:
-    /// - Iterates **backward** from the latest offset to find the most recent version of each key.
-    /// - Skips duplicate keys to keep only the **most recent** entry.
-    /// - Stores the **latest offset** of each unique key in the index.
-    ///
-    /// # Parameters:
-    /// - `mmap`: A reference to the **memory-mapped file**.
-    /// - `last_offset`: The **final byte offset** in the file (starting point for scanning).
-    ///
-    /// # Returns:
-    /// - A `HashMap<u64, u64>` mapping `key_hash` → `latest offset`.
-    fn build_key_index(mmap: &Mmap, last_offset: u64) -> HashMap<u64, u64, Xxh3BuildHasher> {
-        let mut index = HashMap::with_hasher(Xxh3BuildHasher);
-        let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
-        let mut cursor = last_offset;
-
-        while cursor >= METADATA_SIZE as u64 {
-            let metadata_offset = cursor as usize - METADATA_SIZE;
-            let metadata_bytes = &mmap[metadata_offset..metadata_offset + METADATA_SIZE];
-            let metadata = EntryMetadata::deserialize(metadata_bytes);
-
-            // If this key is already seen, skip it (to keep the latest entry only)
-            if seen_keys.contains(&metadata.key_hash) {
-                cursor = metadata.prev_offset;
-                continue;
-            }
-
-            // Mark key as seen and store its latest offset
-            seen_keys.insert(metadata.key_hash);
-            index.insert(metadata.key_hash, metadata_offset as u64);
-
-            // Stop when reaching the first valid entry
-            if metadata.prev_offset == 0 {
-                break;
-            }
-
-            cursor = metadata.prev_offset;
-        }
-
-        index
+        EntryIterator::new(mmap_clone, tail_offset)
     }
 
     /// Recovers the **latest valid chain** of entries from the storage file.
@@ -339,127 +392,166 @@ impl DataStore {
         Ok(final_len)
     }
 
-    // TODO: Move indexing in here as well
-    // TODO: Use the existing file lock instead of re-acquiring
-    /// Re-maps the storage file to ensure that the latest updates are visible.
+    /// Writes an entry using a streaming `Read` source (e.g., file, network).
     ///
-    /// IMPORTANT: This method should be called **after a write operation** to reload
-    /// the memory-mapped file and ensure that newly written data is accessible for reading.
-    fn remap_file(
-        &self,
-        write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
-    ) -> std::io::Result<()> {
-        // 1) Acquire file read lock
-        // let file_guard = self.file.read().map_err(|_| {
-        //     std::io::Error::new(
-        //         std::io::ErrorKind::Other,
-        //         "Failed to acquire file read lock",
-        //     )
-        // })?;
-
-        // 2) Create a new Mmap from the file
-        let new_mmap = unsafe { memmap2::MmapOptions::new().map(write_guard.get_ref())? };
-
-        // 3) Replace the old Arc<Mmap> with a new Arc<Mmap>
-        {
-            // Lock the mutex to get a mutable reference to the current Arc<Mmap>
-            let mut guard = self.mmap.lock().unwrap();
-
-            // Overwrite the old Arc<Mmap> with the new one
-            *guard = Arc::new(new_mmap);
-        } // Once the guard drops here, other threads can lock again
-
-        // 4) Update last_offset (or any other fields)
-        let new_offset = write_guard.get_ref().metadata()?.len();
-        self.last_offset
-            .store(new_offset, std::sync::atomic::Ordering::Release);
-
-        Ok(())
-    }
-
-    /// Appends a large entry using a streaming `Read` source (e.g., file, network).
+    /// This method is designed for **large entries** that may exceed available RAM,
+    /// allowing them to be written in chunks without loading the full payload into memory.
     ///
-    /// This allows writing entries **larger than RAM** without loading them entirely into memory.
-    /// Appends a large entry using a streaming `Read` source (e.g., file, network).
+    /// # Parameters:
+    /// - `key`: The **binary key** for the entry.
+    /// - `reader`: A **streaming reader** (`Read` trait) supplying the entry's content.
     ///
-    /// ✅ **Truly supports writing files larger than RAM**
-    /// ✅ **Computes checksum while writing (no full payload in memory)**
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
+    ///
+    /// # Notes:
+    /// - Internally, this method delegates to `write_stream_with_key_hash`, computing
+    ///   the key hash first.
+    /// - If the entry is **small enough to fit in memory**, consider using `write()`
+    ///   or `batch_write()` instead if you don't want to stream the data in.
+    ///
+    /// # Streaming Behavior:
+    /// - The `reader` is **read incrementally in 64KB chunks** (`WRITE_STREAM_BUFFER_SIZE`).
+    /// - Data is immediately **written to disk** as it is read.
+    /// - **A checksum is computed incrementally** during the write.
+    /// - Metadata is appended **after** the full entry is written.
     pub fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.write_stream_with_key_hash(key_hash, reader)
     }
 
-    // TODO: Document
-    fn write_stream_with_key_hash<R: Read>(&self, key_hash: u64, reader: &mut R) -> Result<u64> {
-        let mut file: std::sync::RwLockWriteGuard<'_, BufWriter<File>> =
-            self.file.write().map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
-            })?;
+    /// Writes an entry using a **precomputed key hash** and a streaming `Read` source.
+    ///
+    /// This is a **low-level** method that operates like `write_stream`, but requires
+    /// the key to be hashed beforehand. It is primarily used internally to avoid
+    /// redundant hash computations when writing multiple entries.
+    ///
+    /// # Parameters:
+    /// - `key_hash`: The **precomputed hash** of the key.
+    /// - `reader`: A **streaming reader** (`Read` trait) supplying the entry's content.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
+    pub fn write_stream_with_key_hash<R: Read>(
+        &self,
+        key_hash: u64,
+        reader: &mut R,
+    ) -> Result<u64> {
+        let mut file = self.file.write().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
+        })?;
 
-        let prev_offset = self.last_offset.load(Ordering::Acquire);
+        let prev_offset = self.tail_offset.load(Ordering::Acquire);
 
-        // TODO: Make the buffer size configurable
-        let mut buffer = vec![0; 64 * 1024]; // 64KB chunks
+        let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE]; // 64KB buffer
+        let mut aligned_buffer = vec![0; WRITE_STREAM_BUFFER_SIZE]; // Aligned buffer for SIMD copy
         let mut total_written = 0;
+        let mut checksum_state = crc32fast::Hasher::new();
 
-        let mut checksum_state = crc32fast::Hasher::new(); // Use incremental checksum
-
-        // Stream and write chunks directly to disk
         while let Ok(bytes_read) = reader.read(&mut buffer) {
             if bytes_read == 0 {
                 break;
             }
 
-            file.write_all(&buffer[..bytes_read])?;
-            checksum_state.update(&buffer[..bytes_read]); // Update checksum incrementally
+            // Use SIMD to optimize memory copy
+            simd_copy(&mut aligned_buffer[..bytes_read], &buffer[..bytes_read]);
+
+            file.write_all(&aligned_buffer[..bytes_read])?;
+            checksum_state.update(&aligned_buffer[..bytes_read]); // Update checksum
             total_written += bytes_read;
         }
 
-        let checksum_u32 = checksum_state.finalize(); // Finalize checksum after writing
+        let checksum_u32 = checksum_state.finalize();
         let checksum = checksum_u32.to_le_bytes();
 
-        // // Write metadata **after** payload
         let metadata = EntryMetadata {
             key_hash,
             prev_offset,
             checksum,
         };
+
+        // Write metadata **after** payload
         file.write_all(&metadata.serialize())?;
-        file.flush()?; // **Ensure data is persisted to disk**
+        file.flush()?; // Ensure data is written to disk
 
-        let new_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
-        self.last_offset.store(new_offset, Ordering::Release);
+        let tail_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
 
-        // Associate key indexes AFTER file remap
-        let mut key_index = self.key_index.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
-        })?;
-        key_index.insert(key_hash, new_offset - METADATA_SIZE as u64);
+        self.reindex(
+            &file,
+            &vec![(key_hash, tail_offset - METADATA_SIZE as u64)],
+            tail_offset,
+        )?;
 
-        self.remap_file(&file)?; // Ensure mmap updates
-
-        Ok(new_offset)
-
-        // TODO: Remove
-        // Ok(0)
+        Ok(tail_offset)
     }
 
-    // TODO: Document return type
-    /// High-level method: Appends a single entry by key
+    /// Writes an entry with a given key and payload.
+    ///
+    /// This method computes the hash of the key and delegates to `write_with_key_hash()`.
+    /// It is a **high-level API** for adding new entries to the storage.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** associated with the entry.
+    /// - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - If you need streaming support, use `write_stream` instead.
+    /// - If multiple entries with the **same key** are written, the most recent
+    ///   entry will be retrieved when reading.
+    /// - This method **locks the file for writing** to ensure consistency.
+    /// - For writing **multiple entries at once**, use `batch_write()`.
     pub fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.write_with_key_hash(key_hash, payload)
     }
 
-    // TODO: Document return type (note: This should be considered "unsafe"
-    // but is necessary for data transfer operations between storage files)
-    /// High-level method: Appends a single entry by key hash
+    /// Writes an entry using a **precomputed key hash** and a payload.
+    ///
+    /// This method is a **low-level** alternative to `write()`, allowing direct
+    /// specification of the key hash. It is mainly used for optimized workflows
+    /// where the key hash is already known, avoiding redundant computations.
+    ///
+    /// # Parameters:
+    /// - `key_hash`: The **precomputed hash** of the key.
+    /// - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - The caller is responsible for ensuring that `key_hash` is correctly computed.
+    /// - This method **locks the file for writing** to maintain consistency.
+    /// - If writing **multiple entries**, consider using `batch_write_hashed_payloads()`.
     pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write_hashed_payloads(vec![(key_hash, payload)])
     }
 
-    // TODO: Document return type
-    /// Batch append multiple entries as a single transaction
+    /// Writes multiple key-value pairs as a **single transaction**.
+    ///
+    /// This method computes the hashes of the provided keys and delegates to
+    /// `batch_write_hashed_payloads()`, ensuring all writes occur in a single
+    /// locked operation for efficiency.
+    ///
+    /// # Parameters:
+    /// - `entries`: A **slice of key-value pairs**, where:
+    ///   - `key`: The **binary key** for the entry.
+    ///   - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(final_offset)`: The file offset after all writes.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - This method improves efficiency by **minimizing file lock contention**.
+    /// - If a large number of entries are written, **batching reduces overhead**.
+    /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
     pub fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let hashed_entries: Vec<(u64, &[u8])> = entries
             .iter()
@@ -468,14 +560,41 @@ impl DataStore {
         self.batch_write_hashed_payloads(hashed_entries)
     }
 
-    /// Core transaction method (Handles locking, writing, flushing)
+    /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
+    ///
+    /// This method efficiently appends multiple entries in a **batch operation**,
+    /// reducing lock contention and improving performance for bulk writes.
+    ///
+    /// # Parameters:
+    /// - `hashed_payloads`: A **vector of precomputed key hashes and payloads**, where:
+    ///   - `key_hash`: The **precomputed hash** of the key.
+    ///   - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(final_offset)`: The file offset after all writes.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - **File locking is performed only once** for all writes, improving efficiency.
+    /// - If an entry's `payload` is empty, an error is returned.
+    /// - This method uses **SIMD-accelerated memory copy (`simd_copy`)** to optimize write
+    ///   performance.
+    /// - **Metadata (checksums, offsets) is written after payloads** to ensure data integrity.
+    /// - After writing, the memory-mapped file (`mmap`) is **remapped** to reflect updates.
+    ///
+    /// # Efficiency Considerations:
+    /// - **Faster than multiple `write()` calls**, since it reduces lock contention.
+    /// - Suitable for **bulk insertions** where key hashes are known beforehand.
+    /// - If keys are available but not hashed, use `batch_write()` instead.
     pub fn batch_write_hashed_payloads(&self, hashed_payloads: Vec<(u64, &[u8])>) -> Result<u64> {
         let mut file = self.file.write().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
         })?; // Lock only the file, not the whole struct
 
         let mut buffer = Vec::new();
-        let mut last_offset = self.last_offset.load(Ordering::Acquire);
+        let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
+
+        let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(hashed_payloads.len());
 
         for (key_hash, payload) in hashed_payloads {
             if payload.is_empty() {
@@ -485,7 +604,7 @@ impl DataStore {
                 ));
             }
 
-            let prev_offset = last_offset;
+            let prev_offset = tail_offset;
             let checksum = compute_checksum(payload);
 
             let metadata = EntryMetadata {
@@ -494,7 +613,9 @@ impl DataStore {
                 checksum,
             };
 
-            let mut entry: Vec<u8> = vec![0u8; payload.len() + METADATA_SIZE];
+            let payload_len = payload.len();
+
+            let mut entry: Vec<u8> = vec![0u8; payload_len + METADATA_SIZE];
 
             // Use SIMD to copy payload into buffer
             simd_copy(&mut entry[..payload.len()], payload);
@@ -504,26 +625,17 @@ impl DataStore {
 
             buffer.extend_from_slice(&entry);
 
-            last_offset += entry.len() as u64;
+            tail_offset += entry.len() as u64;
 
-            // TODO: Associate key indexes AFTER file remap
-            // Lock the key index before modifying
-            {
-                let mut key_index = self.key_index.write().map_err(|_| {
-                    std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
-                })?;
-                key_index.insert(key_hash, last_offset - METADATA_SIZE as u64);
-            } // Unlocks automatically here
+            key_hash_offsets.push((key_hash, tail_offset - METADATA_SIZE as u64));
         }
 
         file.write_all(&buffer)?;
         file.flush()?;
 
-        self.last_offset.store(last_offset, Ordering::Release);
+        self.reindex(&file, &key_hash_offsets, tail_offset)?; // Ensure mmap updates
 
-        self.remap_file(&file)?; // Ensure mmap updates
-
-        Ok(self.last_offset.load(Ordering::Acquire))
+        Ok(self.tail_offset.load(Ordering::Acquire))
     }
 
     /// Reads the last entry stored in the database.
@@ -538,23 +650,16 @@ impl DataStore {
     /// - `None` if the storage is empty or corrupted.
     /// Zero-copy: no bytes are duplicated, just reference-counted.
     pub fn read_last_entry(&self) -> Option<EntryHandle> {
-        // 1) Lock the `Mutex<Arc<Mmap>>` to safely access the current map
-        let guard = self.mmap.lock().unwrap();
-
-        // 2) Clone the inner Arc<Mmap> so we can drop the lock quickly
-        let mmap_arc = Arc::clone(&*guard);
-
-        // 3) Release the lock (other threads can proceed)
-        drop(guard);
+        let mmap_arc = self.get_mmap_arc();
 
         // 4) Use `mmap_arc` to find the last entry boundaries
-        let last_offset = self.last_offset.load(std::sync::atomic::Ordering::Acquire);
+        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
 
-        if last_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
+        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
             return None;
         }
 
-        let metadata_offset = (last_offset - METADATA_SIZE as u64) as usize;
+        let metadata_offset = (tail_offset - METADATA_SIZE as u64) as usize;
         if metadata_offset + METADATA_SIZE > mmap_arc.len() {
             return None;
         }
@@ -592,28 +697,25 @@ impl DataStore {
     pub fn read(&self, key: &[u8]) -> Option<EntryHandle> {
         let key_hash = compute_hash(key);
 
-        // 1) Lock the mutex to get our Arc<Mmap>
-        let guard = self.mmap.lock().unwrap();
-        let mmap_arc = Arc::clone(&*guard); // Clone so we can drop the lock quickly
-        drop(guard);
+        let mmap_arc = self.get_mmap_arc();
 
-        // 2) Re-check last_offset, ensure the file is big enough
-        let last_offset = self.last_offset.load(std::sync::atomic::Ordering::Acquire);
-        if last_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
+        // Re-check tail_offset, ensure the file is big enough
+        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
+        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
             return None;
         }
 
-        // 3) Look up the offset in the in-memory key index
-        let offset = *self.key_index.read().ok()?.get(&key_hash)?;
+        // Look up the offset in the in-memory key index
+        let offset = *self.key_indexer.read().ok()?.get(&key_hash)?;
 
-        // 4) Grab the metadata from the mapped file
+        // Grab the metadata from the mapped file
         if offset as usize + METADATA_SIZE > mmap_arc.len() {
             return None;
         }
         let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
 
-        // 5) Extract the actual entry range
+        // Extract the actual entry range
         let entry_start = metadata.prev_offset as usize;
         let entry_end = offset as usize;
         if entry_start >= entry_end || entry_end > mmap_arc.len() {
@@ -625,7 +727,7 @@ impl DataStore {
             return None;
         }
 
-        // 6) Return a handle that *owns* the Arc and the slice range
+        // Return a handle that *owns* the Arc and the slice range
         Some(EntryHandle {
             mmap_arc,
             range: entry_start..entry_end,
@@ -647,7 +749,57 @@ impl DataStore {
         self.read(key).map(|entry| entry.metadata().clone())
     }
 
-    // TODO: Document
+    // TODO: Prevent renaming to self
+    /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
+    ///
+    /// This function:
+    /// - Reads the existing entry associated with `old_key`.
+    /// - Writes the same data under `new_key`.
+    /// - Deletes the `old_key` by appending a tombstone entry.
+    ///
+    /// # Parameters:
+    /// - `old_key`: The **original key** of the entry to be renamed.
+    /// - `new_key`: The **new key** under which the entry will be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(new_offset)`: The file offset where the new entry was written.
+    /// - `Err(std::io::Error)`: If the old key is not found or if a write operation fails.
+    ///
+    /// # Notes:
+    /// - This operation **does not modify** the original entry but instead appends a new copy.
+    /// - The old key is **logically deleted** via an append-only tombstone.
+    pub fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
+        let old_entry = self.read(old_key).ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
+        })?;
+
+        let mut old_entry_stream = EntryStream::from(old_entry);
+
+        self.write_stream(new_key, &mut old_entry_stream)?;
+
+        let new_offset = self.delete_entry(old_key)?;
+
+        Ok(new_offset)
+    }
+
+    // TODO: Prevent copying to same store, and instead suggest "rename"
+    /// Copies an entry to a **different storage container**.
+    ///
+    /// This function:
+    /// - Reads the entry associated with `key` in the current storage.
+    /// - Writes it to the `target` storage.
+    ///
+    /// # Parameters:
+    /// - `key`: The **key** of the entry to be copied.
+    /// - `target`: The **destination storage** where the entry should be copied.
+    ///
+    /// # Returns:
+    /// - `Ok(target_offset)`: The file offset where the copied entry was written in the target storage.
+    /// - `Err(std::io::Error)`: If the key is not found or if the write operation fails.
+    ///
+    /// # Notes:
+    /// - Copying within the **same** storage is unnecessary; use `rename_entry` instead.
+    /// - This operation does **not** delete the original entry.
     pub fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
         let entry_handle = self.read(key).ok_or_else(|| {
             std::io::Error::new(
@@ -659,18 +811,52 @@ impl DataStore {
         self.copy_entry_handle(&entry_handle, target)
     }
 
-    // TODO: Document return type
-    /// Low-level copy functionality.
+    /// Copies an entry handle to a **different storage container**.
+    ///
+    /// This function:
+    /// - Extracts metadata and content from the given `EntryHandle`.
+    /// - Writes the entry into the `target` storage.
+    ///
+    /// # Parameters:
+    /// - `entry`: The **entry handle** to be copied.
+    /// - `target`: The **destination storage** where the entry should be copied.
+    ///
+    /// # Returns:
+    /// - `Ok(target_offset)`: The file offset where the copied entry was written.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - This is a **low-level function** used by `copy_entry` and related operations.
+    /// - The `entry` remains **unchanged** in the original storage.
     fn copy_entry_handle(&self, entry: &EntryHandle, target: &DataStore) -> Result<u64> {
         let metadata = entry.metadata();
 
-        // Append to the compacted storage
-        let result = target.write_with_key_hash(metadata.key_hash, entry)?;
+        let mut entry_stream = EntryStream::from(entry.clone_arc()); // Convert to Arc to keep ownership
 
-        Ok(result)
+        let target_offset =
+            target.write_stream_with_key_hash(metadata.key_hash, &mut entry_stream)?;
+
+        Ok(target_offset)
     }
 
-    // TODO: Document
+    /// Moves an entry from the current storage to a **different storage container**.
+    ///
+    /// This function:
+    /// - Copies the entry from the current storage to `target`.
+    /// - Marks the original entry as deleted.
+    ///
+    /// # Parameters:
+    /// - `key`: The **key** of the entry to be moved.
+    /// - `target`: The **destination storage** where the entry should be moved.
+    ///
+    /// # Returns:
+    /// - `Ok(target_offset)`: The file offset where the entry was written in the target storage.
+    /// - `Err(std::io::Error)`: If the key is not found, or if the copy/delete operation fails.
+    ///
+    /// # Notes:
+    /// - Moving an entry within the **same** storage is unnecessary; use `rename_entry` instead.
+    /// - The original entry is **logically deleted** by appending a tombstone, maintaining
+    ///   the append-only structure.
     pub fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
         self.copy_entry(key, target)?;
 
@@ -697,15 +883,15 @@ impl DataStore {
         let compacted_path = self.path.with_extension("bk");
         debug!("Starting compaction. Writing to: {:?}", compacted_path);
 
-        // 1) Create a new DataStore instance for the compacted file
+        // Create a new DataStore instance for the compacted file
         let mut compacted_storage = DataStore::open(&compacted_path)?;
 
-        // 2) Iterate over all valid entries using your iterator
+        // Iterate over all valid entries using your iterator
         for entry in self.iter_entries() {
             self.copy_entry_handle(&entry, &mut compacted_storage)?;
         }
 
-        // 4) Flush the compacted file
+        // Flush the compacted file
         {
             let mut file_guard = compacted_storage.file.write().map_err(|e| {
                 std::io::Error::new(std::io::ErrorKind::Other, format!("Lock poisoned: {}", e))
@@ -747,12 +933,9 @@ impl DataStore {
         let mut unique_entry_size: u64 = 0;
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
 
-        // 1) Briefly lock the Mutex to clone the Arc<Mmap>
-        let guard = self.mmap.lock().unwrap();
-        let mmap_arc = Arc::clone(&*guard);
-        drop(guard);
+        let mmap_arc = self.get_mmap_arc();
 
-        // 2) Now we can safely iterate zero-copy
+        // Now we can safely iterate zero-copy
         for entry in self.iter_entries() {
             // Convert pointer offsets relative to `mmap_arc`
             let entry_start_offset = entry.as_ptr() as usize - mmap_arc.as_ptr() as usize;
@@ -772,7 +955,7 @@ impl DataStore {
             }
         }
 
-        // 3) Return the difference between total size and the unique size
+        //  Return the difference between total size and the unique size
         total_size.saturating_sub(unique_entry_size)
     }
 
@@ -785,5 +968,37 @@ impl DataStore {
     /// - `Err(std::io::Error)` if the file cannot be accessed.
     pub fn get_storage_size(&self) -> Result<u64> {
         std::fs::metadata(&self.path).map(|meta| meta.len())
+    }
+
+    /// Provides access to the shared memory-mapped file (`Arc<Mmap>`) for testing.
+    ///
+    /// This method returns a cloned `Arc<Mmap>`, allowing test cases to inspect
+    /// the memory-mapped region while ensuring reference counting remains intact.
+    ///
+    /// # Notes:
+    /// - The returned `Arc<Mmap>` ensures safe access without invalidating the mmap.
+    /// - This function is only available in **test** and **debug** builds.
+    #[cfg(any(test, debug_assertions))]
+    pub fn get_mmap_arc_for_testing(&self) -> Arc<Mmap> {
+        self.get_mmap_arc()
+    }
+
+    /// Provides direct access to the raw pointer of the underlying memory map for testing.
+    ///
+    /// This method retrieves a raw pointer (`*const u8`) to the start of the memory-mapped file.
+    /// It is useful for validating zero-copy behavior and memory alignment in test cases.
+    ///
+    /// # Safety Considerations:
+    /// - The pointer remains valid **as long as** the mmap is not remapped or dropped.
+    /// - Dereferencing this pointer outside of controlled test environments **is unsafe**
+    ///   and may result in undefined behavior.
+    ///
+    /// # Notes:
+    /// - This function is only available in **test** and **debug** builds.
+    #[cfg(any(test, debug_assertions))]
+    pub fn arc_ptr(&self) -> *const u8 {
+        let mmap_arc = self.get_mmap_arc();
+
+        mmap_arc.as_ptr()
     }
 }

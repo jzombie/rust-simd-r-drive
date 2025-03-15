@@ -16,6 +16,9 @@ pub use entry_metadata::EntryMetadata;
 mod entry_stream;
 pub use entry_stream::EntryStream;
 
+mod key_indexer;
+pub use key_indexer::KeyIndexer;
+
 pub mod digest;
 
 mod simd_copy;

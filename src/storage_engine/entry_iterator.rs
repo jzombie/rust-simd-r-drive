@@ -12,7 +12,7 @@ use std::sync::Arc;
 /// offsets stored in each entry.
 ///
 /// ## Behavior:
-/// - **Starts at `last_offset`** and moves backward using the `prev_offset` field.
+/// - **Starts at `tail_offset`** and moves backward using the `prev_offset` field.
 /// - **Ensures unique keys** by tracking seen hashes in a `HashSet`.
 /// - **Skips deleted entries**, which are represented by empty data.
 /// - **Stops when reaching an invalid or out-of-bounds offset.**
@@ -25,20 +25,20 @@ pub struct EntryIterator {
 impl EntryIterator {
     /// Creates a new iterator for scanning storage entries.
     ///
-    /// Initializes an iterator starting at the provided `last_offset` and
+    /// Initializes an iterator starting at the provided `tail_offset` and
     /// moving backward through the storage file. The iterator ensures that
     /// only the most recent version of each key is returned.
     ///
     /// # Parameters:
     /// - `mmap`: A reference to the memory-mapped file.
-    /// - `last_offset`: The file offset where iteration starts.
+    /// - `tail_offset`: The file offset where iteration starts.
     ///
     /// # Returns:
     /// - A new `EntryIterator` instance.
-    pub fn new(mmap: Arc<Mmap>, last_offset: u64) -> Self {
+    pub fn new(mmap: Arc<Mmap>, tail_offset: u64) -> Self {
         Self {
             mmap,
-            cursor: last_offset,
+            cursor: tail_offset,
             seen_keys: HashSet::with_hasher(Xxh3BuildHasher),
         }
     }
@@ -89,8 +89,6 @@ impl Iterator for EntryIterator {
         if entry_data == NULL_BYTE {
             return self.next();
         }
-
-        // Some(entry_data.into())
 
         Some(EntryHandle {
             mmap_arc: Arc::clone(&self.mmap),

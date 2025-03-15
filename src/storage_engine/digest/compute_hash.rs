@@ -13,6 +13,14 @@ use xxhash_rust::xxh3::xxh3_64;
 ///
 /// # Returns
 /// - A `u64` hash value derived from the input key.
+///
+/// #Notes:
+///
+/// Stream writing does not call this directly and instead builds `checksum_state` off
+/// the hasher directly.
+///
+/// See `crate::storage_engine::DataStore::write_stream_with_key_hash` for implementation
+/// details.
 #[inline]
 pub fn compute_hash(key: &[u8]) -> u64 {
     xxh3_64(key)

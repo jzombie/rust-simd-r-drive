@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use indoc::indoc;
 use log::{error, info, warn};
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, EntryStream};
 mod utils;
 use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
@@ -87,7 +87,7 @@ enum Commands {
         target: PathBuf,
     },
 
-    /// Move an entry from one storage file to another (copy and delete)
+    /// Move an entry from one storage file to another
     Move {
         /// The key to move
         key: String,
@@ -95,6 +95,13 @@ enum Commands {
         /// Target storage file
         #[arg(value_name = "target")]
         target: PathBuf,
+    },
+
+    /// Renames an entry
+    Rename {
+        old_key: String,
+
+        new_key: String
     },
 
     /// Delete a key
@@ -126,20 +133,20 @@ fn main() {
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
             match storage.read(key.as_bytes()) {
-                Some(value) => {
+                Some(entry_handle) => {
+                    
                     let stdout = io::stdout();
-                    let mut handle = stdout.lock();
+                    let mut stdout_handle = stdout.lock();
 
                     if stdout.is_terminal() {
                         // If writing to a terminal, use UTF-8 safe string output
-                        writeln!(handle, "{}", String::from_utf8_lossy(value.as_slice()))
+                        writeln!(stdout_handle, "{}", String::from_utf8_lossy(entry_handle.as_slice()))
                             .expect("Failed to write output");
                     } else {
-                        // If redirected, output raw binary
-                        handle
-                            .write_all(value.as_slice())
-                            .expect("Failed to write binary output");
-                        handle.flush().expect("Failed to flush output");
+                        let mut output_stream = EntryStream::from(entry_handle);
+
+                        io::copy(&mut output_stream, &mut stdout_handle).expect("Failed to write binary output");
+                        stdout_handle.flush().expect("Failed to flush output");
                     }
                 }
                 None => {
@@ -207,6 +214,21 @@ fn main() {
                 .ok(); // Ignore the success case
 
             info!("Moved key '{}' to {:?}", key, target);
+        }
+
+        Commands::Rename { old_key, new_key } => {
+            let storage =
+                DataStore::open(&cli.storage).expect("Failed to open source storage");
+
+                storage
+                .rename_entry(old_key.as_bytes(), new_key.as_bytes())
+                .map_err(|err| {
+                    error!("Could not rename entry. Received error: {}", err.to_string());
+                    std::process::exit(1);
+                })
+                .ok(); // Ignore the success case
+
+            info!("Renamed key '{}' to {}", old_key, new_key);
         }
 
         Commands::Delete { key } => {
