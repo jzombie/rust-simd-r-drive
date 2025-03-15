@@ -130,6 +130,8 @@ fn main() {
 
     match &cli.command {
         Commands::Read { key } => {
+            // TODO: Verify file exists before initializing, so it doesn't create an empty file
+
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
             match storage.read(key.as_bytes()) {
@@ -183,6 +185,8 @@ fn main() {
         }
 
         Commands::Copy { key, target } => {
+            // TODO: Verify file exists before initializing, so it doesn't create an empty file
+
             let source_storage =
                 DataStore::open(&cli.storage).expect("Failed to open source storage");
             let mut target_storage =
@@ -200,6 +204,8 @@ fn main() {
         }
 
         Commands::Move { key, target } => {
+            // TODO: Verify file exists before initializing, so it doesn't create an empty file
+
             let source_storage =
                 DataStore::open(&cli.storage).expect("Failed to open source storage");
             let mut target_storage =
@@ -217,6 +223,8 @@ fn main() {
         }
 
         Commands::Rename { old_key, new_key } => {
+            // TODO: Verify file exists before initializing, so it doesn't create an empty file
+
             let storage =
                 DataStore::open(&cli.storage).expect("Failed to open source storage");
 
@@ -232,6 +240,8 @@ fn main() {
         }
 
         Commands::Delete { key } => {
+            // TODO: Verify file exists before initializing, so it doesn't create an empty file
+
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
             storage
                 .delete_entry(key.as_bytes())
@@ -240,6 +250,8 @@ fn main() {
         }
 
         Commands::Compact => {
+            // TODO: Verify file exists before initializing, so it doesn't create an empty file
+
             let mut storage = DataStore::open(&cli.storage).expect("Failed to open storage");
             info!("Starting compaction...");
             if let Err(e) = storage.compact() {
@@ -250,6 +262,8 @@ fn main() {
         }
 
         Commands::Metadata { key } => {
+            // TODO: Verify file exists before initializing, so it doesn't create an empty file
+
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
             match storage.read(key.as_bytes()) {
@@ -304,6 +318,8 @@ fn main() {
         }
 
         Commands::Info => {
+            // TODO: Verify file exists before initializing, so it doesn't create an empty file
+
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
             // Retrieve storage file size
