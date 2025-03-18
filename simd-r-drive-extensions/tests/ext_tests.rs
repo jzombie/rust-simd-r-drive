@@ -2,7 +2,7 @@
 mod tests {
     use serde::{Deserialize, Serialize};
     use simd_r_drive::DataStore;
-    use simd_r_drive_extensions::StorageOptionExt;
+    use simd_r_drive_extensions::{StorageOptionExt, OPTION_TOMBSTONE_MARKER};
     use tempfile::tempdir;
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -62,6 +62,59 @@ mod tests {
         assert_eq!(
             retrieved, None,
             "Expected None when reading tombstone marker"
+        );
+    }
+
+    #[test]
+    fn test_write_none_does_not_delete_entry() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"test_key".as_slice();
+        let initial_value = TestData {
+            id: 42,
+            name: "Initial Data".to_string(),
+        };
+
+        // Step 1: Write an initial Some(TestData) value
+        storage
+            .write_option(key, Some(&initial_value))
+            .expect("Failed to write initial entry");
+
+        // Verify it was stored correctly
+        let retrieved = storage
+            .read_option::<TestData>(key)
+            .expect("Failed to read initial entry");
+        assert_eq!(
+            retrieved,
+            Some(initial_value),
+            "Initial entry should be readable"
+        );
+
+        // Step 2: Write None, marking it with the tombstone
+        storage
+            .write_option::<TestData>(key, None)
+            .expect("Failed to write tombstone marker");
+
+        // Step 3: Ensure reading returns None (meaning it's correctly recognized as a tombstone)
+        let retrieved_none = storage.read_option::<TestData>(key);
+        assert_eq!(
+            retrieved_none,
+            Some(None), // `Some(None)` means the key exists in storage but was explicitly set to `None`.
+            "Entry should return None when tombstone is written"
+        );
+
+        // Step 4: Ensure the entry still exists in storage (not fully deleted)
+        let raw_entry = storage.read(key);
+        assert!(
+            raw_entry.is_some(),
+            "Entry should still exist in storage even after writing None"
+        );
+
+        // Step 5: Ensure the stored entry matches the expected tombstone marker
+        assert_eq!(
+            raw_entry.unwrap().as_slice(),
+            OPTION_TOMBSTONE_MARKER,
+            "Stored value should be the tombstone marker, not a deleted entry"
         );
     }
 
