@@ -98,8 +98,8 @@ mod tests {
         // Step 3: Ensure reading returns None (meaning it's correctly recognized as a tombstone)
         let retrieved_none = storage.read_option::<TestData>(key);
         assert_eq!(
-            retrieved_none,
-            Some(None), // `Some(None)` means the key exists in storage but was explicitly set to `None`.
+            retrieved_none.unwrap(),
+            None,
             "Entry should return None when tombstone is written"
         );
 
@@ -165,7 +165,7 @@ mod tests {
         let retrieved = storage.read_option::<TestData>(key);
 
         assert!(
-            retrieved.is_none(),
+            retrieved.unwrap().is_none(),
             "Expected None when reading a key that was never written"
         );
     }
