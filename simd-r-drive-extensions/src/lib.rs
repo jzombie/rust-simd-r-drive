@@ -5,112 +5,106 @@ use bincode;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simd_r_drive::DataStore;
+use std::io::{self, ErrorKind};
 
-pub const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE]; // Distinct from bincode None (0x00)
+// TODO: Only use internally
+/// Special marker for explicitly storing `None` values in binary storage.
+/// This ensures that `None` is distinguishable from an empty or default value.
+pub const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE];
 
 /// # Storage Utilities for Handling `Option<T>`
 ///
-/// This trait provides convenience methods for storing and retrieving
-/// `Option<T>` values in a `DataStore`. It ensures that `None` values are
-/// explicitly marked using a **tombstone marker** (`OPTION_TOMBSTONE_MARKER`)
-/// instead of serializing to an empty value or `bincode`'s default representation.
+/// This trait provides methods to store and retrieve `Option<T>` values
+/// in a `DataStore`, ensuring that `None` values are explicitly marked
+/// using a **tombstone marker** (`OPTION_TOMBSTONE_MARKER`).
 ///
-/// ## Use Cases
-/// - Efficiently handling `Option<T>` in storage.
-/// - Preventing accidental overwrites with default `bincode` representations.
-/// - Explicitly distinguishing between `Some(value)` and `None` in a **binary format**.
+/// ## Purpose
+/// - **Prevents ambiguity**: Ensures `None` is not confused with an empty value.
+/// - **Efficient storage**: Uses a fixed marker (`[0xFF, 0xFE]`) for `None` values.
+/// - **Binary-safe**: Avoids `bincode`'s default `None` serialization (`0x00`).
 ///
-/// ## Tombstone Marker
-/// - `None` values are stored as `OPTION_TOMBSTONE_MARKER: [0xFF, 0xFE]` to
-///   distinguish them from serialized `None` values (`0x00` in `bincode`).
+/// ## Implementation Details
+/// - **`Some(value)`**: Serialized using `bincode`.
+/// - **`None`**: Stored as `OPTION_TOMBSTONE_MARKER` (`[0xFF, 0xFE]`).
 ///
 /// ## Example Usage
 ///
 /// ```rust
-/// use simd_r_drive::{DataStore};
+/// use simd_r_drive::DataStore;
 /// use simd_r_drive_extensions::StorageOptionExt;
 /// use std::path::PathBuf;
 ///
 /// let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
 ///
-/// // Writing `Some(value)`
+/// // Store `Some(value)`
 /// storage.write_option(b"key1", Some(&42)).unwrap();
 ///
-/// // Writing `None` (tombstone)
+/// // Store `None` (tombstone)
 /// storage.write_option::<i32>(b"key2", None).unwrap();
 ///
-/// // Reading values back
-/// let value: Option<i32> = storage.read_option(b"key1").unwrap();
-/// assert_eq!(value, Some(42));
-///
-/// let none_value: Option<i32> = storage.read_option(b"key2").unwrap();
-/// assert_eq!(none_value, None);
+/// // Read values
+/// assert_eq!(storage.read_option::<i32>(b"key1").unwrap(), Some(42));
+/// assert_eq!(storage.read_option::<i32>(b"key2").unwrap(), None);
 /// ```
 pub trait StorageOptionExt {
-    /// Writes an `Option<T>` to storage, storing `None` as a tombstone marker.
+    /// Writes an `Option<T>` into the `DataStore`, marking `None` explicitly.
     ///
-    /// This function:
-    /// - Serializes `Some(value)` using `bincode`.
-    /// - Stores `None` as a **tombstone marker** (`OPTION_TOMBSTONE_MARKER`).
+    /// - `Some(value)`: Serialized using `bincode`.
+    /// - `None`: Stored using the `OPTION_TOMBSTONE_MARKER` (`[0xFF, 0xFE]`).
     ///
-    /// # Parameters
-    /// - `key`: The binary key under which the value will be stored.
-    /// - `value`: An `Option<&T>`, where `Some(value)` is stored normally, and
-    ///   `None` is replaced by a tombstone marker.
+    /// # Arguments
+    /// - `key`: The binary key under which the value is stored.
+    /// - `value`: An optional reference to `T`, where `None` is marked explicitly.
     ///
     /// # Returns
-    /// - `Ok(offset)`: The **file offset** where the entry was written.
+    /// - `Ok(offset)`: The **file offset** where the data was written.
     /// - `Err(std::io::Error)`: If the write operation fails.
     ///
     /// # Example
     /// ```rust
-    /// use simd_r_drive::{DataStore};
+    /// use simd_r_drive::DataStore;
     /// use simd_r_drive_extensions::StorageOptionExt;
     /// use std::path::PathBuf;
     ///
-    /// let storage = DataStore::open(&PathBuf::from("example_store.bin")).unwrap();
+    /// let storage = DataStore::open(&PathBuf::from("store.bin")).unwrap();
     ///
-    /// // Store an integer
-    /// storage.write_option(b"some_key", Some(&123)).unwrap();
+    /// // Write `Some(value)`
+    /// storage.write_option(b"key", Some(&123)).unwrap();
     ///
-    /// // Store None (creates a tombstone)
+    /// // Write `None` (tombstone)
     /// storage.write_option::<i32>(b"deleted_key", None).unwrap();
     /// ```
     fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> std::io::Result<u64>;
 
-    /// Reads an `Option<T>` from storage, returning `None` if a tombstone is found.
+    /// Reads an `Option<T>` from storage.
     ///
-    /// This function:
-    /// - Reads the stored data.
-    /// - If the data matches `OPTION_TOMBSTONE_MARKER`, it returns `None`.
-    /// - Otherwise, it attempts to deserialize `T` using `bincode`.
+    /// - **Returns `None`** if the stored value matches `OPTION_TOMBSTONE_MARKER`.
+    /// - **Attempts deserialization** of `T` otherwise.
+    /// - **Returns `Ok(None)`** if the key does not exist.
     ///
-    /// # Parameters
+    /// # Arguments
     /// - `key`: The binary key to retrieve.
     ///
     /// # Returns
-    /// - `Some(Some(T))`: If the key is found and contains valid serialized data.
-    /// - `Some(None)`: If the key exists but was stored as a tombstone (`None`).
-    /// - `None`: If the key does not exist in the storage.
+    /// - `Ok(Some(T))`: If deserialization succeeds.
+    /// - `Ok(None)`: If the key contains the tombstone marker or does not exist.
+    /// - `Err(std::io::Error)`: If deserialization fails.
     ///
     /// # Example
     /// ```rust
-    /// use simd_r_drive::{DataStore};
+    /// use simd_r_drive::DataStore;
     /// use simd_r_drive_extensions::StorageOptionExt;
     /// use std::path::PathBuf;
     ///
-    /// let storage = DataStore::open(&PathBuf::from("example_store.bin")).unwrap();
+    /// let storage = DataStore::open(&PathBuf::from("store.bin")).unwrap();
     ///
     /// storage.write_option(b"some_key", Some(&789)).unwrap();
     /// storage.write_option::<i32>(b"deleted_key", None).unwrap();
     ///
-    /// let value: Option<i32> = storage.read_option(b"some_key").unwrap();
-    /// assert_eq!(value, Some(789));
-    ///
-    /// let deleted_value: Option<i32> = storage.read_option(b"deleted_key").unwrap();
-    /// assert_eq!(deleted_value, None);
+    /// assert_eq!(storage.read_option::<i32>(b"some_key").unwrap(), Some(789));
+    /// assert_eq!(storage.read_option::<i32>(b"deleted_key").unwrap(), None);
     /// ```
-    fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Option<Option<T>>;
+    fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, std::io::Error>;
 }
 
 /// Implements `StorageOptionExt` for `DataStore`
@@ -124,15 +118,26 @@ impl StorageOptionExt for DataStore {
         self.write(key, &serialized)
     }
 
-    // TODO: Document how this is not zero-copy
-    fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Option<Option<T>> {
-        let entry = self.read(key)?;
-        let data = entry.as_slice();
-
-        if data == OPTION_TOMBSTONE_MARKER {
-            return Some(None);
+    /// Reads an `Option<T>` from storage.
+    ///
+    /// - **Not zero-copy**: Requires deserialization.
+    /// - **Returns `None`** if key does not exist or is a tombstone marker.
+    /// - **Errors on invalid deserialization.**
+    ///
+    /// # Safety
+    /// - This function **allocates memory** for deserialization.
+    fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, io::Error> {
+        match self.read(key) {
+            Some(entry) => {
+                let data = entry.as_slice();
+                if data == OPTION_TOMBSTONE_MARKER {
+                    return Ok(None);
+                }
+                bincode::deserialize::<T>(data)
+                    .map(Some)
+                    .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))
+            }
+            None => Ok(None),
         }
-
-        bincode::deserialize::<T>(&data).ok().map(Some)
     }
 }
