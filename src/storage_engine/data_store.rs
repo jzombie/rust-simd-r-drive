@@ -879,9 +879,28 @@ impl DataStore {
         self.write(key, &NULL_BYTE)
     }
 
-    // TODO: Return `Err` if more than one thread
     // TODO: Verify original file exists before compact
     /// Compacts the storage by keeping only the latest version of each key.
+    ///
+    /// # ⚠️ WARNING:
+    /// - **This function should only be used when a single thread is accessing the storage.**
+    /// - While `&mut self` prevents concurrent **mutations**, it **does not** prevent
+    ///   other threads from holding shared references (`&DataStore`) and performing reads.
+    /// - If the `DataStore` instance is wrapped in `Arc<DataStore>`, multiple threads
+    ///   may still hold **read** references while compaction is running, potentially
+    ///   leading to inconsistent reads.
+    /// - If stricter concurrency control is required, **manual synchronization should
+    ///   be enforced externally.**
+    ///
+    /// # Behavior:
+    /// - Creates a **temporary compacted file** containing only the latest versions
+    ///   of stored keys.
+    /// - Swaps the original file with the compacted version upon success.
+    /// - Does **not** remove tombstone (deleted) entries due to the append-only model.
+    ///
+    /// # Returns:
+    /// - `Ok(())` if compaction completes successfully.
+    /// - `Err(std::io::Error)` if an I/O operation fails.
     pub fn compact(&mut self) -> std::io::Result<()> {
         let compacted_path = crate::utils::append_extension(&self.path, "bk");
 
