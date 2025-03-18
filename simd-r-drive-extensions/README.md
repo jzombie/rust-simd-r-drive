@@ -17,15 +17,9 @@ cargo add simd-r-drive-extensions
 ```rust
 use simd_r_drive::DataStore;
 use simd_r_drive_extensions::StorageOptionExt;
-use tempfile::tempdir;
+use std::path::PathBuf;
 
-// Create temporary storage
-let (_dir, storage) = {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("test_storage.bin");
-    let store = DataStore::open(&path).unwrap();
-    (dir, store)
-};
+let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
 
 // Write Some value
 storage.write_option(b"key_with_some_value", Some(&42)).unwrap();
