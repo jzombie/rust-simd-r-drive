@@ -189,4 +189,18 @@ mod tests {
             "Expected error when opening non-existent file"
         );
     }
+
+    #[test]
+    fn test_write_null_byte_fails() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"test_key";
+
+        let result = storage.write(key, b"\x00");
+
+        assert!(
+            result.is_err(),
+            "Expected error when writing a null-byte payload"
+        );
+    }
 }

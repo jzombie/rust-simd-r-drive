@@ -446,7 +446,6 @@ impl DataStore {
         self.write_stream_with_key_hash(key_hash, reader)
     }
 
-    // TODO: Prevent users from writing NULL-byte payloads directly
     /// Writes an entry using a **precomputed key hash** and a streaming `Read` source.
     ///
     /// This is a **low-level** method that operates like `write_stream`, but requires
@@ -476,9 +475,16 @@ impl DataStore {
         let mut total_written = 0;
         let mut checksum_state = crc32fast::Hasher::new();
 
+        let mut is_null_only = true; // Flag to track NULL-byte-only payload
+
         while let Ok(bytes_read) = reader.read(&mut buffer) {
             if bytes_read == 0 {
                 break;
+            }
+
+            // Check if all bytes in buffer match NULL_BYTE
+            if buffer[..bytes_read].iter().any(|&b| b != NULL_BYTE[0]) {
+                is_null_only = false;
             }
 
             // Use SIMD to optimize memory copy
@@ -487,6 +493,14 @@ impl DataStore {
             file.write_all(&aligned_buffer[..bytes_read])?;
             checksum_state.update(&aligned_buffer[..bytes_read]); // Update checksum
             total_written += bytes_read;
+        }
+
+        // Reject if the entire stream was NULL bytes
+        if total_written > 0 && is_null_only {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "NULL-byte-only streams cannot be written directly.",
+            ));
         }
 
         let checksum_u32 = checksum_state.finalize();
@@ -556,7 +570,7 @@ impl DataStore {
     /// - This method **locks the file for writing** to maintain consistency.
     /// - If writing **multiple entries**, consider using `batch_write_hashed_payloads()`.
     pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
-        self.batch_write_hashed_payloads(vec![(key_hash, payload)])
+        self.batch_write_hashed_payloads(vec![(key_hash, payload)], false)
     }
 
     /// Writes multiple key-value pairs as a **single transaction**.
@@ -583,10 +597,9 @@ impl DataStore {
             .iter()
             .map(|(key, payload)| (compute_hash(key), *payload))
             .collect();
-        self.batch_write_hashed_payloads(hashed_entries)
+        self.batch_write_hashed_payloads(hashed_entries, false)
     }
 
-    // TODO: Prevent users from writing NULL-byte payloads directly
     /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
     ///
     /// This method efficiently appends multiple entries in a **batch operation**,
@@ -613,7 +626,11 @@ impl DataStore {
     /// - **Faster than multiple `write()` calls**, since it reduces lock contention.
     /// - Suitable for **bulk insertions** where key hashes are known beforehand.
     /// - If keys are available but not hashed, use `batch_write()` instead.
-    pub fn batch_write_hashed_payloads(&self, hashed_payloads: Vec<(u64, &[u8])>) -> Result<u64> {
+    pub fn batch_write_hashed_payloads(
+        &self,
+        hashed_payloads: Vec<(u64, &[u8])>,
+        allow_null_bytes: bool,
+    ) -> Result<u64> {
         let mut file = self.file.write().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
         })?; // Lock only the file, not the whole struct
@@ -624,6 +641,13 @@ impl DataStore {
         let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(hashed_payloads.len());
 
         for (key_hash, payload) in hashed_payloads {
+            if !allow_null_bytes && payload == NULL_BYTE {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "NULL-byte payloads cannot be written directly.",
+                ));
+            }
+
             if payload.is_empty() {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
@@ -918,7 +942,8 @@ impl DataStore {
     /// # Returns:
     /// - The **new file offset** where the delete marker was appended.
     pub fn delete_entry(&self, key: &[u8]) -> Result<u64> {
-        self.write(key, &NULL_BYTE)
+        let key_hash = compute_hash(key);
+        self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
     }
 
     /// Compacts the storage by keeping only the latest version of each key.
