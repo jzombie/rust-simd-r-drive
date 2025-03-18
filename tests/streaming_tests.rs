@@ -83,4 +83,19 @@ mod tests {
             "Streamed entry data does not match expected data"
         );
     }
+
+    #[test]
+    fn test_write_stream_null_byte_fails() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"test_key";
+        let mut payload = b"\x00".as_ref(); // Hardcoded null-byte
+
+        let result = storage.write_stream(key, &mut payload);
+
+        assert!(
+            result.is_err(),
+            "Expected error when writing a null-byte payload via write_stream"
+        );
+    }
 }

@@ -67,6 +67,32 @@ mod tests {
     }
 
     #[test]
+    fn test_copy_entry_to_self_fails() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"self_copy_key";
+        let payload = b"Data that should not be copied to self";
+
+        // Step 1: Write an entry into the storage
+        storage.write(key, payload).expect("Failed to append entry");
+
+        // Step 2: Attempt to copy the entry to the same storage
+        let result = storage.copy_entry(key, &storage);
+
+        // Step 3: Ensure the operation fails with the expected error
+        assert!(
+            result.is_err(),
+            "Copying an entry to the same storage should fail"
+        );
+
+        let error_message = result.unwrap_err().to_string();
+        assert!(
+            error_message.contains("Cannot copy entry to the same storage"),
+            "Error message should indicate copying to self is not allowed"
+        );
+    }
+
+    #[test]
     fn test_move_entry_between_storages() {
         let (_dir1, source_storage) = create_temp_storage();
         let (_dir2, mut target_storage) = create_temp_storage();
@@ -227,6 +253,41 @@ mod tests {
         assert!(
             storage.read(old_key).is_none(),
             "Old key should no longer exist after renaming"
+        );
+    }
+
+    #[test]
+    fn test_rename_entry_to_self_fails() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"same_key";
+        let payload = b"Data for self-renaming";
+
+        // Step 1: Write an entry
+        storage.write(key, payload).expect("Failed to append entry");
+
+        // Step 2: Attempt to rename the key to itself
+        let result = storage.rename_entry(key, key);
+
+        // Step 3: Ensure the operation fails with the expected error
+        assert!(
+            result.is_err(),
+            "Renaming a key to itself should fail, but succeeded"
+        );
+
+        let error = result.unwrap_err();
+        assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::InvalidInput,
+            "Expected InvalidInput error when renaming to the same key"
+        );
+
+        // Step 4: Ensure the original entry still exists
+        let existing_entry = storage.read(key).expect("Entry should still exist");
+        assert_eq!(
+            existing_entry.as_slice(),
+            payload,
+            "Data should remain unchanged after failed rename"
         );
     }
 

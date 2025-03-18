@@ -146,10 +146,10 @@ However, **multiple instances of the application accessing the same file are not
 #### Thread Safety Matrix
 
 
-| **Environment**                     | **Reads** | **Writes** | **Index Updates** | **Storage Safety** |
-|--------------------------------------|----------|------------|-------------------|---------------------|
-| **Single Process, Single Thread**   | ✅ Safe  | ✅ Safe     | ✅ Safe           | ✅ Safe             |
-| **Single Process, Multi-Threaded**  | ✅ Safe (lock-free, zero-copy) | ✅ Safe (`RwLock<File>`) | ✅ Safe (`RwLock<HashMap>`) | ✅ Safe (`Mutex<Arc<Mmap>>`) |
+| **Environment**                     | **Reads**                                 | **Writes**                     | **Index Updates**                 | **Storage Safety**                 |
+|-------------------------------------|-------------------------------------------|--------------------------------|-----------------------------------|------------------------------------|
+| **Single Process, Single Thread**   | ✅ Safe                                    | ✅ Safe                         | ✅ Safe                            | ✅ Safe                             |
+| **Single Process, Multi-Threaded**  | ✅ Safe (lock-free, zero-copy)             | ✅ Safe (`RwLock<File>`)        | ✅ Safe (`RwLock<HashMap>`)        | ✅ Safe (`Mutex<Arc<Mmap>>`)        |
 | **Multiple Processes, Shared File** | ⚠️ Unsafe (no cross-process coordination) | ❌ Unsafe (no external locking) | ❌ Unsafe (separate memory spaces) | ❌ Unsafe (risk of race conditions) |
 
 **Legend**
@@ -202,3 +202,7 @@ This avoids high memory overhead while still leveraging `mmap` for efficient acc
 - **SIMD-Accelerated Hashing (`xxh3_64`)**: The hashing mechanism used for indexing (`xxh3_64`) is optimized with SIMD extensions. This improves key lookups and indexing efficiency, particularly for large datasets with high query throughput.
 
 By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU cycles spent on memory movement and hashing, leading to optimized storage performance in high-throughput, write-heavy workloads. Note that **SIMD is not used for reading or zero-copy memory-mapped access**, as those operations benefit from direct memory access without additional transformations.
+
+## License
+
+Licensed under the [Apache-2.0 License](LICENSE).

@@ -2,6 +2,7 @@ use crate::storage_engine::constants::*;
 use crate::storage_engine::digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use crate::storage_engine::simd_copy;
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
+use crate::utils::verify_file_existence;
 use log::{debug, info, warn};
 use memmap2::Mmap;
 use std::collections::HashSet;
@@ -109,6 +110,30 @@ impl DataStore {
             key_indexer: Arc::new(RwLock::new(key_indexer)),
             path: path.to_path_buf(),
         })
+    }
+
+    /// Opens an **existing** append-only storage file.
+    ///
+    /// This function verifies that the file exists before attempting to open it.
+    /// If the file does not exist or is not a valid file, an error is returned.
+    ///
+    /// # Parameters:
+    /// - `path`: The **file path** of the storage file.
+    ///
+    /// # Returns:
+    /// - `Ok(DataStore)`: A **new storage instance** if the file exists and can be opened.
+    /// - `Err(std::io::Error)`: If the file does not exist or is invalid.
+    ///
+    /// # Notes:
+    /// - Unlike `open()`, this function **does not create** a new storage file if the
+    ///   specified file does not exist.
+    /// - If the file is **missing** or is not a regular file, an error is returned.
+    /// - This is useful in scenarios where the caller needs to **ensure** that they are
+    ///   working with an already existing storage file.
+    pub fn open_existing(path: &Path) -> Result<Self> {
+        verify_file_existence(&path)?;
+
+        Self::open(path)
     }
 
     /// Workaround for directly opening in **append mode** causing permissions issues on Windows
@@ -450,9 +475,16 @@ impl DataStore {
         let mut total_written = 0;
         let mut checksum_state = crc32fast::Hasher::new();
 
+        let mut is_null_only = true; // Flag to track NULL-byte-only payload
+
         while let Ok(bytes_read) = reader.read(&mut buffer) {
             if bytes_read == 0 {
                 break;
+            }
+
+            // Check if all bytes in buffer match NULL_BYTE
+            if buffer[..bytes_read].iter().any(|&b| b != NULL_BYTE[0]) {
+                is_null_only = false;
             }
 
             // Use SIMD to optimize memory copy
@@ -461,6 +493,14 @@ impl DataStore {
             file.write_all(&aligned_buffer[..bytes_read])?;
             checksum_state.update(&aligned_buffer[..bytes_read]); // Update checksum
             total_written += bytes_read;
+        }
+
+        // Reject if the entire stream was NULL bytes
+        if total_written > 0 && is_null_only {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "NULL-byte-only streams cannot be written directly.",
+            ));
         }
 
         let checksum_u32 = checksum_state.finalize();
@@ -530,7 +570,7 @@ impl DataStore {
     /// - This method **locks the file for writing** to maintain consistency.
     /// - If writing **multiple entries**, consider using `batch_write_hashed_payloads()`.
     pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
-        self.batch_write_hashed_payloads(vec![(key_hash, payload)])
+        self.batch_write_hashed_payloads(vec![(key_hash, payload)], false)
     }
 
     /// Writes multiple key-value pairs as a **single transaction**.
@@ -557,7 +597,7 @@ impl DataStore {
             .iter()
             .map(|(key, payload)| (compute_hash(key), *payload))
             .collect();
-        self.batch_write_hashed_payloads(hashed_entries)
+        self.batch_write_hashed_payloads(hashed_entries, false)
     }
 
     /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
@@ -586,7 +626,11 @@ impl DataStore {
     /// - **Faster than multiple `write()` calls**, since it reduces lock contention.
     /// - Suitable for **bulk insertions** where key hashes are known beforehand.
     /// - If keys are available but not hashed, use `batch_write()` instead.
-    pub fn batch_write_hashed_payloads(&self, hashed_payloads: Vec<(u64, &[u8])>) -> Result<u64> {
+    pub fn batch_write_hashed_payloads(
+        &self,
+        hashed_payloads: Vec<(u64, &[u8])>,
+        allow_null_bytes: bool,
+    ) -> Result<u64> {
         let mut file = self.file.write().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
         })?; // Lock only the file, not the whole struct
@@ -597,6 +641,13 @@ impl DataStore {
         let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(hashed_payloads.len());
 
         for (key_hash, payload) in hashed_payloads {
+            if !allow_null_bytes && payload == NULL_BYTE {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "NULL-byte payloads cannot be written directly.",
+                ));
+            }
+
             if payload.is_empty() {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
@@ -645,10 +696,11 @@ impl DataStore {
     /// data segment from the memory-mapped file.
     ///
     /// # Returns:
-    /// TODO: Update return type
-    /// - `Some(&[u8])` containing the binary payload of the last entry.
-    /// - `None` if the storage is empty or corrupted.
-    /// Zero-copy: no bytes are duplicated, just reference-counted.
+    /// - `Some(EntryHandle)`: A handle to the last entry containing the data and metadata.
+    /// - `None`: If the storage is empty or corrupted.
+    ///
+    /// # Notes:
+    /// - The returned `EntryHandle` allows zero-copy access to the entry data.
     pub fn read_last_entry(&self) -> Option<EntryHandle> {
         let mmap_arc = self.get_mmap_arc();
 
@@ -691,9 +743,11 @@ impl DataStore {
     /// - `key`: The **binary key** whose latest value is to be retrieved.
     ///
     /// # Returns:
-    /// // TODO: Update return type
-    /// - `Some(&[u8])` containing the latest value associated with the key.
-    /// - `None` if the key does not exist.
+    /// - `Some(EntryHandle)`: A handle to the entry containing the data and metadata.
+    /// - `None`: If the key does not exist or is deleted.
+    ///
+    /// # Notes:
+    /// - The returned `EntryHandle` provides zero-copy access to the stored data.
     pub fn read(&self, key: &[u8]) -> Option<EntryHandle> {
         let key_hash = compute_hash(key);
 
@@ -749,7 +803,6 @@ impl DataStore {
         self.read(key).map(|entry| entry.metadata().clone())
     }
 
-    // TODO: Prevent renaming to self
     /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
     ///
     /// This function:
@@ -768,7 +821,15 @@ impl DataStore {
     /// # Notes:
     /// - This operation **does not modify** the original entry but instead appends a new copy.
     /// - The old key is **logically deleted** via an append-only tombstone.
+    /// - Attempting to rename a key to itself will return an error.
     pub fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
+        if old_key == new_key {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Cannot rename a key to itself",
+            ));
+        }
+
         let old_entry = self.read(old_key).ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
         })?;
@@ -782,7 +843,6 @@ impl DataStore {
         Ok(new_offset)
     }
 
-    // TODO: Prevent copying to same store, and instead suggest "rename"
     /// Copies an entry to a **different storage container**.
     ///
     /// This function:
@@ -795,12 +855,23 @@ impl DataStore {
     ///
     /// # Returns:
     /// - `Ok(target_offset)`: The file offset where the copied entry was written in the target storage.
-    /// - `Err(std::io::Error)`: If the key is not found or if the write operation fails.
+    /// - `Err(std::io::Error)`: If the key is not found, if the write operation fails,  
+    ///   or if attempting to copy to the same storage.
     ///
     /// # Notes:
     /// - Copying within the **same** storage is unnecessary; use `rename_entry` instead.
     /// - This operation does **not** delete the original entry.
     pub fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+        if self.path == target.path {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "Cannot copy entry to the same storage ({:?}). Use `rename_entry` instead.",
+                    self.path
+                ),
+            ));
+        }
+
         let entry_handle = self.read(key).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -874,13 +945,34 @@ impl DataStore {
     /// # Returns:
     /// - The **new file offset** where the delete marker was appended.
     pub fn delete_entry(&self, key: &[u8]) -> Result<u64> {
-        self.write(key, &NULL_BYTE)
+        let key_hash = compute_hash(key);
+        self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
     }
 
-    // TODO: Return `Err` if more than one thread
     /// Compacts the storage by keeping only the latest version of each key.
+    ///
+    /// # ⚠️ WARNING:
+    /// - **This function should only be used when a single thread is accessing the storage.**
+    /// - While `&mut self` prevents concurrent **mutations**, it **does not** prevent
+    ///   other threads from holding shared references (`&DataStore`) and performing reads.
+    /// - If the `DataStore` instance is wrapped in `Arc<DataStore>`, multiple threads
+    ///   may still hold **read** references while compaction is running, potentially
+    ///   leading to inconsistent reads.
+    /// - If stricter concurrency control is required, **manual synchronization should
+    ///   be enforced externally.**
+    ///
+    /// # Behavior:
+    /// - Creates a **temporary compacted file** containing only the latest versions
+    ///   of stored keys.
+    /// - Swaps the original file with the compacted version upon success.
+    /// - Does **not** remove tombstone (deleted) entries due to the append-only model.
+    ///
+    /// # Returns:
+    /// - `Ok(())` if compaction completes successfully.
+    /// - `Err(std::io::Error)` if an I/O operation fails.
     pub fn compact(&mut self) -> std::io::Result<()> {
-        let compacted_path = self.path.with_extension("bk");
+        let compacted_path = crate::utils::append_extension(&self.path, "bk");
+
         debug!("Starting compaction. Writing to: {:?}", compacted_path);
 
         // Create a new DataStore instance for the compacted file

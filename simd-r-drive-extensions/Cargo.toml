@@ -1,0 +1,20 @@
+[package]
+name = "simd-r-drive-extensions"
+authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
+version = "0.3.0-alpha"
+edition = "2021"
+repository = "https://github.com/jzombie/rust-simd-r-drive"
+description = "Storage extensions for SIMD R Drive"
+homepage = "https://crates.io/crates/simd-r-drive"
+categories = ["database-implementations", "data-structures", "filesystem"]
+license = "Apache-2.0"
+keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
+
+[dependencies]
+bincode = "1.3.3"
+serde = { version = "1.0.219", features = ["derive"] }
+simd-r-drive = { path = "../", version = "0.3.0-alpha" }
+
+[dev-dependencies]
+doc-comment = "0.3.3"
+tempfile = "3.19.0"

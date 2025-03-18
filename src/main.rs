@@ -3,9 +3,9 @@ use indoc::indoc;
 use log::{error, info, warn};
 use simd_r_drive::{DataStore, EntryStream};
 mod utils;
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, IsTerminal, Read, Write};
 use std::path::PathBuf;
-use utils::format_bytes;
+use utils::{format_bytes, parse_buffer_size};
 
 // Help text template with placeholder
 const HELP_TEMPLATE: &str = indoc! {r#"
@@ -66,6 +66,10 @@ enum Commands {
     Read {
         /// The key to read
         key: String,
+
+        /// Buffer size for reading data (default: 64KB)
+        #[arg(short = 'b', long = "buffer-size", value_name = "SIZE")]
+        buffer_size: Option<String>,
     },
 
     /// Write a value for a given key
@@ -129,28 +133,38 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Read { key } => {
-            let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
+        Commands::Read { key, buffer_size } => {
+            let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
+
+            // Default to 64KB if no buffer size is provided
+            let buffer_size = buffer_size
+                .as_deref()
+                .map(parse_buffer_size)
+                .transpose() // Convert `Result<Option<T>, E>` to `Result<Option<T>, E>`
+                .unwrap_or_else(|err| {
+                    error!("{}", err);
+                    std::process::exit(1);
+                })
+                .expect("Buffer size must be provided."); // Ensure it's required
 
             match storage.read(key.as_bytes()) {
                 Some(entry_handle) => {
-                    
                     let stdout = io::stdout();
                     let mut stdout_handle = stdout.lock();
-
-                    if stdout.is_terminal() {
-                        // If writing to a terminal, use UTF-8 safe string output
-                        writeln!(stdout_handle, "{}", String::from_utf8_lossy(entry_handle.as_slice()))
-                            .expect("Failed to write output");
-                    } else {
-                        let mut output_stream = EntryStream::from(entry_handle);
-
-                        io::copy(&mut output_stream, &mut stdout_handle).expect("Failed to write binary output");
+                    let mut entry_stream = EntryStream::from(entry_handle);
+                    let mut buffer = vec![0u8; buffer_size];
+            
+                    loop {
+                        let bytes_read = entry_stream.read(&mut buffer).expect("Failed to read entry");
+                        if bytes_read == 0 {
+                            break; // End of stream
+                        }
+                        stdout_handle.write_all(&buffer[..bytes_read]).expect("Failed to write output");
                         stdout_handle.flush().expect("Failed to flush output");
                     }
                 }
                 None => {
-                    error!("Error: Key '{}' not found", key);
+                    eprintln!("Error: Key '{}' not found", key);
                     std::process::exit(1);
                 }
             }
@@ -184,7 +198,8 @@ fn main() {
 
         Commands::Copy { key, target } => {
             let source_storage =
-                DataStore::open(&cli.storage).expect("Failed to open source storage");
+                DataStore::open_existing(&cli.storage).expect("Failed to open source storage");
+
             let mut target_storage =
                 DataStore::open(target).expect("Failed to open target storage");
 
@@ -201,7 +216,8 @@ fn main() {
 
         Commands::Move { key, target } => {
             let source_storage =
-                DataStore::open(&cli.storage).expect("Failed to open source storage");
+                DataStore::open_existing(&cli.storage).expect("Failed to open source storage");
+
             let mut target_storage =
                 DataStore::open(target).expect("Failed to open target storage");
 
@@ -218,7 +234,7 @@ fn main() {
 
         Commands::Rename { old_key, new_key } => {
             let storage =
-                DataStore::open(&cli.storage).expect("Failed to open source storage");
+                DataStore::open_existing(&cli.storage).expect("Failed to open source storage");
 
                 storage
                 .rename_entry(old_key.as_bytes(), new_key.as_bytes())
@@ -232,7 +248,8 @@ fn main() {
         }
 
         Commands::Delete { key } => {
-            let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
+            let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
+
             storage
                 .delete_entry(key.as_bytes())
                 .expect("Failed to delete entry");
@@ -240,7 +257,7 @@ fn main() {
         }
 
         Commands::Compact => {
-            let mut storage = DataStore::open(&cli.storage).expect("Failed to open storage");
+            let mut storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
             info!("Starting compaction...");
             if let Err(e) = storage.compact() {
                 error!("Compaction failed: {}", e);
@@ -250,7 +267,7 @@ fn main() {
         }
 
         Commands::Metadata { key } => {
-            let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
+            let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
 
             match storage.read(key.as_bytes()) {
                 Some(entry) => {
@@ -304,7 +321,7 @@ fn main() {
         }
 
         Commands::Info => {
-            let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
+            let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
 
             // Retrieve storage file size
             let storage_size = storage.get_storage_size().unwrap_or(0);

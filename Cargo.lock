@@ -180,6 +180,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "doc-comment"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
+
+[[package]]
 name = "env_filter"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -678,7 +684,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.2.0-alpha.3"
+version = "0.3.0-alpha"
 dependencies = [
  "bincode",
  "clap",
@@ -694,6 +700,17 @@ dependencies = [
  "tempfile",
  "tokio",
  "xxhash-rust",
+]
+
+[[package]]
+name = "simd-r-drive-extensions"
+version = "0.3.0-alpha"
+dependencies = [
+ "bincode",
+ "doc-comment",
+ "serde",
+ "simd-r-drive",
+ "tempfile",
 ]
 
 [[package]]
@@ -730,11 +747,10 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.18.0"
+version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c317e0a526ee6120d8dabad239c8dadca62b24b6f168914bbbc8e2fb1f0e567"
+checksum = "488960f40a3fd53d72c2a29a58722561dee8afdd175bd88e3db4677d7b2ba600"
 dependencies = [
- "cfg-if",
  "fastrand",
  "getrandom",
  "once_cell",
