@@ -22,8 +22,6 @@
 //! // Open or create a new storage file
 //! let mut storage = DataStore::open(&PathBuf::from("test_storage.bin")).unwrap();
 //!
-//! // TODO: Add streaming examples
-//!
 //! // Append some key-value entries
 //! storage.write(b"key1", b"value1").unwrap();
 //! storage.write(b"key2", b"value2").unwrap();
@@ -56,7 +54,54 @@
 //! storage.delete_entry(b"key3").unwrap();
 //! let entry = storage.read(b"key3");
 //! assert!(entry.is_none());
+//! ```
 //!
+//! ## Streaming Example
+//! ```rust
+//! use simd_r_drive::{DataStore, EntryStream};
+//! use std::fs::File;
+//! use std::io::{Cursor, Read, Write};
+//! use std::path::PathBuf;
+//!
+//! // Open or create a new storage file
+//! let mut storage = DataStore::open(&PathBuf::from("test_storage_stream.bin")).unwrap();
+//!
+//! // Example streaming data
+//! let stream_data = b"Streaming payload with large data";
+//! let mut cursor = Cursor::new(stream_data);
+//!
+//! // Write streaming data
+//! storage.write_stream(b"stream_key", &mut cursor).unwrap();
+//!
+//! // Read and validate streaming data using `EntryStream`
+//! let entry_handle = storage.read(b"stream_key").unwrap(); // Get EntryHandle
+//! let mut retrieved_stream = EntryStream::from(entry_handle); // Convert to EntryStream
+//! let mut buffer = Vec::new();
+//!
+//! retrieved_stream.read_to_end(&mut buffer).unwrap(); // Read stream in chunks
+//! assert_eq!(buffer, stream_data);
+//!
+//! // Create a temporary file for testing
+//! let temp_path = "test_large_file.bin";
+//! let mut temp_file = File::create(temp_path).expect("Failed to create temp file");
+//! temp_file.write_all(b"Temporary file content").unwrap();
+//! temp_file.sync_all().unwrap(); // Ensure file is written
+//!
+//! // Open the file for streaming
+//! let mut file = File::open(temp_path).expect("File not found");
+//! storage.write_stream(b"file_stream_key", &mut file).unwrap();
+//!
+//! // Read back the streamed file using `EntryStream`
+//! let file_entry = storage.read(b"file_stream_key").unwrap(); // Get EntryHandle
+//! let mut file_stream = EntryStream::from(file_entry); // Convert to EntryStream
+//! let mut file_buffer = Vec::new();
+//!
+//! file_stream.read_to_end(&mut file_buffer).unwrap();
+//!
+//! assert_eq!(file_buffer, b"Temporary file content");
+//!
+//! // Cleanup test file
+//! std::fs::remove_file(temp_path).unwrap();
 //! ```
 //!
 //! ## Performance Considerations
@@ -70,7 +115,6 @@
 //!
 //! ## License
 //! This project is licensed under the Apache-2.0 License.
-
 pub mod storage_engine;
 
 pub use storage_engine::digest::*;
