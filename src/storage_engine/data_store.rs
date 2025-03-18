@@ -696,10 +696,11 @@ impl DataStore {
     /// data segment from the memory-mapped file.
     ///
     /// # Returns:
-    /// TODO: Update return type
-    /// - `Some(&[u8])` containing the binary payload of the last entry.
-    /// - `None` if the storage is empty or corrupted.
-    /// Zero-copy: no bytes are duplicated, just reference-counted.
+    /// - `Some(EntryHandle)`: A handle to the last entry containing the data and metadata.
+    /// - `None`: If the storage is empty or corrupted.
+    ///
+    /// # Notes:
+    /// - The returned `EntryHandle` allows zero-copy access to the entry data.
     pub fn read_last_entry(&self) -> Option<EntryHandle> {
         let mmap_arc = self.get_mmap_arc();
 
@@ -742,9 +743,11 @@ impl DataStore {
     /// - `key`: The **binary key** whose latest value is to be retrieved.
     ///
     /// # Returns:
-    /// // TODO: Update return type
-    /// - `Some(&[u8])` containing the latest value associated with the key.
-    /// - `None` if the key does not exist.
+    /// - `Some(EntryHandle)`: A handle to the entry containing the data and metadata.
+    /// - `None`: If the key does not exist or is deleted.
+    ///
+    /// # Notes:
+    /// - The returned `EntryHandle` provides zero-copy access to the stored data.
     pub fn read(&self, key: &[u8]) -> Option<EntryHandle> {
         let key_hash = compute_hash(key);
 
