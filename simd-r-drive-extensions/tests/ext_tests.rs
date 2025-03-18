@@ -157,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_non_existent_key() {
+    fn test_read_non_existent_key_error() {
         let (_dir, storage) = create_temp_storage();
 
         let key = b"non_existent_key";
@@ -165,8 +165,8 @@ mod tests {
         let retrieved = storage.read_option::<TestData>(key);
 
         assert!(
-            retrieved.unwrap().is_none(),
-            "Expected None when reading a key that was never written"
+            retrieved.is_err(),
+            "Expected error when reading non-existent key"
         );
     }
 

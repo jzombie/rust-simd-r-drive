@@ -70,10 +70,10 @@ pub trait StorageOptionExt {
     /// let storage = DataStore::open(&PathBuf::from("store.bin")).unwrap();
     ///
     /// // Write `Some(value)`
-    /// storage.write_option(b"key", Some(&123)).unwrap();
+    /// storage.write_option(b"key_with_some_value", Some(&123)).unwrap();
     ///
     /// // Write `None` (tombstone)
-    /// storage.write_option::<i32>(b"deleted_key", None).unwrap();
+    /// storage.write_option::<i32>(b"key_with_none_value", None).unwrap();
     /// ```
     fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> std::io::Result<u64>;
 
@@ -87,9 +87,9 @@ pub trait StorageOptionExt {
     /// - `key`: The binary key to retrieve.
     ///
     /// # Returns
-    /// - `Ok(Some(T))`: If deserialization succeeds.
-    /// - `Ok(None)`: If the key does not exist or represents `None`.
-    /// - `Err(std::io::Error)`: If deserialization fails.
+    /// - `Ok(Some(T))`: If deserialization succeeds and is `Some`.
+    /// - `Ok(None)`: If the key represents `None`.
+    /// - `Err(std::io::Error)`: If the key does not exist or if deserialization fails.
     ///
     /// # Example
     /// ```rust
@@ -99,11 +99,14 @@ pub trait StorageOptionExt {
     ///
     /// let storage = DataStore::open(&PathBuf::from("store.bin")).unwrap();
     ///
-    /// storage.write_option(b"some_key", Some(&789)).unwrap();
-    /// storage.write_option::<i32>(b"deleted_key", None).unwrap();
+    /// storage.write_option(b"key_with_some_value", Some(&789)).unwrap();
+    /// storage.write_option::<i32>(b"key_with_none_value", None).unwrap();
     ///
-    /// assert_eq!(storage.read_option::<i32>(b"some_key").unwrap(), Some(789));
-    /// assert_eq!(storage.read_option::<i32>(b"deleted_key").unwrap(), None);
+    /// assert_eq!(storage.read_option::<i32>(b"key_with_some_value").unwrap(), Some(789));
+    /// assert_eq!(storage.read_option::<i32>(b"key_with_none_value").unwrap(), None);
+    ///
+    /// // Errors on non-existent keys
+    /// assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
     /// ```
     fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, std::io::Error>;
 }
@@ -139,7 +142,12 @@ impl StorageOptionExt for DataStore {
                     .map(Some)
                     .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))
             }
-            None => Ok(None),
+            None => {
+                return Err(io::Error::new(
+                    ErrorKind::NotFound,
+                    "Key not found in storage",
+                ))
+            }
         }
     }
 }
