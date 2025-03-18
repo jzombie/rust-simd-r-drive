@@ -2,6 +2,8 @@
 name = "simd-r-drive-extensions"
 version = "0.1.0"
 edition = "2021"
+categories = ["database-implementations", "data-structures", "filesystem"]
+keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
 publish = false
 
 [dependencies]

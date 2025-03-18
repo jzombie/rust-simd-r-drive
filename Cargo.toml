@@ -6,7 +6,8 @@ edition = "2021"
 description = "SIMD-optimized append-only schema-less storage engine. Key-based binary storage in a single-file storage container."
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
-# TODO: Add keywords
+categories = ["database-implementations", "data-structures", "filesystem"]
+keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
 
 [dependencies]
 crc32fast = "1.4.2"
