@@ -30,6 +30,8 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
   - [Direct memory access](#direct-memory-access)
   - [Streaming](#streaming)
 - [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
+- [Extensions](#extensions)
+- [License](#license)
 
 
 
@@ -202,6 +204,10 @@ This avoids high memory overhead while still leveraging `mmap` for efficient acc
 - **SIMD-Accelerated Hashing (`xxh3_64`)**: The hashing mechanism used for indexing (`xxh3_64`) is optimized with SIMD extensions. This improves key lookups and indexing efficiency, particularly for large datasets with high query throughput.
 
 By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU cycles spent on memory movement and hashing, leading to optimized storage performance in high-throughput, write-heavy workloads. Note that **SIMD is not used for reading or zero-copy memory-mapped access**, as those operations benefit from direct memory access without additional transformations.
+
+## Extensions
+
+[SIMD R Drive Extensions](./simd-r-drive-extensions/) provide additional functionality and introduce extra dependencies.
 
 ## License
 

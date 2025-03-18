@@ -17,29 +17,35 @@ cargo add simd-r-drive-extensions
 ```rust
 use simd_r_drive::DataStore;
 use simd_r_drive_extensions::StorageOptionExt;
-use tempfile::tempdir;
+use std::path::PathBuf;
 
-// Create temporary storage
-let (_dir, storage) = {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("test_storage.bin");
-    let store = DataStore::open(&path).unwrap();
-    (dir, store)
-};
+let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
 
 // Write Some value
-storage.write_option(b"key1", Some(&42)).unwrap();
+storage.write_option(b"key_with_some_value", Some(&42)).unwrap();
 assert_eq!(
-    storage.read_option::<i32>(b"key1").expect("Failed to read key1"),
+    storage.read_option::<i32>(b"key_with_some_value").expect("Failed to read key1"),
     Some(42)
 );
 
 // Write None
-storage.write_option::<i32>(b"key2", None).unwrap();
+storage.write_option::<i32>(b"key_with_none_value", None).unwrap();
 assert_eq!(
-    storage.read_option::<i32>(b"key2").expect("Failed to read key2"),
+    storage.read_option::<i32>(b"key_with_none_value").expect("Failed to read key2"),
     None
 );
+
+// Check if the key exists in storage, regardless of whether it's `Some` or `None`
+if let Ok(none_option) = storage.read_option::<i32>(b"key_with_none_value") {
+    assert!(none_option.is_none());
+} else {
+    // Just to check the example
+    panic!("Failed to read key: `key_with_none_value` does not exist or read error occurred.");
+}
+
+// Alternative, concise check
+let none_option = storage.read_option::<i32>(b"key_with_none_value").unwrap();
+assert!(none_option.is_none()); // Ensures `Option<T>` exists
 
 // Errors on non-existent keys
 assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
@@ -49,7 +55,8 @@ assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
 ## Implementation Details
 
 - Uses a predefined tombstone marker (`[0xFF, 0xFE]`) to represent `None`.
-- Values are serialized using bincode.
+- Values are serialized using [bincode](https://crates.io/crates/bincode).
+- ⚠️ Unlike [SIMD R Drive](https://crates.io/crates/simd-r-drive), values are non-zero-copy, as they require deserialization.
 
 ## License
 
