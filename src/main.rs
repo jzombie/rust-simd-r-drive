@@ -133,8 +133,8 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-            // TODO: Verify file exists before initializing, so it doesn't create an empty file
         Commands::Read { key, buffer_size } => {
+            // TODO: Verify file exists before initializing, so it doesn't create an empty file
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
             // Default to 64KB if no buffer size is provided
