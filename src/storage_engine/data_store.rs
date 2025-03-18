@@ -421,6 +421,7 @@ impl DataStore {
         self.write_stream_with_key_hash(key_hash, reader)
     }
 
+    // TODO: Prevent users from writing NULL-byte payloads directly
     /// Writes an entry using a **precomputed key hash** and a streaming `Read` source.
     ///
     /// This is a **low-level** method that operates like `write_stream`, but requires
@@ -560,6 +561,7 @@ impl DataStore {
         self.batch_write_hashed_payloads(hashed_entries)
     }
 
+    // TODO: Prevent users from writing NULL-byte payloads directly
     /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
     ///
     /// This method efficiently appends multiple entries in a **batch operation**,
