@@ -79,9 +79,10 @@ pub trait StorageOptionExt {
 
     /// Reads an `Option<T>` from storage.
     ///
-    /// - **Returns `None`** if the stored value represents a missing entry.
-    /// - **Attempts deserialization** of `T` otherwise.
-    /// - **Returns `Ok(None)`** if the key does not exist.
+    /// - **⚠️ Non Zero-Copy Warning**: Requires deserialization.
+    /// - **Returns `Ok(None)`** if the key exists but represents `None` in storage.
+    /// - **Returns `Err(ErrorKind::NotFound)`** if the key does not exist.
+    /// - **Returns `Err(ErrorKind::InvalidData)`** if deserialization fails.
     ///
     /// # Arguments
     /// - `key`: The binary key to retrieve.
@@ -134,8 +135,9 @@ impl StorageOptionExt for DataStore {
     ///
     /// # ⚠️ **Non Zero-Copy Warning**
     /// - **Not zero-copy**: Requires deserialization.
-    /// - **Returns `None`** if key does not exist or is a tombstone marker.
-    /// - **Errors on invalid deserialization.**
+    /// - **Returns `Ok(None)`** if the key exists but represents `None` in storage.
+    /// - **Returns `Err(ErrorKind::NotFound)`** if the key does not exist.
+    /// - **Returns `Err(ErrorKind::InvalidData)`** if deserialization fails.
     ///
     /// # Safety
     /// - This function **allocates memory** for deserialization.
