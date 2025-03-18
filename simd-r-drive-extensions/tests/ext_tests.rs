@@ -2,7 +2,7 @@
 mod tests {
     use serde::{Deserialize, Serialize};
     use simd_r_drive::DataStore;
-    use simd_r_drive_extensions::{StorageOptionExt, OPTION_TOMBSTONE_MARKER};
+    use simd_r_drive_extensions::{StorageOptionExt, TEST_OPTION_TOMBSTONE_MARKER};
     use tempfile::tempdir;
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -113,7 +113,7 @@ mod tests {
         // Step 5: Ensure the stored entry matches the expected tombstone marker
         assert_eq!(
             raw_entry.unwrap().as_slice(),
-            OPTION_TOMBSTONE_MARKER,
+            TEST_OPTION_TOMBSTONE_MARKER,
             "Stored value should be the tombstone marker, not a deleted entry"
         );
     }

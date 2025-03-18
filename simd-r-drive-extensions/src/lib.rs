@@ -8,7 +8,10 @@ use simd_r_drive::DataStore;
 use std::io::{self, ErrorKind};
 /// Special marker for explicitly storing `None` values in binary storage.
 /// This ensures that `None` is distinguishable from an empty or default value.
-pub const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE];
+const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE];
+
+#[cfg(any(test, debug_assertions))]
+pub const TEST_OPTION_TOMBSTONE_MARKER: [u8; 2] = OPTION_TOMBSTONE_MARKER;
 
 /// # Storage Utilities for Handling `Option<T>`
 ///
