@@ -66,6 +66,10 @@ enum Commands {
     Read {
         /// The key to read
         key: String,
+
+        /// Buffer size for reading data (default: 64KB)
+        #[arg(short = 'b', long = "buffer-size", default_value_t = 64 * 1024)]
+        buffer_size: usize
     },
 
     /// Write a value for a given key
@@ -129,40 +133,15 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Read { key } => {
+        Commands::Read { key, buffer_size } => {
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
-
-            // match storage.read(key.as_bytes()) {
-            //     Some(entry_handle) => {
-                    
-            //         let stdout = io::stdout();
-            //         let mut stdout_handle = stdout.lock();
-
-            //         if stdout.is_terminal() {
-            //             // If writing to a terminal, use UTF-8 safe string output
-            //             writeln!(stdout_handle, "{}", String::from_utf8_lossy(entry_handle.as_slice()))
-            //                 .expect("Failed to write output");
-            //         } else {
-            //             let mut output_stream = EntryStream::from(entry_handle);
-
-            //             io::copy(&mut output_stream, &mut stdout_handle).expect("Failed to write binary output");
-            //             stdout_handle.flush().expect("Failed to flush output");
-            //         }
-            //     }
-            //     None => {
-            //         error!("Error: Key '{}' not found", key);
-            //         std::process::exit(1);
-            //     }
-            // }
-
-            const READ_BUFFER_SIZE: usize = 64 * 1024; // 64KB buffer
 
             match storage.read(key.as_bytes()) {
                 Some(entry_handle) => {
                     let stdout = io::stdout();
                     let mut stdout_handle = stdout.lock();
                     let mut entry_stream = EntryStream::from(entry_handle);
-                    let mut buffer = [0u8; READ_BUFFER_SIZE];
+                    let mut buffer = vec![0u8; *buffer_size];
             
                     loop {
                         let bytes_read = entry_stream.read(&mut buffer).expect("Failed to read entry");
