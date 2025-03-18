@@ -2,6 +2,7 @@ use crate::storage_engine::constants::*;
 use crate::storage_engine::digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
 use crate::storage_engine::simd_copy;
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
+use crate::utils::verify_file_existence;
 use log::{debug, info, warn};
 use memmap2::Mmap;
 use std::collections::HashSet;
@@ -109,6 +110,30 @@ impl DataStore {
             key_indexer: Arc::new(RwLock::new(key_indexer)),
             path: path.to_path_buf(),
         })
+    }
+
+    /// Opens an **existing** append-only storage file.
+    ///
+    /// This function verifies that the file exists before attempting to open it.
+    /// If the file does not exist or is not a valid file, an error is returned.
+    ///
+    /// # Parameters:
+    /// - `path`: The **file path** of the storage file.
+    ///
+    /// # Returns:
+    /// - `Ok(DataStore)`: A **new storage instance** if the file exists and can be opened.
+    /// - `Err(std::io::Error)`: If the file does not exist or is invalid.
+    ///
+    /// # Notes:
+    /// - Unlike `open()`, this function **does not create** a new storage file if the
+    ///   specified file does not exist.
+    /// - If the file is **missing** or is not a regular file, an error is returned.
+    /// - This is useful in scenarios where the caller needs to **ensure** that they are
+    ///   working with an already existing storage file.
+    pub fn open_existing(path: &Path) -> Result<Self> {
+        verify_file_existence(&path)?;
+
+        Self::open(path)
     }
 
     /// Workaround for directly opening in **append mode** causing permissions issues on Windows

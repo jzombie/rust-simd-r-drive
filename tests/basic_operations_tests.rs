@@ -150,4 +150,43 @@ mod tests {
             "Key3 should remain unchanged"
         );
     }
+
+    #[test]
+    fn test_open_existing_storage() {
+        let dir = tempdir().expect("Failed to create temp dir");
+        let path = dir.path().join("test_storage_existing.bin");
+
+        // Create the file first
+        {
+            let _storage = DataStore::open(&path).expect("Failed to create storage file");
+        }
+
+        // Now attempt to open it with `open_existing`
+        let storage =
+            DataStore::open_existing(&path).expect("Failed to open existing storage file");
+
+        // Ensure storage is accessible
+        let key = b"test_key".as_slice();
+        let payload = b"Existing file test".as_slice();
+        storage.write(key, payload).expect("Failed to write entry");
+
+        let retrieved = storage.read(key).expect("Entry should exist in storage");
+        assert_eq!(
+            retrieved.as_slice(),
+            payload,
+            "Retrieved payload does not match expected value"
+        );
+    }
+
+    #[test]
+    fn test_open_existing_fails_for_missing_file() {
+        let dir = tempdir().expect("Failed to create temp dir");
+        let path = dir.path().join("non_existent_storage.bin");
+
+        let result = DataStore::open_existing(&path);
+        assert!(
+            result.is_err(),
+            "Expected error when opening non-existent file"
+        );
+    }
 }
