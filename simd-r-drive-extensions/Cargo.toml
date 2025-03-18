@@ -10,4 +10,5 @@ serde = { version = "1.0.219", features = ["derive"] }
 simd-r-drive = { path = "../" }
 
 [dev-dependencies]
+doc-comment = "0.3.3"
 tempfile = "3.19.0"

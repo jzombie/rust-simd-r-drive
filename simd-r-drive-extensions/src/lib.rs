@@ -1,3 +1,6 @@
+#[cfg(doctest)]
+doc_comment::doctest!("../README.md");
+
 use bincode;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
