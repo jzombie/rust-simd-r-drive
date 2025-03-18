@@ -3,6 +3,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use simd_r_drive::DataStore;
     use simd_r_drive_extensions::{StorageOptionExt, TEST_OPTION_TOMBSTONE_MARKER};
+    use std::io::ErrorKind;
     use tempfile::tempdir;
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -165,8 +166,9 @@ mod tests {
         let retrieved = storage.read_option::<TestData>(key);
 
         assert!(
-            retrieved.is_err(),
-            "Expected error when reading non-existent key"
+            matches!(retrieved, Err(ref e) if e.kind() == ErrorKind::NotFound),
+            "Expected `ErrorKind::NotFound` when reading a non-existent key, got: {:?}",
+            retrieved
         );
     }
 
