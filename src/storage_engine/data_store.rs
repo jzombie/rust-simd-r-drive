@@ -809,7 +809,6 @@ impl DataStore {
         Ok(new_offset)
     }
 
-    // TODO: Prevent copying to same store, and instead suggest "rename"
     /// Copies an entry to a **different storage container**.
     ///
     /// This function:
@@ -822,12 +821,23 @@ impl DataStore {
     ///
     /// # Returns:
     /// - `Ok(target_offset)`: The file offset where the copied entry was written in the target storage.
-    /// - `Err(std::io::Error)`: If the key is not found or if the write operation fails.
+    /// - `Err(std::io::Error)`: If the key is not found, if the write operation fails,  
+    ///   or if attempting to copy to the same storage.
     ///
     /// # Notes:
     /// - Copying within the **same** storage is unnecessary; use `rename_entry` instead.
     /// - This operation does **not** delete the original entry.
     pub fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+        if self.path == target.path {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "Cannot copy entry to the same storage ({:?}). Use `rename_entry` instead.",
+                    self.path
+                ),
+            ));
+        }
+
         let entry_handle = self.read(key).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::NotFound,

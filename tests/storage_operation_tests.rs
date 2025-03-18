@@ -67,6 +67,32 @@ mod tests {
     }
 
     #[test]
+    fn test_copy_entry_to_self_fails() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"self_copy_key";
+        let payload = b"Data that should not be copied to self";
+
+        // Step 1: Write an entry into the storage
+        storage.write(key, payload).expect("Failed to append entry");
+
+        // Step 2: Attempt to copy the entry to the same storage
+        let result = storage.copy_entry(key, &storage);
+
+        // Step 3: Ensure the operation fails with the expected error
+        assert!(
+            result.is_err(),
+            "Copying an entry to the same storage should fail"
+        );
+
+        let error_message = result.unwrap_err().to_string();
+        assert!(
+            error_message.contains("Cannot copy entry to the same storage"),
+            "Error message should indicate copying to self is not allowed"
+        );
+    }
+
+    #[test]
     fn test_move_entry_between_storages() {
         let (_dir1, source_storage) = create_temp_storage();
         let (_dir2, mut target_storage) = create_temp_storage();
