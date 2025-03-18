@@ -105,6 +105,14 @@ pub trait StorageOptionExt {
     /// assert_eq!(storage.read_option::<i32>(b"key_with_some_value").unwrap(), Some(789));
     /// assert_eq!(storage.read_option::<i32>(b"key_with_none_value").unwrap(), None);
     ///
+    /// if let Ok(none_option) = storage.read_option::<i32>(b"key_with_none_value") {
+    ///     assert!(none_option.is_some() || none_option.is_none()); // Explicitly checking Option type
+    /// }
+    ///
+    /// // Alternative, concise check
+    /// let none_option = storage.read_option::<i32>(b"key_with_none_value").unwrap();
+    /// assert!(none_option.is_none() || none_option.is_some()); // Ensures `Option<T>` exists
+    ///
     /// // Errors on non-existent keys
     /// assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
     /// ```

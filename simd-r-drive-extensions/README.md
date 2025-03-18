@@ -28,18 +28,30 @@ let (_dir, storage) = {
 };
 
 // Write Some value
-storage.write_option(b"key1", Some(&42)).unwrap();
+storage.write_option(b"key_with_some_value", Some(&42)).unwrap();
 assert_eq!(
-    storage.read_option::<i32>(b"key1").expect("Failed to read key1"),
+    storage.read_option::<i32>(b"key_with_some_value").expect("Failed to read key1"),
     Some(42)
 );
 
 // Write None
-storage.write_option::<i32>(b"key2", None).unwrap();
+storage.write_option::<i32>(b"key_with_none_value", None).unwrap();
 assert_eq!(
-    storage.read_option::<i32>(b"key2").expect("Failed to read key2"),
+    storage.read_option::<i32>(b"key_with_none_value").expect("Failed to read key2"),
     None
 );
+
+// Check if the key exists in storage, regardless of whether it's `Some` or `None`
+if let Ok(none_option) = storage.read_option::<i32>(b"key_with_none_value") {
+    assert!(none_option.is_none());
+} else {
+    // Just to check the example
+    panic!("Failed to read key: `key_with_none_value` does not exist or read error occurred.");
+}
+
+// Alternative, concise check
+let none_option = storage.read_option::<i32>(b"key_with_none_value").unwrap();
+assert!(none_option.is_none()); // Ensures `Option<T>` exists
 
 // Errors on non-existent keys
 assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
