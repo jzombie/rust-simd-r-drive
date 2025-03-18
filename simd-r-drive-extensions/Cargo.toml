@@ -1,7 +1,7 @@
 [package]
 name = "simd-r-drive-extensions"
 authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
-version = "0.4.0-alpha"
+version = "0.4.0-alpha.1"
 edition = "2021"
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 description = "Storage extensions for SIMD R Drive"

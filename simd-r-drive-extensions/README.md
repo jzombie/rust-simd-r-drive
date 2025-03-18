@@ -41,6 +41,9 @@ assert_eq!(
     None
 );
 
+// Errors on non-existent keys
+assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
+
 ```
 
 ## Implementation Details
