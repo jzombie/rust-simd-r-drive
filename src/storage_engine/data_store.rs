@@ -776,7 +776,6 @@ impl DataStore {
         self.read(key).map(|entry| entry.metadata().clone())
     }
 
-    // TODO: Prevent renaming to self
     /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
     ///
     /// This function:
@@ -795,7 +794,15 @@ impl DataStore {
     /// # Notes:
     /// - This operation **does not modify** the original entry but instead appends a new copy.
     /// - The old key is **logically deleted** via an append-only tombstone.
+    /// - Attempting to rename a key to itself will return an error.
     pub fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
+        if old_key == new_key {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Cannot rename a key to itself",
+            ));
+        }
+
         let old_entry = self.read(old_key).ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
         })?;

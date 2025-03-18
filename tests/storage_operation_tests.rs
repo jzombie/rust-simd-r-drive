@@ -257,6 +257,41 @@ mod tests {
     }
 
     #[test]
+    fn test_rename_entry_to_self_fails() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"same_key";
+        let payload = b"Data for self-renaming";
+
+        // Step 1: Write an entry
+        storage.write(key, payload).expect("Failed to append entry");
+
+        // Step 2: Attempt to rename the key to itself
+        let result = storage.rename_entry(key, key);
+
+        // Step 3: Ensure the operation fails with the expected error
+        assert!(
+            result.is_err(),
+            "Renaming a key to itself should fail, but succeeded"
+        );
+
+        let error = result.unwrap_err();
+        assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::InvalidInput,
+            "Expected InvalidInput error when renaming to the same key"
+        );
+
+        // Step 4: Ensure the original entry still exists
+        let existing_entry = storage.read(key).expect("Entry should still exist");
+        assert_eq!(
+            existing_entry.as_slice(),
+            payload,
+            "Data should remain unchanged after failed rename"
+        );
+    }
+
+    #[test]
     fn test_nested_storage_extraction() {
         let (_dir1, storage1) = create_temp_storage();
         let key1 = b"original_key";
