@@ -26,7 +26,7 @@ pub const TEST_OPTION_TOMBSTONE_MARKER: [u8; 2] = OPTION_TOMBSTONE_MARKER;
 ///
 /// ## Implementation Details
 /// - **`Some(value)`**: Serialized using `bincode`.
-/// - **`None`**: Stored using a predefined method.
+/// - **`None`**: Explicitly stored using a dedicated tombstone marker (`[0xFF, 0xFE]`).
 ///
 /// ## Example Usage
 ///
