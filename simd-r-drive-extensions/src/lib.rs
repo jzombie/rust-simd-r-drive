@@ -6,8 +6,6 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simd_r_drive::DataStore;
 use std::io::{self, ErrorKind};
-
-// TODO: Only use internally
 /// Special marker for explicitly storing `None` values in binary storage.
 /// This ensures that `None` is distinguishable from an empty or default value.
 pub const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE];
@@ -15,17 +13,16 @@ pub const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE];
 /// # Storage Utilities for Handling `Option<T>`
 ///
 /// This trait provides methods to store and retrieve `Option<T>` values
-/// in a `DataStore`, ensuring that `None` values are explicitly marked
-/// using a **tombstone marker** (`OPTION_TOMBSTONE_MARKER`).
+/// in a `DataStore`, ensuring that `None` values are explicitly handled.
 ///
 /// ## Purpose
-/// - **Prevents ambiguity**: Ensures `None` is not confused with an empty value.
-/// - **Efficient storage**: Uses a fixed marker (`[0xFF, 0xFE]`) for `None` values.
-/// - **Binary-safe**: Avoids `bincode`'s default `None` serialization (`0x00`).
+/// - **Prevents ambiguity**: Ensures `None` is stored and retrieved correctly.
+/// - **Efficient storage**: Uses a compact representation.
+/// - **Binary-safe**: Avoids unintended interpretation of missing values.
 ///
 /// ## Implementation Details
 /// - **`Some(value)`**: Serialized using `bincode`.
-/// - **`None`**: Stored as `OPTION_TOMBSTONE_MARKER` (`[0xFF, 0xFE]`).
+/// - **`None`**: Stored using a predefined method.
 ///
 /// ## Example Usage
 ///
@@ -47,14 +44,14 @@ pub const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE];
 /// assert_eq!(storage.read_option::<i32>(b"key2").unwrap(), None);
 /// ```
 pub trait StorageOptionExt {
-    /// Writes an `Option<T>` into the `DataStore`, marking `None` explicitly.
+    /// Writes an `Option<T>` into the `DataStore`, ensuring `None` values are preserved.
     ///
     /// - `Some(value)`: Serialized using `bincode`.
-    /// - `None`: Stored using the `OPTION_TOMBSTONE_MARKER` (`[0xFF, 0xFE]`).
+    /// - `None`: Stored in a way that allows correct retrieval.
     ///
     /// # Arguments
     /// - `key`: The binary key under which the value is stored.
-    /// - `value`: An optional reference to `T`, where `None` is marked explicitly.
+    /// - `value`: An optional reference to `T`, where `None` is handled appropriately.
     ///
     /// # Returns
     /// - `Ok(offset)`: The **file offset** where the data was written.
@@ -78,7 +75,7 @@ pub trait StorageOptionExt {
 
     /// Reads an `Option<T>` from storage.
     ///
-    /// - **Returns `None`** if the stored value matches `OPTION_TOMBSTONE_MARKER`.
+    /// - **Returns `None`** if the stored value represents a missing entry.
     /// - **Attempts deserialization** of `T` otherwise.
     /// - **Returns `Ok(None)`** if the key does not exist.
     ///
@@ -87,7 +84,7 @@ pub trait StorageOptionExt {
     ///
     /// # Returns
     /// - `Ok(Some(T))`: If deserialization succeeds.
-    /// - `Ok(None)`: If the key contains the tombstone marker or does not exist.
+    /// - `Ok(None)`: If the key does not exist or represents `None`.
     /// - `Err(std::io::Error)`: If deserialization fails.
     ///
     /// # Example
