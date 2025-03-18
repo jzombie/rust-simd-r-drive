@@ -68,8 +68,8 @@ enum Commands {
         key: String,
 
         /// Buffer size for reading data (default: 64KB)
-        #[arg(short = 'b', long = "buffer-size", default_value_t = 64 * 1024)]
-        buffer_size: usize
+        #[arg(short = 'b', long = "buffer-size", value_name = "SIZE")]
+        buffer_size: Option<String>,
     },
 
     /// Write a value for a given key
@@ -136,12 +136,23 @@ fn main() {
         Commands::Read { key, buffer_size } => {
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
 
+            // Default to 64KB if no buffer size is provided
+            let buffer_size = buffer_size
+                .as_deref()
+                .map(utils::parse_buffer_size)
+                .transpose() // Convert `Result<Option<T>, E>` to `Result<Option<T>, E>`
+                .unwrap_or_else(|err| {
+                    error!("{}", err);
+                    std::process::exit(1);
+                })
+                .expect("Buffer size must be provided."); // Ensure it's required
+
             match storage.read(key.as_bytes()) {
                 Some(entry_handle) => {
                     let stdout = io::stdout();
                     let mut stdout_handle = stdout.lock();
                     let mut entry_stream = EntryStream::from(entry_handle);
-                    let mut buffer = vec![0u8; *buffer_size];
+                    let mut buffer = vec![0u8; buffer_size];
             
                     loop {
                         let bytes_read = entry_stream.read(&mut buffer).expect("Failed to read entry");
