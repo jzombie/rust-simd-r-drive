@@ -56,7 +56,7 @@ assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
 
 - Uses a predefined tombstone marker (`[0xFF, 0xFE]`) to represent `None`.
 - Values are serialized using [bincode](https://crates.io/crates/bincode).
-- Unlike [SIMD R Drive](https://crates.io/crates/simd-r-drive), values are non-zero-copy, as they require deserialization.
+- ⚠️ Unlike [SIMD R Drive](https://crates.io/crates/simd-r-drive), values are non-zero-copy, as they require deserialization.
 
 ## License
 
