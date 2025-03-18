@@ -48,20 +48,26 @@ pub const TEST_OPTION_TOMBSTONE_MARKER: [u8; 2] = OPTION_TOMBSTONE_MARKER;
 /// assert_eq!(storage.read_option::<i32>(b"key2").unwrap(), None);
 /// ```
 pub trait StorageOptionExt {
+    fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> std::io::Result<u64>;
+    fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, std::io::Error>;
+}
+
+/// Implements `StorageOptionExt` for `DataStore`
+impl StorageOptionExt for DataStore {
     /// Writes an `Option<T>` into the `DataStore`, ensuring `None` values are preserved.
     ///
     /// - `Some(value)`: Serialized using `bincode`.
     /// - `None`: Stored in a way that allows correct retrieval.
     ///
-    /// # Arguments
+    /// ## Arguments
     /// - `key`: The binary key under which the value is stored.
     /// - `value`: An optional reference to `T`, where `None` is handled appropriately.
     ///
-    /// # Returns
+    /// ## Returns
     /// - `Ok(offset)`: The **file offset** where the data was written.
     /// - `Err(std::io::Error)`: If the write operation fails.
     ///
-    /// # Example
+    /// ## Example
     /// ```rust
     /// use simd_r_drive::DataStore;
     /// use simd_r_drive_extensions::StorageOptionExt;
@@ -75,24 +81,31 @@ pub trait StorageOptionExt {
     /// // Write `None` (tombstone)
     /// storage.write_option::<i32>(b"key_with_none_value", None).unwrap();
     /// ```
-    fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> std::io::Result<u64>;
+    fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> std::io::Result<u64> {
+        let serialized = match value {
+            Some(v) => bincode::serialize(v).unwrap_or_else(|_| OPTION_TOMBSTONE_MARKER.to_vec()),
+            None => OPTION_TOMBSTONE_MARKER.to_vec(),
+        };
+
+        self.write(key, &serialized)
+    }
 
     /// Reads an `Option<T>` from storage.
     ///
     /// - **⚠️ Non Zero-Copy Warning**: Requires deserialization.
-    /// - **Returns `Ok(None)`** if the key exists but represents `None` in storage.
+    /// - **Returns `Ok(None)`** if the key exists and explicitly stores the tombstone marker (`[0xFF, 0xFE]`).
     /// - **Returns `Err(ErrorKind::NotFound)`** if the key does not exist.
     /// - **Returns `Err(ErrorKind::InvalidData)`** if deserialization fails.
     ///
-    /// # Arguments
+    /// ## Arguments
     /// - `key`: The binary key to retrieve.
     ///
-    /// # Returns
+    /// ## Returns
     /// - `Ok(Some(T))`: If deserialization succeeds and is `Some`.
     /// - `Ok(None)`: If the key represents `None`.
     /// - `Err(std::io::Error)`: If the key does not exist or if deserialization fails.
     ///
-    /// # Example
+    /// ## Example
     /// ```rust
     /// use simd_r_drive::DataStore;
     /// use simd_r_drive_extensions::StorageOptionExt;
@@ -117,27 +130,6 @@ pub trait StorageOptionExt {
     /// // Errors on non-existent keys
     /// assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
     /// ```
-    fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, std::io::Error>;
-}
-
-/// Implements `StorageOptionExt` for `DataStore`
-impl StorageOptionExt for DataStore {
-    fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> std::io::Result<u64> {
-        let serialized = match value {
-            Some(v) => bincode::serialize(v).unwrap_or_else(|_| OPTION_TOMBSTONE_MARKER.to_vec()),
-            None => OPTION_TOMBSTONE_MARKER.to_vec(),
-        };
-
-        self.write(key, &serialized)
-    }
-
-    /// Reads an `Option<T>` from storage.
-    ///
-    /// # ⚠️ **Non Zero-Copy Warning**
-    /// - **Not zero-copy**: Requires deserialization.
-    /// - **Returns `Ok(None)`** if the key exists but represents `None` in storage.
-    /// - **Returns `Err(ErrorKind::NotFound)`** if the key does not exist.
-    /// - **Returns `Err(ErrorKind::InvalidData)`** if deserialization fails.
     ///
     /// # Safety
     /// - This function **allocates memory** for deserialization.
