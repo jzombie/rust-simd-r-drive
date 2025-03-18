@@ -124,6 +124,7 @@ impl StorageOptionExt for DataStore {
         self.write(key, &serialized)
     }
 
+    // TODO: Document how this is not zero-copy
     fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Option<Option<T>> {
         let entry = self.read(key)?;
         let data = entry.as_slice();
