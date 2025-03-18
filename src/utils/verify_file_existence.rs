@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::Path;
 
 /// Checks if the storage file exists and is a valid file before initializing.

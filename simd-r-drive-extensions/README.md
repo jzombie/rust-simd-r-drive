@@ -29,11 +29,17 @@ let (_dir, storage) = {
 
 // Write Some value
 storage.write_option(b"key1", Some(&42)).unwrap();
-assert_eq!(storage.read_option::<i32>(b"key1"), Some(Some(42)));
+assert_eq!(
+    storage.read_option::<i32>(b"key1").expect("Failed to read key1"),
+    Some(42)
+);
 
-// Write None (tombstone marker)
+// Write None
 storage.write_option::<i32>(b"key2", None).unwrap();
-assert_eq!(storage.read_option::<i32>(b"key2"), Some(None));
+assert_eq!(
+    storage.read_option::<i32>(b"key2").expect("Failed to read key2"),
+    None
+);
 
 ```
 
