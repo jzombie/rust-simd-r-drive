@@ -6,6 +6,7 @@ edition = "2021"
 description = "SIMD-optimized append-only schema-less storage engine. Key-based binary storage in a single-file storage container."
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
+# TODO: Add keywords
 
 [dependencies]
 crc32fast = "1.4.2"
@@ -40,3 +41,10 @@ features = ["rt-multi-thread", "macros", "time", "sync"]
 [[bench]]
 name = "storage_benchmark"
 harness = false
+
+[workspace]
+members = [
+    ".",
+    "simd-r-drive-extensions"
+]
+resolver = "2"

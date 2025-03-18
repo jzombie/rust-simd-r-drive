@@ -697,6 +697,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "simd-r-drive-extensions"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "serde",
+ "simd-r-drive",
+ "tempfile",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -730,11 +740,10 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.18.0"
+version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c317e0a526ee6120d8dabad239c8dadca62b24b6f168914bbbc8e2fb1f0e567"
+checksum = "488960f40a3fd53d72c2a29a58722561dee8afdd175bd88e3db4677d7b2ba600"
 dependencies = [
- "cfg-if",
  "fastrand",
  "getrandom",
  "once_cell",
