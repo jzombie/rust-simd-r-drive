@@ -904,7 +904,6 @@ impl DataStore {
         self.write(key, &NULL_BYTE)
     }
 
-    // TODO: Verify original file exists before compact
     /// Compacts the storage by keeping only the latest version of each key.
     ///
     /// # ⚠️ WARNING:
