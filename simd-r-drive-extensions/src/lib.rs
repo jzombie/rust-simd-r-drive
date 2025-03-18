@@ -120,6 +120,7 @@ impl StorageOptionExt for DataStore {
 
     /// Reads an `Option<T>` from storage.
     ///
+    /// # ⚠️ **Non Zero-Copy Warning**
     /// - **Not zero-copy**: Requires deserialization.
     /// - **Returns `None`** if key does not exist or is a tombstone marker.
     /// - **Errors on invalid deserialization.**
