@@ -8,8 +8,6 @@ use crate::storage_engine::constants::*;
 ///
 /// ## Entry Storage Layout
 ///
-/// TODO: Link to storage layout asset
-///
 /// Each entry consists of a **variable-sized payload** followed by a **fixed-size metadata block**.
 /// The metadata is stored **at the end** of the entry to simplify sequential writes and enable
 /// efficient recovery.
@@ -20,6 +18,8 @@ use crate::storage_engine::constants::*;
 /// - **Offset `N + 16` → `N + 20`**: **Checksum** (full 32-bit CRC32C checksum for integrity verification)
 ///
 /// **Total Size**: `N + 20` bytes, where `N` is the length of the payload.
+///
+/// <img src="https://github.com/jzombie/rust-simd-r-drive/blob/main/assets/storage-layout.png" alt="Storage Layout" />
 ///
 /// ## Notes
 /// - The `prev_offset` forms a **backward-linked chain** for each key.
