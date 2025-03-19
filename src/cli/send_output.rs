@@ -1,13 +1,10 @@
 use crate::cli::{Cli, Commands};
 use crate::storage_engine::{DataStore, EntryStream};
 use crate::utils::{format_bytes, parse_buffer_size};
-use clap::{Parser, Subcommand};
 use log::{error, info, warn};
 use std::io::{self, IsTerminal, Read, Write};
 
 pub fn send_output(cli: &Cli) {
-    eprintln!("Received command: {:?}", cli.command);
-
     match &cli.command {
         Commands::Read { key, buffer_size } => {
             let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
@@ -16,12 +13,12 @@ pub fn send_output(cli: &Cli) {
             let buffer_size = buffer_size
                 .as_deref()
                 .map(parse_buffer_size)
-                .transpose() // Convert `Result<Option<T>, E>` to `Result<Option<T>, E>`
+                .transpose()
                 .unwrap_or_else(|err| {
                     error!("{}", err);
                     std::process::exit(1);
                 })
-                .expect("Buffer size must be provided."); // Ensure it's required
+                .unwrap_or(64 * 1024); // Default to 64KB
 
             match storage.read(key.as_bytes()) {
                 Some(entry_handle) => {
@@ -30,6 +27,8 @@ pub fn send_output(cli: &Cli) {
                     let mut entry_stream = EntryStream::from(entry_handle);
                     let mut buffer = vec![0u8; buffer_size];
 
+                    let is_terminal = io::stdout().is_terminal();
+
                     loop {
                         let bytes_read = entry_stream
                             .read(&mut buffer)
@@ -37,10 +36,23 @@ pub fn send_output(cli: &Cli) {
                         if bytes_read == 0 {
                             break; // End of stream
                         }
-                        stdout_handle
-                            .write_all(&buffer[..bytes_read])
-                            .expect("Failed to write output");
-                        stdout_handle.flush().expect("Failed to flush output");
+
+                        if is_terminal {
+                            // Convert bytes to a UTF-8 string (assuming text data)
+                            match std::str::from_utf8(&buffer[..bytes_read]) {
+                                Ok(text) => stdout_handle.write_all(text.as_bytes()).unwrap(),
+                                Err(_) => stdout_handle.write_all(&buffer[..bytes_read]).unwrap(),
+                            }
+                        } else {
+                            // Output raw binary data
+                            stdout_handle.write_all(&buffer[..bytes_read]).unwrap();
+                        }
+                        stdout_handle.flush().unwrap();
+                    }
+
+                    // Ensure a newline at the end if it's a terminal
+                    if is_terminal {
+                        stdout_handle.write_all(b"\n").unwrap();
                     }
                 }
                 None => {
