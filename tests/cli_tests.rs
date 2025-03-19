@@ -122,21 +122,25 @@ fn test_read_nonexistent_key() {
 fn test_read_with_buffer_size() {
     fs::remove_file(TEST_STORAGE).ok(); // Cleanup before test
 
-    let large_value = "A".repeat(128 * 1024); // 128KB data
+    let large_value = "A".repeat(128 * 1024); // 128KB of data
 
-    // Write the large value to the storage
-    let output = Command::new("cargo")
-        .args(&[
-            "run",
-            "--quiet",
-            "--",
-            TEST_STORAGE,
-            "write",
-            "large_key",
-            &large_value,
-        ])
-        .output()
+    // Write the large value to the storage using stdin
+    let mut child = Command::new("cargo")
+        .args(&["run", "--quiet", "--", TEST_STORAGE, "write", "large_key"])
+        .stdin(std::process::Stdio::piped()) // Open a pipe to send data
+        .spawn()
         .expect("Failed to execute process");
+
+    // Send data through stdin
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(large_value.as_bytes())
+            .expect("Failed to write to stdin");
+    }
+
+    let output = child
+        .wait_with_output()
+        .expect("Failed to wait on child process");
 
     assert!(
         output.status.success(),
