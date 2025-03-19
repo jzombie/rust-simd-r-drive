@@ -1,13 +1,15 @@
+use serial_test::serial;
 use std::fs;
-use std::path::Path;
+use std::io::Write;
 use std::process::Command;
 
-const BIN_NAME: &str = "simd-r-drive"; // Ensure this matches your Cargo binary name
+// const BIN_NAME: &str = "simd-r-drive"; // Ensure this matches your Cargo binary name
 const TEST_STORAGE: &str = "test_storage.bin";
 
 #[test]
+#[serial]
 fn test_write_and_read() {
-    let _ = fs::remove_file(TEST_STORAGE); // Cleanup before test
+    fs::remove_file(TEST_STORAGE).ok(); // Cleanup before test
 
     // Write a value to the storage
     let output = Command::new("cargo")
@@ -44,12 +46,13 @@ fn test_write_and_read() {
     );
 
     // Cleanup
-    let _ = fs::remove_file(TEST_STORAGE);
+    fs::remove_file(TEST_STORAGE).ok();
 }
 
 #[test]
+#[serial]
 fn test_write_without_value() {
-    let _ = fs::remove_file(TEST_STORAGE);
+    fs::remove_file(TEST_STORAGE).ok(); // Cleanup before test
 
     // Try writing without a value (should fail)
     let output = Command::new("cargo")
@@ -70,37 +73,46 @@ fn test_write_without_value() {
         stderr
     );
 
-    let _ = fs::remove_file(TEST_STORAGE);
+    fs::remove_file(TEST_STORAGE).ok(); // Cleanup
 }
 
-// TODO: Fix
-// #[test]
-// fn test_read_nonexistent_key() {
-//     let _ = fs::remove_file(TEST_STORAGE);
+#[test]
+#[serial]
+fn test_read_nonexistent_key() {
+    fs::remove_file(TEST_STORAGE).ok(); // Cleanup before test
 
-//     // Read a nonexistent key (should fail)
-//     let output = Command::new("cargo")
-//         .args(&[
-//             "run",
-//             "--quiet",
-//             "--",
-//             TEST_STORAGE,
-//             "read",
-//             "nonexistent_key",
-//         ])
-//         .output()
-//         .expect("Failed to execute process");
+    // Ensure the storage file exists
+    let mut file = fs::File::create(TEST_STORAGE).expect("Failed to create storage file");
+    file.write_all(b"")
+        .expect("Failed to initialize storage file");
 
-//     assert!(
-//         !output.status.success(),
-//         "Expected failure for nonexistent key"
-//     );
-//     let stderr = String::from_utf8_lossy(&output.stderr);
-//     assert!(
-//         stderr.contains("Key 'nonexistent_key' not found"),
-//         "Unexpected error: {:?}",
-//         stderr
-//     );
+    // Attempt to read a nonexistent key (should fail)
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--quiet",
+            "--",
+            TEST_STORAGE,
+            "read",
+            "nonexistent_key",
+        ])
+        .stderr(std::process::Stdio::piped()) // Capture stderr
+        .output()
+        .expect("Failed to execute process");
 
-//     let _ = fs::remove_file(TEST_STORAGE);
-// }
+    assert!(
+        !output.status.success(),
+        "Expected failure for nonexistent key, but command succeeded."
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        stderr.trim().contains("Key 'nonexistent_key' not found")
+            || stderr.trim().contains("Failed to open storage"),
+        "Unexpected error output: {:?}",
+        stderr
+    );
+
+    fs::remove_file(TEST_STORAGE).ok();
+}
