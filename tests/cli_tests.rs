@@ -348,3 +348,138 @@ fn test_delete_key() {
 
     fs::remove_file(TEST_STORAGE).ok();
 }
+
+#[test]
+#[serial]
+fn test_metadata() {
+    fs::remove_file(TEST_STORAGE).ok(); // Cleanup before test
+
+    // Write a test value
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--quiet",
+            "--",
+            TEST_STORAGE,
+            "write",
+            "test_key",
+            "hello",
+        ])
+        .output()
+        .expect("Failed to execute process");
+
+    assert!(
+        output.status.success(),
+        "Write command failed: {:?}",
+        output
+    );
+
+    // Retrieve metadata for the key
+    let output = Command::new("cargo")
+        .args(&["run", "--quiet", "--", TEST_STORAGE, "metadata", "test_key"])
+        .output()
+        .expect("Failed to execute process");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("METADATA SUMMARY"),
+        "Metadata output invalid: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("ENTRY FOR:"),
+        "Metadata missing ENTRY FOR: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("test_key"),
+        "Metadata does not contain key: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("PAYLOAD SIZE:"),
+        "Metadata missing payload size: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("TOTAL SIZE (W/ METADATA):"),
+        "Metadata missing total size: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("OFFSET RANGE:"),
+        "Metadata missing offset range: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("MEMORY ADDRESS:"),
+        "Metadata missing memory address: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("KEY HASH:"),
+        "Metadata missing key hash: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("CHECKSUM:"),
+        "Metadata missing checksum: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("CHECKSUM VALIDITY:"),
+        "Metadata missing checksum validity: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("STORED METADATA:"),
+        "Metadata missing stored metadata: {:?}",
+        stdout
+    );
+
+    fs::remove_file(TEST_STORAGE).ok(); // Cleanup
+}
+
+#[test]
+#[serial]
+fn test_info() {
+    fs::remove_file(TEST_STORAGE).ok(); // Cleanup before test
+
+    // Initialize an empty storage file
+    let _ = fs::File::create(TEST_STORAGE).expect("Failed to create storage file");
+
+    // Retrieve storage info
+    let output = Command::new("cargo")
+        .args(&["run", "--quiet", "--", TEST_STORAGE, "info"])
+        .output()
+        .expect("Failed to execute process");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("STORAGE INFO"),
+        "Info output invalid: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("STORAGE FILE:"),
+        "Info missing storage file: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("TOTAL SIZE:"),
+        "Info missing total size: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("ACTIVE ENTRIES:"),
+        "Info missing active entries: {:?}",
+        stdout
+    );
+    assert!(
+        stdout.contains("COMPACTION SAVINGS:"),
+        "Info missing compaction savings: {:?}",
+        stdout
+    );
+
+    fs::remove_file(TEST_STORAGE).ok(); // Cleanup
+}
