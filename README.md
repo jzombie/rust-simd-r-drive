@@ -17,7 +17,6 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
   - [No Predefined Schemas](#no-predefined-schemas)
   - [High-Performance Append-Only Design](#high-performance-append-only-design)
     - [Storage Layout](#storage-layout)
-    - [Per-Payload Size](#per-payload-size)
     - [Storage Validation Chain](#storage-validation-chain)
     - [Optimized Metadata Storage & Automatic Recovery](#optimized-metadata-storage--automatic-recovery)
     - [Hardware Accelerated, Automated Indexing](#hardware-accelerated-automated-indexing)
@@ -101,10 +100,9 @@ Think of it as a self-contained binary filesystem—capable of storing and retri
 | `N + 8 → N + 16`  | **Prev Offset** | `8`          | Absolute offset pointing to the previous version  |
 | `N + 16 → N + 20` | **Checksum**    | `4`          | 32-bit CRC32C checksum for integrity verification |
 
-#### Per-Payload Size
+**Per-Payload Size**
 
 `N + 20` bytes, where `N` is the length of the payload.
-
 
 #### Storage Validation Chain
 
