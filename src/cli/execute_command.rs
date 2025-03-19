@@ -183,47 +183,34 @@ pub fn execute_command(cli: &Cli) {
 
             match storage.read(key.as_bytes()) {
                 Some(entry) => {
+                    println!("\n{:=^50}", " METADATA SUMMARY ");
+                    println!("{:<25} \"{}\"", "ENTRY FOR:", key);
+                    println!("{:-<50}", ""); // Separator
+
+                    println!("{:<25} {} bytes", "PAYLOAD SIZE:", entry.size());
                     println!(
-                        "\n{:=^50}\n\
-                        {:<25} \"{}\"\n\
-                        {:-<50}\n\
-                        {:<25} {} bytes\n\
-                        {:<25} {} bytes\n\
-                        {:<25} {:?}\n\
-                        {:<25} {:?}\n\
-                        {:<25} {}\n\
-                        {:<25} {}\n\
-                        {:<25} {}\n\
-                        {:-<50}\n\
-                        {:<25} {:?}\n\
-                        {:=<50}",
-                        " METADATA SUMMARY ", // Centered Header
-                        "ENTRY FOR:",
-                        key, // Key Name
-                        "",  // Separator
-                        "PAYLOAD SIZE:",
-                        entry.size(),
+                        "{:<25} {} bytes",
                         "TOTAL SIZE (W/ METADATA):",
-                        entry.size_with_metadata(),
-                        "OFFSET RANGE:",
-                        entry.offset_range(),
-                        "MEMORY ADDRESS:",
-                        entry.address_range(),
-                        "KEY HASH:",
-                        entry.key_hash(),
-                        "CHECKSUM:",
-                        entry.checksum(),
+                        entry.size_with_metadata()
+                    );
+                    println!("{:<25} {:?}", "OFFSET RANGE:", entry.offset_range());
+                    println!("{:<25} {:?}", "MEMORY ADDRESS:", entry.address_range());
+
+                    println!("{:<25} {}", "KEY HASH:", entry.key_hash());
+                    println!("{:<25} {}", "CHECKSUM:", entry.checksum());
+                    println!(
+                        "{:<25} {}",
                         "CHECKSUM VALIDITY:",
                         if entry.is_valid_checksum() {
                             "VALID"
                         } else {
                             "INVALID"
-                        },
-                        "", // Separator
-                        "STORED METADATA:",
-                        entry.metadata(),
-                        "=" // Footer Line
+                        }
                     );
+
+                    println!("{:-<50}", ""); // Separator
+                    println!("{:<25} {:?}", "STORED METADATA:", entry.metadata());
+                    println!("{:=<50}", ""); // Footer Line
                 }
                 None => {
                     error!("Error: Key '{}' not found", key);
@@ -244,26 +231,19 @@ pub fn execute_command(cli: &Cli) {
             // Count active entries
             let entry_count = storage.count();
 
+            println!("\n{:=^50}", " STORAGE INFO ");
+            println!("{:<25} {:?}", "STORAGE FILE:", cli.storage);
+            println!("{:-<50}", ""); // Separator
+
+            println!("{:<25} {}", "TOTAL SIZE:", format_bytes(storage_size));
+            println!("{:<25} {}", "ACTIVE ENTRIES:", entry_count);
             println!(
-                "\n{:=^50}\n\
-                {:<25} {:?}\n\
-                {:-<50}\n\
-                {:<25} {}\n\
-                {:<25} {}\n\
-                {:<25} {}\n\
-                {:=<50}",
-                " STORAGE INFO ", // Centered Header
-                "STORAGE FILE:",
-                cli.storage, // File Path
-                "",          // Separator
-                "TOTAL SIZE:",
-                format_bytes(storage_size),
-                "ACTIVE ENTRIES:",
-                entry_count,
+                "{:<25} {}",
                 "COMPACTION SAVINGS:",
-                format_bytes(savings_estimate),
-                "=" // Footer
+                format_bytes(savings_estimate)
             );
+
+            println!("{:=<50}", ""); // Footer
         }
     }
 }
