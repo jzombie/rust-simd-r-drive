@@ -4,8 +4,6 @@ use simd_r_drive::DataStore;
 use std::io::{self, ErrorKind};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-// TODO: Use "evict" verbiage
-
 /// **Prefix-based TTL storage for cache expiration**  
 /// Stores a timestamp (in seconds) before the actual value.
 pub trait StorageCacheExt {
@@ -27,13 +25,13 @@ pub trait StorageCacheExt {
 
     /// Reads a value, checking TTL expiration.
     ///
-    /// - If the TTL has expired, the key is **deleted**, and `None` is returned.
+    /// - If the TTL has expired, the key is **automatically evicted**, and `None` is returned.
     /// - If the key does not exist, returns `Err(ErrorKind::NotFound)`.
     /// - If deserialization fails, returns `Err(ErrorKind::InvalidData)`.
     ///
     /// ## Returns
     /// - `Ok(Some(T))`: If the TTL is still valid and the value is readable.
-    /// - `Ok(None)`: If the TTL has expired.
+    /// - `Ok(None)`: If the TTL has expired and the entry has been evicted.
     /// - `Err(std::io::Error)`: If the key is missing or deserialization fails.
     fn read_with_ttl<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, io::Error>;
 }
