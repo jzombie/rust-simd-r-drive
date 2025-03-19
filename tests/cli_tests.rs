@@ -3,8 +3,8 @@ use std::fs;
 use std::io::Write;
 use std::process::Command;
 
-// const BIN_NAME: &str = "simd-r-drive"; // Ensure this matches your Cargo binary name
 const TEST_STORAGE: &str = "test_storage.bin";
+const TARGET_STORAGE: &str = "target_storage.bin";
 
 #[test]
 #[serial]
@@ -179,4 +179,172 @@ fn test_read_with_buffer_size() {
     );
 
     fs::remove_file(TEST_STORAGE).ok(); // Cleanup
+}
+
+#[test]
+#[serial]
+fn test_copy_key() {
+    fs::remove_file(TEST_STORAGE).ok();
+    fs::remove_file(TARGET_STORAGE).ok();
+
+    // Write a value to the storage
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--quiet",
+            "--",
+            TEST_STORAGE,
+            "write",
+            "copy_key",
+            "copy_test",
+        ])
+        .output()
+        .expect("Failed to execute process");
+    assert!(
+        output.status.success(),
+        "Write command failed: {:?}",
+        output
+    );
+
+    // Copy the key to target storage
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--quiet",
+            "--",
+            TEST_STORAGE,
+            "copy",
+            "copy_key",
+            TARGET_STORAGE,
+        ])
+        .output()
+        .expect("Failed to execute process");
+    assert!(output.status.success(), "Copy command failed: {:?}", output);
+
+    // Read from target storage
+    let output = Command::new("cargo")
+        .args(&["run", "--quiet", "--", TARGET_STORAGE, "read", "copy_key"])
+        .output()
+        .expect("Failed to execute process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(
+        stdout.trim(),
+        "copy_test",
+        "Unexpected read output: {:?}",
+        stdout
+    );
+
+    fs::remove_file(TEST_STORAGE).ok();
+    fs::remove_file(TARGET_STORAGE).ok();
+}
+
+#[test]
+#[serial]
+fn test_rename_key() {
+    fs::remove_file(TEST_STORAGE).ok();
+
+    // Write a value
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--quiet",
+            "--",
+            TEST_STORAGE,
+            "write",
+            "old_key",
+            "rename_test",
+        ])
+        .output()
+        .expect("Failed to execute process");
+    assert!(
+        output.status.success(),
+        "Write command failed: {:?}",
+        output
+    );
+
+    // Rename the key
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--quiet",
+            "--",
+            TEST_STORAGE,
+            "rename",
+            "old_key",
+            "new_key",
+        ])
+        .output()
+        .expect("Failed to execute process");
+    assert!(
+        output.status.success(),
+        "Rename command failed: {:?}",
+        output
+    );
+
+    // Ensure old key doesn't exist
+    let output = Command::new("cargo")
+        .args(&["run", "--quiet", "--", TEST_STORAGE, "read", "old_key"])
+        .output()
+        .expect("Failed to execute process");
+    assert!(!output.status.success(), "Old key should not exist");
+
+    // Ensure new key exists
+    let output = Command::new("cargo")
+        .args(&["run", "--quiet", "--", TEST_STORAGE, "read", "new_key"])
+        .output()
+        .expect("Failed to execute process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(
+        stdout.trim(),
+        "rename_test",
+        "Unexpected read output: {:?}",
+        stdout
+    );
+
+    fs::remove_file(TEST_STORAGE).ok();
+}
+
+#[test]
+#[serial]
+fn test_delete_key() {
+    fs::remove_file(TEST_STORAGE).ok();
+
+    // Write a value
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--quiet",
+            "--",
+            TEST_STORAGE,
+            "write",
+            "delete_key",
+            "delete_test",
+        ])
+        .output()
+        .expect("Failed to execute process");
+    assert!(
+        output.status.success(),
+        "Write command failed: {:?}",
+        output
+    );
+
+    // Delete the key
+    let output = Command::new("cargo")
+        .args(&["run", "--quiet", "--", TEST_STORAGE, "delete", "delete_key"])
+        .output()
+        .expect("Failed to execute process");
+    assert!(
+        output.status.success(),
+        "Delete command failed: {:?}",
+        output
+    );
+
+    // Ensure key doesn't exist
+    let output = Command::new("cargo")
+        .args(&["run", "--quiet", "--", TEST_STORAGE, "read", "delete_key"])
+        .output()
+        .expect("Failed to execute process");
+    assert!(!output.status.success(), "Deleted key should not exist");
+
+    fs::remove_file(TEST_STORAGE).ok();
 }
