@@ -1,7 +1,7 @@
 use clap::Parser;
 use simd_r_drive::*;
 mod cli;
-use cli::{send_output, Cli};
+use cli::{execute_command, Cli};
 mod utils;
 
 fn main() {
@@ -9,5 +9,5 @@ fn main() {
 
     let cli = Cli::parse();
 
-    send_output(&cli);
+    execute_command(&cli);
 }

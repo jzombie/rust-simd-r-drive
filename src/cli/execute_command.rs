@@ -4,7 +4,23 @@ use crate::utils::{format_bytes, parse_buffer_size};
 use log::{error, info, warn};
 use std::io::{self, IsTerminal, Read, Write};
 
-pub fn send_output(cli: &Cli) {
+/// Executes commands from the CLI and interacts with the storage engine.
+///
+/// This function processes user-provided commands (`Commands` enum) and
+/// delegates operations to the `DataStore`. It handles reading, writing,
+/// copying, moving, renaming, deleting, compacting, and retrieving metadata
+/// or storage information. The function ensures proper input validation,
+/// handles errors, and manages both text and binary data streaming.
+///
+/// # Command Handling
+/// - Reads and writes data entries, supporting both direct input and piped streams.
+/// - Copies, moves, renames, and deletes keys in the storage engine.
+/// - Provides metadata and storage information.
+///
+/// # References
+/// - [`Commands`](crate::cli::Commands): Defines the available CLI commands.
+/// - [`DataStore`](crate::storage_engine::DataStore): The underlying storage engine.
+pub fn execute_command(cli: &Cli) {
     match &cli.command {
         Commands::Read { key, buffer_size } => {
             let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");

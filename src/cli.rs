@@ -7,5 +7,5 @@ pub use commands::Commands;
 pub mod help_template;
 pub use help_template::HELP_TEMPLATE;
 
-pub mod send_output;
-pub use send_output::send_output;
+pub mod execute_command;
+pub use execute_command::execute_command;
