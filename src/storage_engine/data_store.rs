@@ -131,6 +131,7 @@ impl DataStore {
     /// - This is useful in scenarios where the caller needs to **ensure** that they are
     ///   working with an already existing storage file.
     pub fn open_existing(path: &Path) -> Result<Self> {
+        // Errors if the file does not exist or is not a valid file
         verify_file_existence(&path)?;
 
         Self::open(path)
