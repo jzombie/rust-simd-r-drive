@@ -145,3 +145,28 @@ fn test_multiple_writes_and_expirations() {
     assert_eq!(retrieved1, None, "Short TTL should have expired");
     assert_eq!(retrieved2, Some(data2), "Long TTL should still be valid");
 }
+
+#[test]
+fn test_read_with_ttl_on_regular_write_fails() {
+    let (_dir, storage) = create_temp_storage();
+    let key = b"regular_write_key";
+    let data = TestData {
+        id: 300,
+        name: "No TTL".to_string(),
+    };
+
+    // Write without TTL
+    storage
+        .write(
+            key,
+            &bincode::serialize(&data).expect("Failed to serialize"),
+        )
+        .expect("Failed to write without TTL");
+
+    // Try to read it using read_with_ttl
+    let retrieved = storage.read_with_ttl::<TestData>(key);
+    assert!(
+        retrieved.is_err(),
+        "Reading a regular write with TTL should fail"
+    );
+}
