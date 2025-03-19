@@ -35,6 +35,7 @@ pub fn serialize_option<T: Serialize>(value: Option<&T>) -> io::Result<Vec<u8>> 
 
 /// Deserializes an `Option<T>` from binary storage.
 ///
+/// - **⚠️ Non Zero-Copy Warning**: Requires deserialization.
 /// - If the data matches the tombstone marker, returns `Ok(None)`.
 /// - Otherwise, attempts to deserialize the stored value.
 ///

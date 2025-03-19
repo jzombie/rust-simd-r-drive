@@ -25,6 +25,7 @@ pub trait StorageCacheExt {
 
     /// Reads a value, checking TTL expiration.
     ///
+    /// - **⚠️ Non Zero-Copy Warning**: Requires deserialization.
     /// - If the TTL has expired, the key is **automatically evicted**, and `None` is returned.
     /// - If the key does not exist, returns `Err(ErrorKind::NotFound)`.
     /// - If deserialization fails, returns `Err(ErrorKind::InvalidData)`.
