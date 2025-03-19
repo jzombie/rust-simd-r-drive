@@ -1,6 +1,9 @@
 #[cfg(doctest)]
 doc_comment::doctest!("../README.md");
 
+pub mod utils;
+pub use utils::option_serializer::*;
+
 mod storage_option_ext;
 pub use storage_option_ext::*;
 
