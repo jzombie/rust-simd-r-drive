@@ -174,5 +174,5 @@ fn test_read_with_buffer_size() {
         "Read output was not properly chunked according to buffer size"
     );
 
-    fs::remove_file(TEST_STORAGE).ok();
+    fs::remove_file(TEST_STORAGE).ok(); // Cleanup
 }
