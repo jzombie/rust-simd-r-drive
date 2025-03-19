@@ -116,3 +116,63 @@ fn test_read_nonexistent_key() {
 
     fs::remove_file(TEST_STORAGE).ok();
 }
+
+#[test]
+#[serial]
+fn test_read_with_buffer_size() {
+    fs::remove_file(TEST_STORAGE).ok(); // Cleanup before test
+
+    let large_value = "A".repeat(128 * 1024); // 128KB data
+
+    // Write the large value to the storage
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--quiet",
+            "--",
+            TEST_STORAGE,
+            "write",
+            "large_key",
+            &large_value,
+        ])
+        .output()
+        .expect("Failed to execute process");
+
+    assert!(
+        output.status.success(),
+        "Write command failed: {:?}",
+        output
+    );
+
+    // Read the value back with a 64KB buffer size
+    let output = Command::new("cargo")
+        .args(&[
+            "run",
+            "--quiet",
+            "--",
+            TEST_STORAGE,
+            "read",
+            "large_key",
+            "--buffer-size",
+            "64K",
+        ])
+        .output()
+        .expect("Failed to execute process");
+
+    assert!(output.status.success(), "Read command failed: {:?}", output);
+
+    let stdout = output.stdout;
+    assert_eq!(
+        stdout.len(),
+        large_value.len(),
+        "Output length does not match expected value length"
+    );
+
+    // Ensure output is chunked correctly
+    assert!(
+        stdout.chunks(65536).all(|chunk| chunk.len() <= 65536),
+        "Read output was not properly chunked according to buffer size"
+    );
+
+    fs::remove_file(TEST_STORAGE).ok();
+}
