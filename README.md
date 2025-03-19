@@ -16,6 +16,8 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
   - [No Assumptions About Your Data or Resource-Wasting Serialization Overhead](#no-assumptions-about-your-data-or-resource-wasting-serialization-overhead)
   - [No Predefined Schemas](#no-predefined-schemas)
   - [High-Performance Append-Only Design](#high-performance-append-only-design)
+    - [Storage Layout](#storage-layout)
+    - [Per-Payload Size](#per-payload-size)
     - [Storage Validation Chain](#storage-validation-chain)
     - [Optimized Metadata Storage & Automatic Recovery](#optimized-metadata-storage--automatic-recovery)
     - [Hardware Accelerated, Automated Indexing](#hardware-accelerated-automated-indexing)
@@ -86,9 +88,22 @@ Think of it as a self-contained binary filesystem—capable of storing and retri
 
 - Ensures high write throughput, ideal for real-time workloads.
 
+#### Storage Layout
+
 <div align="center">
   <img src="assets/storage-layout.png" title="Storage Layout" />
 </div>
+
+| Offset Range      | Field           | Size (Bytes) | Description                                       |
+|-------------------|-----------------|--------------|---------------------------------------------------|
+| `0 → N`           | **Payload**     | `N`          | Variable-length data                              |
+| `N → N + 8`       | **Key Hash**    | `8`          | 64-bit XXH3 hash of the key (fast lookups)        |
+| `N + 8 → N + 16`  | **Prev Offset** | `8`          | Absolute offset pointing to the previous version  |
+| `N + 16 → N + 20` | **Checksum**    | `4`          | 32-bit CRC32C checksum for integrity verification |
+
+#### Per-Payload Size
+
+`N + 20` bytes, where `N` is the length of the payload.
 
 
 #### Storage Validation Chain
