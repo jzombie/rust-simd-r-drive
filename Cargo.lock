@@ -684,7 +684,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.3.0-alpha"
+version = "0.3.0-alpha.1"
 dependencies = [
  "bincode",
  "clap",
