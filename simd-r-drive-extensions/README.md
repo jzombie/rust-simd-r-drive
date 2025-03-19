@@ -2,7 +2,7 @@
 
 **Work in progress.**
 
-`simd-r-drive-extensions` provides optional utilities for working with `Option<T>` in [SIMD R Drive](https://crates.io/crates/simd-r-drive).
+`simd-r-drive-extensions` provides optional utilities for working with `Option<T>` and TTL-based caching in [SIMD R Drive](https://crates.io/crates/simd-r-drive).
 
 [Documentation](https://docs.rs/simd-r-drive-extensions/latest/simd_r_drive_extensions/)
 
@@ -14,6 +14,7 @@ cargo add simd-r-drive-extensions
 
 ## Usage
 
+### Working with `Option<T>`
 ```rust
 use simd_r_drive::DataStore;
 use simd_r_drive_extensions::StorageOptionExt;
@@ -35,28 +36,42 @@ assert_eq!(
     None
 );
 
-// Check if the key exists in storage, regardless of whether it's `Some` or `None`
-if let Ok(none_option) = storage.read_option::<i32>(b"key_with_none_value") {
-    assert!(none_option.is_none());
-} else {
-    // Just to check the example
-    panic!("Failed to read key: `key_with_none_value` does not exist or read error occurred.");
-}
-
-// Alternative, concise check
-let none_option = storage.read_option::<i32>(b"key_with_none_value").unwrap();
-assert!(none_option.is_none()); // Ensures `Option<T>` exists
-
 // Errors on non-existent keys
 assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
+```
 
+### Working with TTL-based Caching
+```rust
+use simd_r_drive::DataStore;
+use simd_r_drive_extensions::StorageCacheExt;
+use std::path::PathBuf;
+use std::thread::sleep;
+use std::time::Duration;
+
+let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
+
+// Write value with a TTL of 5 seconds
+storage.write_with_ttl(b"key_with_ttl", &42, 5).unwrap();
+assert_eq!(
+    storage.read_with_ttl::<i32>(b"key_with_ttl").expect("Failed to read key"),
+    Some(42)
+);
+
+// Wait for TTL to expire
+sleep(Duration::from_secs(6));
+assert_eq!(
+    storage.read_with_ttl::<i32>(b"key_with_ttl").expect("Failed to read key"),
+    None // Key should be expired and removed
+);
 ```
 
 ## Implementation Details
 
 - Uses a predefined tombstone marker (`[0xFF, 0xFE]`) to represent `None`.
+- TTL values are stored as a **binary prefix** before the actual value.
 - Values are serialized using [bincode](https://crates.io/crates/bincode).
 - ⚠️ Unlike [SIMD R Drive](https://crates.io/crates/simd-r-drive), values are non-zero-copy, as they require deserialization.
+- TTL-based storage will **automatically evict expired values upon read** to prevent stale data.
 
 ## License
 
