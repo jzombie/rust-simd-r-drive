@@ -71,7 +71,7 @@ pub fn send_output(cli: &Cli) {
                 storage
                     .write(key_as_bytes, value.as_bytes())
                     .expect("Failed to write entry");
-            } else if !io::stdin().is_terminal() {
+            } else if !io::stdin().is_terminal() && !(std::env::var("FORCE_NO_TTY").is_ok()) {
                 // If stdin is piped, use a streaming approach
                 let mut stdin_reader = io::stdin().lock();
 

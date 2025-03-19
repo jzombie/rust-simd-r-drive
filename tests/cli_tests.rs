@@ -47,30 +47,31 @@ fn test_write_and_read() {
     let _ = fs::remove_file(TEST_STORAGE);
 }
 
-// TODO: Fix
-// #[test]
-// fn test_write_without_value() {
-//     let _ = fs::remove_file(TEST_STORAGE);
+#[test]
+fn test_write_without_value() {
+    let _ = fs::remove_file(TEST_STORAGE);
 
-//     // Try writing without a value (should fail)
-//     let output = Command::new("cargo")
-//         .args(&["run", "--quiet", "--", TEST_STORAGE, "write", "test_key"])
-//         .output()
-//         .expect("Failed to execute process");
+    // Try writing without a value (should fail)
+    let output = Command::new("cargo")
+        .args(&["run", "--quiet", "--", TEST_STORAGE, "write", "test_key"])
+        .env("FORCE_NO_TTY", "1") // Set env variable to override is_terminal()
+        .stdin(std::process::Stdio::null()) // Explicitly set no stdin
+        .output()
+        .expect("Failed to execute process");
 
-//     assert!(
-//         !output.status.success(),
-//         "Expected failure on missing value"
-//     );
-//     let stderr = String::from_utf8_lossy(&output.stderr);
-//     assert!(
-//         stderr.contains("No value provided"),
-//         "Unexpected error message: {:?}",
-//         stderr
-//     );
+    assert!(
+        !output.status.success(),
+        "Expected failure on missing value"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("No value provided"),
+        "Unexpected error message: {:?}",
+        stderr
+    );
 
-//     let _ = fs::remove_file(TEST_STORAGE);
-// }
+    let _ = fs::remove_file(TEST_STORAGE);
+}
 
 // TODO: Fix
 // #[test]
