@@ -205,7 +205,7 @@ Reads large entries incrementally, ensuring only small portions are processed at
 
 This avoids high memory overhead while still leveraging `mmap` for efficient access.
 
-> Streaming reads are non-zero-copy since they are read through a buffer.
+> ⚠️ Streaming reads are non-zero-copy since they are read through a buffer.
 
 
 ## SIMD Write & Query Acceleration
