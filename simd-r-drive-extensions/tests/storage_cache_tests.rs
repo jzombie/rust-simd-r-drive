@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use simd_r_drive::DataStore;
-use simd_r_drive_extensions::{utils::prefix_key, StorageCacheExt, TEST_TTL_PREFIX};
+use simd_r_drive_extensions::{NamespaceHasher, StorageCacheExt, TEST_TTL_PREFIX};
 use std::io::ErrorKind;
 use std::thread::sleep;
 use std::time::Duration;
@@ -258,8 +258,10 @@ fn test_write_and_read_option_with_ttl() {
 fn test_ttl_prefix_is_applied() {
     let (_dir, storage) = create_temp_storage();
 
+    let namespace_hasher = NamespaceHasher::new(TEST_TTL_PREFIX);
+
     let key = b"test_key";
-    let prefixed_key = prefix_key(TEST_TTL_PREFIX, key);
+    let namespaced_key = namespace_hasher.namespace(key);
     let test_value = TestData {
         id: 123,
         name: "Test Value".to_string(),
@@ -271,7 +273,7 @@ fn test_ttl_prefix_is_applied() {
         .expect("Failed to write with TTL");
 
     // Ensure the prefixed key exists in storage
-    let raw_data = storage.read(&prefixed_key);
+    let raw_data = storage.read(&namespaced_key);
     assert!(
         raw_data.is_some(),
         "Expected data to be stored under the prefixed key"
@@ -306,14 +308,16 @@ fn test_ttl_prefixing_does_not_affect_regular_storage() {
         name: "Non-TTL Value".to_string(),
     };
 
+    let namespace_hasher = NamespaceHasher::new(TEST_TTL_PREFIX);
+
     // Directly write without TTL
     storage
         .write(key, &bincode::serialize(&test_value).unwrap())
         .expect("Failed to write without TTL");
 
     // Ensure reading from TTL-prefixed key fails (since it was not stored with TTL)
-    let prefixed_key = prefix_key(TEST_TTL_PREFIX, key);
-    let raw_data_prefixed = storage.read(&prefixed_key);
+    let namespaced_key = namespace_hasher.namespace(key);
+    let raw_data_prefixed = storage.read(&namespaced_key);
     assert!(
         raw_data_prefixed.is_none(),
         "No TTL-prefixed entry should exist for a non-TTL write"

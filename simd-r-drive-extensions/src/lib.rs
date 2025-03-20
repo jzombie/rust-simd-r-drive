@@ -11,3 +11,6 @@ mod storage_cache_ext;
 pub use storage_cache_ext::*;
 
 mod constants;
+
+pub mod namespace_hasher;
+pub use namespace_hasher::NamespaceHasher;
