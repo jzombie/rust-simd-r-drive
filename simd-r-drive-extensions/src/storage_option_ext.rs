@@ -9,6 +9,9 @@ use std::io::{self, ErrorKind};
 #[cfg(any(test, debug_assertions))]
 pub const TEST_OPTION_TOMBSTONE_MARKER: [u8; 2] = OPTION_TOMBSTONE_MARKER;
 
+#[cfg(any(test, debug_assertions))]
+pub const TEST_OPTION_PREFIX: &[u8] = OPTION_PREFIX;
+
 /// # Storage Utilities for Handling `Option<T>`
 ///
 /// This trait provides methods to store and retrieve `Option<T>` values

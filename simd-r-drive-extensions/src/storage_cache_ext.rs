@@ -6,6 +6,9 @@ use simd_r_drive::DataStore;
 use std::io::{self, ErrorKind};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(any(test, debug_assertions))]
+pub const TEST_TTL_PREFIX: &[u8] = TTL_PREFIX;
+
 /// # Storage Utilities for Handling Auto-Evicting TTL Entries
 ///
 /// Stores a timestamp (in seconds) before the actual value.

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use simd_r_drive::DataStore;
-use simd_r_drive_extensions::StorageCacheExt;
+use simd_r_drive_extensions::{utils::prefix_key, StorageCacheExt, TEST_TTL_PREFIX};
 use std::io::ErrorKind;
 use std::thread::sleep;
 use std::time::Duration;
@@ -252,4 +252,74 @@ fn test_write_and_read_option_with_ttl() {
         Some(Some(refreshed_data)),
         "Expected refreshed entry before TTL expires"
     );
+}
+
+#[test]
+fn test_ttl_prefix_is_applied() {
+    let (_dir, storage) = create_temp_storage();
+
+    let key = b"test_key";
+    let prefixed_key = prefix_key(TEST_TTL_PREFIX, key);
+    let test_value = TestData {
+        id: 123,
+        name: "Test Value".to_string(),
+    };
+
+    // Write data with TTL
+    storage
+        .write_with_ttl(key, &test_value, 60)
+        .expect("Failed to write with TTL");
+
+    // Ensure the prefixed key exists in storage
+    let raw_data = storage.read(&prefixed_key);
+    assert!(
+        raw_data.is_some(),
+        "Expected data to be stored under the prefixed key"
+    );
+
+    // Ensure the unprefixed key does not exist
+    let raw_data_unprefixed = storage.read(key);
+    assert!(
+        raw_data_unprefixed.is_none(),
+        "Unprefixed key should not exist in storage"
+    );
+
+    // Ensure we can read the value correctly
+    let retrieved = storage
+        .read_with_ttl::<TestData>(key)
+        .expect("Failed to read with TTL");
+
+    assert_eq!(
+        retrieved,
+        Some(test_value),
+        "Stored and retrieved values do not match"
+    );
+}
+
+#[test]
+fn test_ttl_prefixing_does_not_affect_regular_storage() {
+    let (_dir, storage) = create_temp_storage();
+
+    let key = b"test_key";
+    let test_value = TestData {
+        id: 999,
+        name: "Non-TTL Value".to_string(),
+    };
+
+    // Directly write without TTL
+    storage
+        .write(key, &bincode::serialize(&test_value).unwrap())
+        .expect("Failed to write without TTL");
+
+    // Ensure reading from TTL-prefixed key fails (since it was not stored with TTL)
+    let prefixed_key = prefix_key(TEST_TTL_PREFIX, key);
+    let raw_data_prefixed = storage.read(&prefixed_key);
+    assert!(
+        raw_data_prefixed.is_none(),
+        "No TTL-prefixed entry should exist for a non-TTL write"
+    );
+
+    // Ensure we can still retrieve the non-TTL stored value
+    let retrieved: TestData = bincode::deserialize(&storage.read(key).unwrap()).unwrap();
+    assert_eq!(retrieved, test_value, "Non-TTL value should be retrievable");
 }
