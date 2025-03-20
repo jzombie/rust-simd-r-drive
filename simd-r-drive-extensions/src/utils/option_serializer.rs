@@ -6,7 +6,7 @@ use std::io::{self, ErrorKind};
 /// Special marker for explicitly storing `None` values in binary storage.
 const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE];
 
-/// Serializes an `Option<T>` into a binary representation.
+/// Serializes an `Option<T>` into a binary representation compatible with `SIMD R Drive`.
 ///
 /// - If `Some(value)`, serializes the value using `bincode`.
 /// - If `None`, returns a tombstone marker (`[0xFF, 0xFE]`).

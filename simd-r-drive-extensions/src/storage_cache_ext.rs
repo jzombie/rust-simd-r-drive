@@ -4,6 +4,9 @@ use simd_r_drive::DataStore;
 use std::io::{self, ErrorKind};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+// Note: Option types are naturally handled by this because they use the TTL
+// value as well (no need to use `option_serializer` separately).
+
 /// **Prefix-based TTL storage for cache expiration**  
 /// Stores a timestamp (in seconds) before the actual value.
 pub trait StorageCacheExt {

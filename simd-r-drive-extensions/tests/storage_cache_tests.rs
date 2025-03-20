@@ -6,7 +6,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use tempfile::tempdir;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct TestData {
     id: u32,
     name: String,
@@ -168,5 +168,88 @@ fn test_read_with_ttl_on_regular_write_fails() {
     assert!(
         retrieved.is_err(),
         "Reading a regular write with TTL should fail"
+    );
+}
+
+#[test]
+fn test_write_and_read_option_with_ttl() {
+    use simd_r_drive_extensions::StorageCacheExt;
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    let (_dir, storage) = create_temp_storage();
+
+    let key_some = b"ttl_some_key";
+    let key_none = b"ttl_none_key";
+    let ttl_short = 2; // 2-second TTL
+    let ttl_long = 5; // 5-second TTL
+
+    let some_data = TestData {
+        id: 101,
+        name: "Temporary Data".to_string(),
+    };
+
+    // Store Some(value) with TTL
+    storage
+        .write_with_ttl(key_some, &Some(some_data.clone()), ttl_short)
+        .expect("Failed to write Some(value) with TTL");
+
+    // Store None with TTL
+    storage
+        .write_with_ttl::<Option<TestData>>(key_none, &None, ttl_short)
+        .expect("Failed to write None with TTL");
+
+    // Read back immediately (before expiration)
+    let retrieved_some = storage
+        .read_with_ttl::<Option<TestData>>(key_some)
+        .expect("Failed to read Some(value) before expiration");
+    assert_eq!(
+        retrieved_some,
+        Some(Some(some_data.clone())),
+        "Expected Some(value) before TTL expires"
+    );
+
+    let retrieved_none = storage
+        .read_with_ttl::<Option<TestData>>(key_none)
+        .expect("Failed to read None before expiration");
+    assert_eq!(
+        retrieved_none,
+        Some(None),
+        "Expected None before TTL expires"
+    );
+
+    // Wait for TTL to expire
+    sleep(Duration::from_secs(ttl_short + 1));
+
+    // Ensure Some(value) entry is evicted
+    let expired_some = storage.read_with_ttl::<Option<TestData>>(key_some);
+    assert!(
+        matches!(expired_some, Ok(None)),
+        "Expected Some(value) to be expired"
+    );
+
+    // Ensure None entry is also evicted
+    let expired_none = storage.read_with_ttl::<Option<TestData>>(key_none);
+    assert!(
+        matches!(expired_none, Ok(None)),
+        "Expected None to be expired"
+    );
+
+    // Store a new value with a longer TTL to confirm TTL works for fresh entries
+    let refreshed_data = TestData {
+        id: 202,
+        name: "Refreshed".to_string(),
+    };
+    storage
+        .write_with_ttl(key_some, &Some(refreshed_data.clone()), ttl_long)
+        .expect("Failed to write refreshed entry with TTL");
+
+    let retrieved_refreshed = storage
+        .read_with_ttl::<Option<TestData>>(key_some)
+        .expect("Failed to read refreshed entry before expiration");
+    assert_eq!(
+        retrieved_refreshed,
+        Some(Some(refreshed_data)),
+        "Expected refreshed entry before TTL expires"
     );
 }
