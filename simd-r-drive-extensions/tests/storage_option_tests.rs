@@ -2,7 +2,9 @@
 mod tests {
     use serde::{Deserialize, Serialize};
     use simd_r_drive::DataStore;
-    use simd_r_drive_extensions::{StorageOptionExt, TEST_OPTION_TOMBSTONE_MARKER};
+    use simd_r_drive_extensions::{
+        utils::prefix_key, StorageOptionExt, TEST_OPTION_PREFIX, TEST_OPTION_TOMBSTONE_MARKER,
+    };
     use std::io::ErrorKind;
     use tempfile::tempdir;
 
@@ -105,7 +107,7 @@ mod tests {
         );
 
         // Step 4: Ensure the entry still exists in storage (not fully deleted)
-        let raw_entry = storage.read(key);
+        let raw_entry = storage.read(&prefix_key(&TEST_OPTION_PREFIX, key));
         assert!(
             raw_entry.is_some(),
             "Entry should still exist in storage even after writing None"
@@ -211,5 +213,116 @@ mod tests {
                 key
             );
         }
+    }
+
+    #[test]
+    fn test_option_prefix_is_applied_for_some() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"test_key_option";
+        let prefixed_key = prefix_key(TEST_OPTION_PREFIX, key);
+        let test_value = Some(TestData {
+            id: 456,
+            name: "Test Option Value".to_string(),
+        });
+
+        // Write `Some(value)` with option handling
+        storage
+            .write_option(key, test_value.as_ref())
+            .expect("Failed to write option");
+
+        // Ensure the prefixed key exists in storage
+        let raw_data = storage.read(&prefixed_key);
+        assert!(
+            raw_data.is_some(),
+            "Expected data to be stored under the prefixed key"
+        );
+
+        // Ensure the unprefixed key does not exist
+        let raw_data_unprefixed = storage.read(key);
+        assert!(
+            raw_data_unprefixed.is_none(),
+            "Unprefixed key should not exist in storage"
+        );
+
+        // Ensure we can read the value correctly
+        let retrieved = storage
+            .read_option::<TestData>(key)
+            .expect("Failed to read option");
+
+        assert_eq!(
+            retrieved, test_value,
+            "Stored and retrieved option values do not match"
+        );
+    }
+
+    #[test]
+    fn test_option_prefix_is_applied_for_none() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"test_key_none";
+        let prefixed_key = prefix_key(TEST_OPTION_PREFIX, key);
+
+        // Write `None`
+        storage
+            .write_option::<TestData>(key, None)
+            .expect("Failed to write None with option handling");
+
+        // Ensure the prefixed key exists in storage (tombstone marker stored)
+        let raw_data = storage.read(&prefixed_key);
+        assert!(
+            raw_data.is_some(),
+            "Expected tombstone marker to be stored under the prefixed key"
+        );
+
+        // Ensure the unprefixed key does not exist
+        let raw_data_unprefixed = storage.read(key);
+        assert!(
+            raw_data_unprefixed.is_none(),
+            "Unprefixed key should not exist in storage"
+        );
+
+        // Ensure we can read the value correctly
+        let retrieved = storage
+            .read_option::<TestData>(key)
+            .expect("Failed to read None with option handling");
+
+        assert_eq!(
+            retrieved, None,
+            "Expected None when retrieving a stored tombstone marker"
+        );
+    }
+
+    #[test]
+    fn test_option_prefixing_does_not_affect_regular_storage() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"test_key_option_non_prefixed";
+        let test_value = TestData {
+            id: 789,
+            name: "Non-Prefixed Option Value".to_string(),
+        };
+
+        // Directly write a non-option value to the base storage
+        storage
+            .write(key, &bincode::serialize(&test_value).unwrap())
+            .expect("Failed to write non-option value");
+
+        // Ensure reading from the option-prefixed key fails (since it was not stored as an option)
+        let prefixed_key = prefix_key(TEST_OPTION_PREFIX, key);
+        let raw_data_prefixed = storage.read(&prefixed_key);
+        assert!(
+            raw_data_prefixed.is_none(),
+            "No option-prefixed entry should exist for a non-prefixed write"
+        );
+
+        // Ensure we can still retrieve the non-prefixed stored value
+        let raw_bytes = storage.read(key).expect("Failed to read stored data");
+        let retrieved: TestData =
+            bincode::deserialize(&raw_bytes).expect("Failed to deserialize TestData");
+        assert_eq!(
+            retrieved, test_value,
+            "Non-prefixed value should be retrievable as a plain `T`"
+        );
     }
 }

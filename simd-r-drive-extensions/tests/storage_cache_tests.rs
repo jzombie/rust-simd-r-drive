@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 use simd_r_drive::DataStore;
-use simd_r_drive_extensions::StorageCacheExt;
+use simd_r_drive_extensions::{utils::prefix_key, StorageCacheExt, TEST_TTL_PREFIX};
 use std::io::ErrorKind;
 use std::thread::sleep;
 use std::time::Duration;
 use tempfile::tempdir;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct TestData {
     id: u32,
     name: String,
@@ -169,4 +169,157 @@ fn test_read_with_ttl_on_regular_write_fails() {
         retrieved.is_err(),
         "Reading a regular write with TTL should fail"
     );
+}
+
+#[test]
+fn test_write_and_read_option_with_ttl() {
+    use simd_r_drive_extensions::StorageCacheExt;
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    let (_dir, storage) = create_temp_storage();
+
+    let key_some = b"ttl_some_key";
+    let key_none = b"ttl_none_key";
+    let ttl_short = 2; // 2-second TTL
+    let ttl_long = 5; // 5-second TTL
+
+    let some_data = TestData {
+        id: 101,
+        name: "Temporary Data".to_string(),
+    };
+
+    // Store Some(value) with TTL
+    storage
+        .write_with_ttl(key_some, &Some(some_data.clone()), ttl_short)
+        .expect("Failed to write Some(value) with TTL");
+
+    // Store None with TTL
+    storage
+        .write_with_ttl::<Option<TestData>>(key_none, &None, ttl_short)
+        .expect("Failed to write None with TTL");
+
+    // Read back immediately (before expiration)
+    let retrieved_some = storage
+        .read_with_ttl::<Option<TestData>>(key_some)
+        .expect("Failed to read Some(value) before expiration");
+    assert_eq!(
+        retrieved_some,
+        Some(Some(some_data.clone())),
+        "Expected Some(value) before TTL expires"
+    );
+
+    let retrieved_none = storage
+        .read_with_ttl::<Option<TestData>>(key_none)
+        .expect("Failed to read None before expiration");
+    assert_eq!(
+        retrieved_none,
+        Some(None),
+        "Expected None before TTL expires"
+    );
+
+    // Wait for TTL to expire
+    sleep(Duration::from_secs(ttl_short + 1));
+
+    // Ensure Some(value) entry is evicted
+    let expired_some = storage.read_with_ttl::<Option<TestData>>(key_some);
+    assert!(
+        matches!(expired_some, Ok(None)),
+        "Expected Some(value) to be expired"
+    );
+
+    // Ensure None entry is also evicted
+    let expired_none = storage.read_with_ttl::<Option<TestData>>(key_none);
+    assert!(
+        matches!(expired_none, Ok(None)),
+        "Expected None to be expired"
+    );
+
+    // Store a new value with a longer TTL to confirm TTL works for fresh entries
+    let refreshed_data = TestData {
+        id: 202,
+        name: "Refreshed".to_string(),
+    };
+    storage
+        .write_with_ttl(key_some, &Some(refreshed_data.clone()), ttl_long)
+        .expect("Failed to write refreshed entry with TTL");
+
+    let retrieved_refreshed = storage
+        .read_with_ttl::<Option<TestData>>(key_some)
+        .expect("Failed to read refreshed entry before expiration");
+    assert_eq!(
+        retrieved_refreshed,
+        Some(Some(refreshed_data)),
+        "Expected refreshed entry before TTL expires"
+    );
+}
+
+#[test]
+fn test_ttl_prefix_is_applied() {
+    let (_dir, storage) = create_temp_storage();
+
+    let key = b"test_key";
+    let prefixed_key = prefix_key(TEST_TTL_PREFIX, key);
+    let test_value = TestData {
+        id: 123,
+        name: "Test Value".to_string(),
+    };
+
+    // Write data with TTL
+    storage
+        .write_with_ttl(key, &test_value, 60)
+        .expect("Failed to write with TTL");
+
+    // Ensure the prefixed key exists in storage
+    let raw_data = storage.read(&prefixed_key);
+    assert!(
+        raw_data.is_some(),
+        "Expected data to be stored under the prefixed key"
+    );
+
+    // Ensure the unprefixed key does not exist
+    let raw_data_unprefixed = storage.read(key);
+    assert!(
+        raw_data_unprefixed.is_none(),
+        "Unprefixed key should not exist in storage"
+    );
+
+    // Ensure we can read the value correctly
+    let retrieved = storage
+        .read_with_ttl::<TestData>(key)
+        .expect("Failed to read with TTL");
+
+    assert_eq!(
+        retrieved,
+        Some(test_value),
+        "Stored and retrieved values do not match"
+    );
+}
+
+#[test]
+fn test_ttl_prefixing_does_not_affect_regular_storage() {
+    let (_dir, storage) = create_temp_storage();
+
+    let key = b"test_key";
+    let test_value = TestData {
+        id: 999,
+        name: "Non-TTL Value".to_string(),
+    };
+
+    // Directly write without TTL
+    storage
+        .write(key, &bincode::serialize(&test_value).unwrap())
+        .expect("Failed to write without TTL");
+
+    // Ensure reading from TTL-prefixed key fails (since it was not stored with TTL)
+    let prefixed_key = prefix_key(TEST_TTL_PREFIX, key);
+    let raw_data_prefixed = storage.read(&prefixed_key);
+    assert!(
+        raw_data_prefixed.is_none(),
+        "No TTL-prefixed entry should exist for a non-TTL write"
+    );
+
+    // Ensure we can still retrieve the non-TTL stored value
+    let retrieved: TestData = bincode::deserialize(&storage.read(key).unwrap()).unwrap();
+    assert_eq!(retrieved, test_value, "Non-TTL value should be retrievable");
 }

@@ -1,15 +1,16 @@
-use bincode;
+use crate::constants::{OPTION_PREFIX, OPTION_TOMBSTONE_MARKER};
+use crate::utils::prefix_key;
+use crate::{deserialize_option, serialize_option};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simd_r_drive::DataStore;
 use std::io::{self, ErrorKind};
 
-/// Special marker for explicitly storing `None` values in binary storage.
-/// This ensures that `None` is distinguishable from an empty or default value.
-const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE];
-
 #[cfg(any(test, debug_assertions))]
 pub const TEST_OPTION_TOMBSTONE_MARKER: [u8; 2] = OPTION_TOMBSTONE_MARKER;
+
+#[cfg(any(test, debug_assertions))]
+pub const TEST_OPTION_PREFIX: &[u8] = OPTION_PREFIX;
 
 /// # Storage Utilities for Handling `Option<T>`
 ///
@@ -122,32 +123,22 @@ pub trait StorageOptionExt {
 
 /// Implements `StorageOptionExt` for `DataStore`
 impl StorageOptionExt for DataStore {
-    fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> std::io::Result<u64> {
-        let serialized = match value {
-            Some(v) => bincode::serialize(v).unwrap_or_else(|_| OPTION_TOMBSTONE_MARKER.to_vec()),
-            None => OPTION_TOMBSTONE_MARKER.to_vec(),
-        };
+    fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> io::Result<u64> {
+        let key = &prefix_key(OPTION_PREFIX, key);
 
+        let serialized = serialize_option(value)?;
         self.write(key, &serialized)
     }
 
     fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, io::Error> {
+        let key = &prefix_key(OPTION_PREFIX, key);
+
         match self.read(key) {
-            Some(entry) => {
-                let data = entry.as_slice();
-                if data == OPTION_TOMBSTONE_MARKER {
-                    return Ok(None);
-                }
-                bincode::deserialize::<T>(data)
-                    .map(Some)
-                    .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))
-            }
-            None => {
-                return Err(io::Error::new(
-                    ErrorKind::NotFound,
-                    "Key not found in storage",
-                ))
-            }
+            Some(entry) => deserialize_option::<T>(entry.as_slice()),
+            None => Err(io::Error::new(
+                ErrorKind::NotFound,
+                "Key not found in storage",
+            )),
         }
     }
 }
