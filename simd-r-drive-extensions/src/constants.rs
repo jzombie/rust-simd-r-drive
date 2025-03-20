@@ -4,23 +4,18 @@ pub(crate) const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE];
 /// # Namespaced Prefixes for Storage Features
 ///
 /// These prefixes are **not** used to differentiate values themselves;  
-/// the storage engine already handles type and structure differentiation.  
+/// SIMD R Drive already handles type and structure differentiation.  
 ///
 /// Instead, these prefixes are used to distinguish **storage features** such as:
 /// - **Option handling** (explicit tombstones for `None` values)
 /// - **TTL-based auto-eviction** (keys prefixed with expiration timestamps)
 ///
 /// By applying **feature-based** prefixes, we ensure that:
-/// - Different storage mechanisms do not conflict.
-/// - Read/write operations apply the correct logic.
+/// - Different feature extensions do not naturally conflict.
+/// - Per-extensions read/write operations apply the correct logic.
 /// - Keys remain distinct even if their raw values are identical.
 ///
-/// ## Binary Prefix Design:
-/// - **Start Boundary (`0xF7`)** → High UTF-8 non-standard range, unlikely in normal data.
-/// - **Feature Name** → Encodes the purpose of the key (e.g., `"option"`, `"ttl"`).
-/// - **End Boundary (`0xFD`)** → Another rare high-range byte for closure.
-///
-/// This ensures **safe, efficient, and collision-free feature separation**  
+/// This ensures relatively safe, efficient, and collision-free feature separation  
 /// without interfering with the actual stored values.
 macro_rules! namespace_prefix {
     ($name:expr) => {{
