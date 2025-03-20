@@ -1,3 +1,5 @@
+use crate::key_prefixes::OPTION_PREFIX;
+use crate::utils::prefix_key;
 use crate::{deserialize_option, serialize_option};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -123,11 +125,15 @@ pub trait StorageOptionExt {
 /// Implements `StorageOptionExt` for `DataStore`
 impl StorageOptionExt for DataStore {
     fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> io::Result<u64> {
+        let key = &prefix_key(OPTION_PREFIX, key);
+
         let serialized = serialize_option(value)?;
         self.write(key, &serialized)
     }
 
     fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, io::Error> {
+        let key = &prefix_key(OPTION_PREFIX, key);
+
         match self.read(key) {
             Some(entry) => deserialize_option::<T>(entry.as_slice()),
             None => Err(io::Error::new(

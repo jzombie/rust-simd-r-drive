@@ -2,7 +2,9 @@
 mod tests {
     use serde::{Deserialize, Serialize};
     use simd_r_drive::DataStore;
-    use simd_r_drive_extensions::{StorageOptionExt, TEST_OPTION_TOMBSTONE_MARKER};
+    use simd_r_drive_extensions::{
+        utils::prefix_key, StorageOptionExt, TEST_OPTION_TOMBSTONE_MARKER,
+    };
     use std::io::ErrorKind;
     use tempfile::tempdir;
 
@@ -105,7 +107,7 @@ mod tests {
         );
 
         // Step 4: Ensure the entry still exists in storage (not fully deleted)
-        let raw_entry = storage.read(key);
+        let raw_entry = storage.read(&prefix_key(b"--extension-option--", key));
         assert!(
             raw_entry.is_some(),
             "Entry should still exist in storage even after writing None"

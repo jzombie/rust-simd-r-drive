@@ -1,3 +1,5 @@
+use crate::key_prefixes::TTL_PREFIX;
+use crate::utils::prefix_key;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simd_r_drive::DataStore;
@@ -7,7 +9,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 // Note: Option types are naturally handled by this because they use the TTL
 // value as well (no need to use `option_serializer` separately).
 
-/// **Prefix-based TTL storage for cache expiration**  
+/// # Storage Utilities for Handling Auto-Evicting TTL Entries
+///
 /// Stores a timestamp (in seconds) before the actual value.
 pub trait StorageCacheExt {
     /// Writes a value with a TTL (Time-To-Live).
@@ -48,6 +51,8 @@ impl StorageCacheExt for DataStore {
         value: &T,
         ttl_secs: u64,
     ) -> io::Result<u64> {
+        let key = &prefix_key(TTL_PREFIX, key);
+
         let expiration_timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards")
@@ -63,6 +68,8 @@ impl StorageCacheExt for DataStore {
     }
 
     fn read_with_ttl<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, io::Error> {
+        let key = &prefix_key(TTL_PREFIX, key);
+
         match self.read(key) {
             Some(entry) => {
                 let data = entry.as_slice();
@@ -81,7 +88,7 @@ impl StorageCacheExt for DataStore {
                     .as_secs();
 
                 if now >= expiration_timestamp {
-                    self.delete_entry(key).ok(); // Remove expired entry
+                    self.delete_entry(key.as_slice()).ok(); // Remove expired entry
                     return Ok(None);
                 }
 
