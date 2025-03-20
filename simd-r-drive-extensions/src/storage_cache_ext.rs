@@ -1,4 +1,4 @@
-use crate::key_prefixes::TTL_PREFIX;
+use crate::constants::TTL_PREFIX;
 use crate::utils::prefix_key;
 use serde::de::DeserializeOwned;
 use serde::Serialize;

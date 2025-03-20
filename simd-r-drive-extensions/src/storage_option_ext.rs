@@ -1,14 +1,10 @@
-use crate::key_prefixes::OPTION_PREFIX;
+use crate::constants::{OPTION_PREFIX, OPTION_TOMBSTONE_MARKER};
 use crate::utils::prefix_key;
 use crate::{deserialize_option, serialize_option};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simd_r_drive::DataStore;
 use std::io::{self, ErrorKind};
-
-/// Special marker for explicitly storing `None` values in binary storage.
-/// This ensures that `None` is distinguishable from an empty or default value.
-const OPTION_TOMBSTONE_MARKER: [u8; 2] = [0xFF, 0xFE];
 
 #[cfg(any(test, debug_assertions))]
 pub const TEST_OPTION_TOMBSTONE_MARKER: [u8; 2] = OPTION_TOMBSTONE_MARKER;
