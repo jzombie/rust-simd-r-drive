@@ -6,12 +6,12 @@ use simd_r_drive::DataStore;
 use std::io::{self, ErrorKind};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-// Note: Option types are naturally handled by this because they use the TTL
-// value as well (no need to use `option_serializer` separately).
-
 /// # Storage Utilities for Handling Auto-Evicting TTL Entries
 ///
 /// Stores a timestamp (in seconds) before the actual value.
+///
+/// Note: Option types are *safely* handled by this without additional serialization
+/// as they are stored with the TTL value as well.
 pub trait StorageCacheExt {
     /// Writes a value with a TTL (Time-To-Live).
     ///
