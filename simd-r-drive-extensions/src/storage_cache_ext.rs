@@ -1,10 +1,13 @@
 use crate::constants::TTL_PREFIX;
-use crate::utils::prefix_key;
+use crate::NamespaceHasher;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simd_r_drive::DataStore;
 use std::io::{self, ErrorKind};
+use std::sync::{Arc, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static TTL_NAMESPACE_HASHER: OnceLock<Arc<NamespaceHasher>> = OnceLock::new();
 
 #[cfg(any(test, debug_assertions))]
 pub const TEST_TTL_PREFIX: &[u8] = TTL_PREFIX;
@@ -54,7 +57,9 @@ impl StorageCacheExt for DataStore {
         value: &T,
         ttl_secs: u64,
     ) -> io::Result<u64> {
-        let key = &prefix_key(TTL_PREFIX, key);
+        let namespace_hasher =
+            TTL_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(TTL_PREFIX)));
+        let namespaced_key = namespace_hasher.namespace(key);
 
         let expiration_timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -67,13 +72,15 @@ impl StorageCacheExt for DataStore {
             .map_err(|_| io::Error::new(ErrorKind::InvalidData, "Serialization failed"))?;
         data.extend_from_slice(&serialized_value);
 
-        self.write(key, &data)
+        self.write(&namespaced_key, &data)
     }
 
     fn read_with_ttl<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, io::Error> {
-        let key = &prefix_key(TTL_PREFIX, key);
+        let namespace_hasher =
+            TTL_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(TTL_PREFIX)));
+        let namespaced_key = namespace_hasher.namespace(key);
 
-        match self.read(key) {
+        match self.read(&namespaced_key) {
             Some(entry) => {
                 let data = entry.as_slice();
 
@@ -91,7 +98,7 @@ impl StorageCacheExt for DataStore {
                     .as_secs();
 
                 if now >= expiration_timestamp {
-                    self.delete_entry(key.as_slice()).ok(); // Remove expired entry
+                    self.delete_entry(&namespaced_key).ok(); // Remove expired entry
                     return Ok(None);
                 }
 

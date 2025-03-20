@@ -1,10 +1,13 @@
 use crate::constants::{OPTION_PREFIX, OPTION_TOMBSTONE_MARKER};
-use crate::utils::prefix_key;
+use crate::NamespaceHasher;
 use crate::{deserialize_option, serialize_option};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simd_r_drive::DataStore;
 use std::io::{self, ErrorKind};
+use std::sync::{Arc, OnceLock};
+
+static OPTION_NAMESPACE_HASHER: OnceLock<Arc<NamespaceHasher>> = OnceLock::new();
 
 #[cfg(any(test, debug_assertions))]
 pub const TEST_OPTION_TOMBSTONE_MARKER: [u8; 2] = OPTION_TOMBSTONE_MARKER;
@@ -124,16 +127,20 @@ pub trait StorageOptionExt {
 /// Implements `StorageOptionExt` for `DataStore`
 impl StorageOptionExt for DataStore {
     fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> io::Result<u64> {
-        let key = &prefix_key(OPTION_PREFIX, key);
+        let namespace_hasher =
+            OPTION_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(OPTION_PREFIX)));
+        let namespaced_key = namespace_hasher.namespace(key);
 
         let serialized = serialize_option(value)?;
-        self.write(key, &serialized)
+        self.write(&namespaced_key, &serialized)
     }
 
     fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, io::Error> {
-        let key = &prefix_key(OPTION_PREFIX, key);
+        let namespace_hasher =
+            OPTION_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(OPTION_PREFIX)));
+        let namespaced_key = namespace_hasher.namespace(key);
 
-        match self.read(key) {
+        match self.read(&namespaced_key) {
             Some(entry) => deserialize_option::<T>(entry.as_slice()),
             None => Err(io::Error::new(
                 ErrorKind::NotFound,

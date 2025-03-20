@@ -3,7 +3,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use simd_r_drive::DataStore;
     use simd_r_drive_extensions::{
-        utils::prefix_key, StorageOptionExt, TEST_OPTION_PREFIX, TEST_OPTION_TOMBSTONE_MARKER,
+        NamespaceHasher, StorageOptionExt, TEST_OPTION_PREFIX, TEST_OPTION_TOMBSTONE_MARKER,
     };
     use std::io::ErrorKind;
     use tempfile::tempdir;
@@ -106,8 +106,11 @@ mod tests {
             "Entry should return None when tombstone is written"
         );
 
+        let namespace_hasher = NamespaceHasher::new(TEST_OPTION_PREFIX);
+        let namespaced_key = namespace_hasher.namespace(key);
+
         // Step 4: Ensure the entry still exists in storage (not fully deleted)
-        let raw_entry = storage.read(&prefix_key(&TEST_OPTION_PREFIX, key));
+        let raw_entry = storage.read(&namespaced_key);
         assert!(
             raw_entry.is_some(),
             "Entry should still exist in storage even after writing None"
@@ -219,8 +222,10 @@ mod tests {
     fn test_option_prefix_is_applied_for_some() {
         let (_dir, storage) = create_temp_storage();
 
+        let namespace_hasher = NamespaceHasher::new(TEST_OPTION_PREFIX);
+
         let key = b"test_key_option";
-        let prefixed_key = prefix_key(TEST_OPTION_PREFIX, key);
+        let namespaced_key = namespace_hasher.namespace(key);
         let test_value = Some(TestData {
             id: 456,
             name: "Test Option Value".to_string(),
@@ -232,7 +237,7 @@ mod tests {
             .expect("Failed to write option");
 
         // Ensure the prefixed key exists in storage
-        let raw_data = storage.read(&prefixed_key);
+        let raw_data = storage.read(&namespaced_key);
         assert!(
             raw_data.is_some(),
             "Expected data to be stored under the prefixed key"
@@ -260,8 +265,10 @@ mod tests {
     fn test_option_prefix_is_applied_for_none() {
         let (_dir, storage) = create_temp_storage();
 
+        let namespace_hasher = NamespaceHasher::new(TEST_OPTION_PREFIX);
+
         let key = b"test_key_none";
-        let prefixed_key = prefix_key(TEST_OPTION_PREFIX, key);
+        let namespaced_key = namespace_hasher.namespace(key);
 
         // Write `None`
         storage
@@ -269,7 +276,7 @@ mod tests {
             .expect("Failed to write None with option handling");
 
         // Ensure the prefixed key exists in storage (tombstone marker stored)
-        let raw_data = storage.read(&prefixed_key);
+        let raw_data = storage.read(&namespaced_key);
         assert!(
             raw_data.is_some(),
             "Expected tombstone marker to be stored under the prefixed key"
@@ -308,9 +315,11 @@ mod tests {
             .write(key, &bincode::serialize(&test_value).unwrap())
             .expect("Failed to write non-option value");
 
+        let namespace_hasher = NamespaceHasher::new(TEST_OPTION_PREFIX);
+
         // Ensure reading from the option-prefixed key fails (since it was not stored as an option)
-        let prefixed_key = prefix_key(TEST_OPTION_PREFIX, key);
-        let raw_data_prefixed = storage.read(&prefixed_key);
+        let namespaced_key = namespace_hasher.namespace(key);
+        let raw_data_prefixed = storage.read(&namespaced_key);
         assert!(
             raw_data_prefixed.is_none(),
             "No option-prefixed entry should exist for a non-prefixed write"
