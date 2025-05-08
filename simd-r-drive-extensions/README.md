@@ -120,7 +120,7 @@ for (key, offset) in &namespace_imported {
 
 - File import uses **streaming I/O**, avoiding full file loads into memory.
 
-### Reading Files from Storage (by Relative Path)
+### Reading a File Stream from Storage
 
 ```rust
 use simd_r_drive::DataStore;
@@ -134,12 +134,63 @@ let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
 let import_dir = "../.github";
 let relative_file = "workflows/rust-release.yml";
 
-// Import the directory
+// Import directory first
 storage
     .import_dir_recursively(import_dir, Some(b"some-namespace"))
     .expect("Failed to import directory");
 
-// Read file from the store
+// Read from storage stream
+let mut stored_stream = storage
+    .open_file_stream(relative_file, Some(b"some-namespace"))
+    .expect("File not found in storage");
+
+let mut stored_contents = String::new();
+stored_stream
+    .read_to_string(&mut stored_contents)
+    .expect("Failed to read from stream");
+
+// Read original for comparison
+let full_path = PathBuf::from(import_dir).join(relative_file);
+let mut file = BufReader::new(fs::File::open(&full_path).expect("Original file missing"));
+let mut original_contents = String::new();
+file.read_to_string(&mut original_contents)
+    .expect("Failed to read original file");
+
+// Compare
+assert_eq!(
+    stored_contents, original_contents,
+    "Streamed contents do not match original"
+);
+
+```
+
+#### Notes
+
+- These methods do not directly access the filesystem — they operate entirely within the DataStore.
+- If a namespace was used during import, it must be provided again when reading.
+- Relative paths must match those used during import, and must use the same namespace if provided.
+- Internally uses zero-copy range handles (EntryStream) backed by memory-mapped file reads.
+
+### Reading Stored File as Text (Full Content)
+
+```rust
+use simd_r_drive::DataStore;
+use simd_r_drive_extensions::StorageFileImportExt;
+use std::fs;
+use std::io::{Read, BufReader};
+use std::path::PathBuf;
+
+let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
+
+let import_dir = "../.github";
+let relative_file = "workflows/rust-release.yml";
+
+// Import directory first
+storage
+    .import_dir_recursively(import_dir, Some(b"some-namespace"))
+    .expect("Failed to import directory");
+
+// Read from storage
 let mut stored = storage
     .open_file_stream(relative_file, Some(b"some-namespace"))
     .expect("File not found in storage");
@@ -149,22 +200,24 @@ stored
     .read_to_string(&mut stored_contents)
     .expect("Failed to read from store");
 
-// Read original file directly
+// Read from original file
 let full_path = PathBuf::from(import_dir).join(relative_file);
-let mut file = BufReader::new(fs::File::open(&full_path).expect("Missing original file"));
+let mut file = BufReader::new(fs::File::open(&full_path).expect("Original file missing"));
 let mut original_contents = String::new();
 file.read_to_string(&mut original_contents)
     .expect("Failed to read original file");
 
-// Compare contents
+// Validate contents match
 assert_eq!(
     stored_contents, original_contents,
-    "Mismatch between stored and original file contents"
+    "Stored content does not match original file"
 );
 ```
 
-### Notes
+#### Notes
+
 - These methods do not directly access the filesystem — they operate entirely within the DataStore.
+- If a namespace was used during import, it must be provided again when reading.
 - Relative paths must match those used during import, and must use the same namespace if provided.
 - Internally uses zero-copy range handles (EntryStream) backed by memory-mapped file reads.
 
