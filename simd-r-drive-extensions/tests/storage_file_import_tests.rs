@@ -168,3 +168,28 @@ fn test_open_file_stream_reads_all_bytes() {
 
     assert_eq!(streamed, expected);
 }
+
+#[test]
+fn test_import_fails_on_nonexistent_directory() {
+    let (_dir, storage) = create_temp_storage();
+    let missing_dir = PathBuf::from("/this/should/not/exist");
+
+    let result = storage.import_dir_recursively(missing_dir, None);
+    assert!(result.is_err(), "Expected error for nonexistent directory");
+}
+
+#[test]
+fn test_import_fails_when_given_a_file_instead_of_directory() {
+    let (_dir, storage) = create_temp_storage();
+
+    // Create a file instead of directory
+    let temp = tempdir().unwrap();
+    let file_path = temp.path().join("not_a_directory.txt");
+    std::fs::write(&file_path, b"not a dir").unwrap();
+
+    let result = storage.import_dir_recursively(file_path, None);
+    assert!(
+        result.is_err(),
+        "Expected error when path is a file, not a directory"
+    );
+}

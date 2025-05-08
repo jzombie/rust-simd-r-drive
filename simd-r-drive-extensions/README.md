@@ -70,6 +70,7 @@ assert_eq!(
     None // Key should be expired and removed
 );
 ```
+
 #### Notes
 
 - TTL values are stored as a **binary prefix** before the actual value.
@@ -89,7 +90,7 @@ let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
 // Recursively stream and import all files under `./assets`
 // Keys will use Unix-style paths like "subdir/file.txt"
 let imported = storage
-    .import_dir_recursively("./assets", None)
+    .import_dir_recursively("../assets", None)
     .expect("Failed to import directory");
 
 for (key, offset) in &imported {
@@ -103,7 +104,7 @@ for (key, offset) in &imported {
 // Optional: use a namespace to avoid key collisions
 let namespace: Option<&[u8]> = Some(b"assets");
 let namespace_imported = storage
-    .import_dir_recursively("./assets", namespace)
+    .import_dir_recursively("../assets", namespace)
     .expect("Failed to import with namespace");
 
 for (key, offset) in &namespace_imported {
@@ -118,6 +119,54 @@ for (key, offset) in &namespace_imported {
 #### Note
 
 - File import uses **streaming I/O**, avoiding full file loads into memory.
+
+### Reading Files from Storage (by Relative Path)
+
+```rust
+use simd_r_drive::DataStore;
+use simd_r_drive_extensions::StorageFileImportExt;
+use std::fs;
+use std::io::{Read, BufReader};
+use std::path::PathBuf;
+
+let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
+
+let import_dir = "../.github";
+let relative_file = "workflows/rust-release.yml";
+
+// Import the directory
+storage
+    .import_dir_recursively(import_dir, Some(b"some-namespace"))
+    .expect("Failed to import directory");
+
+// Read file from the store
+let mut stored = storage
+    .open_file_stream(relative_file, Some(b"some-namespace"))
+    .expect("File not found in storage");
+
+let mut stored_contents = String::new();
+stored
+    .read_to_string(&mut stored_contents)
+    .expect("Failed to read from store");
+
+// Read original file directly
+let full_path = PathBuf::from(import_dir).join(relative_file);
+let mut file = BufReader::new(fs::File::open(&full_path).expect("Missing original file"));
+let mut original_contents = String::new();
+file.read_to_string(&mut original_contents)
+    .expect("Failed to read original file");
+
+// Compare contents
+assert_eq!(
+    stored_contents, original_contents,
+    "Mismatch between stored and original file contents"
+);
+```
+
+### Notes
+- These methods do not directly access the filesystem — they operate entirely within the DataStore.
+- Relative paths must match those used during import, and must use the same namespace if provided.
+- Internally uses zero-copy range handles (EntryStream) backed by memory-mapped file reads.
 
 ## License
 

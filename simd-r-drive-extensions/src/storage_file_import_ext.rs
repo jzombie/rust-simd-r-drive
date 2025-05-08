@@ -21,30 +21,38 @@ pub trait StorageFileImportExt {
         namespace: Option<&[u8]>,
     ) -> io::Result<Vec<(Vec<u8>, u64)>>;
 
-    /// Retrieves a file entry from storage given its relative path and optional namespace.
+    /// Retrieves a file entry **stored in the DataStore**, using a relative path
+    /// and optional namespace.
+    ///
+    /// This does **not** read from the actual filesystem. Instead, it accesses
+    /// a previously imported file based on its logical key.
     ///
     /// # Arguments
-    /// - `rel_path`: Relative file path using OS-native separators.
-    /// - `namespace`: Optional namespace prefix used during import.
+    /// - `rel_path`: Relative path to the file, using OS-native separators.
+    /// - `namespace`: Optional namespace used during import (if any).
     ///
     /// # Returns
-    /// - `Some(EntryHandle)`: If the file exists.
-    /// - `None`: If the key is missing or expired.
+    /// - `Some(EntryHandle)`: If the file exists in storage.
+    /// - `None`: If the key is missing or marked deleted.
     fn read_file_entry<P: AsRef<Path>>(
         &self,
         rel_path: P,
         namespace: Option<&[u8]>,
     ) -> Option<EntryHandle>;
 
-    /// Retrieves a streamed entry for a given relative file path.
+    /// Opens a **streaming reader** for a file stored in the DataStore,
+    /// identified by its relative path and optional namespace.
+    ///
+    /// This reads from the internal append-only store — not the filesystem.
+    /// Paths must match the relative structure used during import.
     ///
     /// # Arguments
-    /// - `rel_path`: Path relative to the import base.
-    /// - `namespace`: Optional namespace used during import.
+    /// - `rel_path`: Relative path used during import (OS-native separators allowed).
+    /// - `namespace`: Optional namespace prefix applied during import.
     ///
     /// # Returns
-    /// - `Some(EntryStream)`: If the entry exists.
-    /// - `None`: If the key is not found or deleted.
+    /// - `Some(EntryStream)`: If the file exists in storage.
+    /// - `None`: If no entry is found or it has been evicted.
     fn open_file_stream<P: AsRef<Path>>(
         &self,
         rel_path: P,
@@ -60,6 +68,13 @@ impl StorageFileImportExt for DataStore {
     ) -> io::Result<Vec<(Vec<u8>, u64)>> {
         let mut results = Vec::new();
         let base = base_dir.as_ref();
+
+        if !base.exists() || !base.is_dir() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("Directory does not exist: {}", base.display()),
+            ));
+        }
 
         for entry in walkdir::WalkDir::new(base)
             .into_iter()
