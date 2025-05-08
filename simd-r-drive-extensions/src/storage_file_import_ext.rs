@@ -1,8 +1,8 @@
 use crate::NamespaceHasher;
 use simd_r_drive::DataStore;
-use std::fs::{self, File};
-use std::io::{self, Read};
-use std::path::{Path, PathBuf};
+use std::fs::File;
+use std::io::{self};
+use std::path::Path;
 
 /// Recursively walks a directory and imports files into the DataStore.
 /// Keys are the relative Unix-style paths from `base_dir`.
@@ -55,10 +55,7 @@ impl StorageFileImportExt for DataStore {
                 .unwrap_or_else(|| key_bytes.to_vec());
 
             let mut file = File::open(path)?;
-            let mut contents = Vec::new();
-            file.read_to_end(&mut contents)?;
-
-            let offset = self.write(&namespaced_key, &contents)?;
+            let offset = self.write_stream(&namespaced_key, &mut file)?;
             results.push((namespaced_key, offset));
         }
 
