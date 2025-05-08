@@ -122,6 +122,8 @@ for (key, offset) in &namespace_imported {
 
 ### Reading a File Stream from Storage
 
+#### Streaming Example
+
 ```rust
 use simd_r_drive::DataStore;
 use simd_r_drive_extensions::StorageFileImportExt;
@@ -164,14 +166,8 @@ assert_eq!(
 
 ```
 
-#### Notes
 
-- These methods do not directly access the filesystem — they operate entirely within the DataStore.
-- If a namespace was used during import, it must be provided again when reading.
-- Relative paths must match those used during import, and must use the same namespace if provided.
-- Internally uses zero-copy range handles (EntryStream) backed by memory-mapped file reads.
-
-### Reading Stored File as Text (Full Content)
+#### Non-Streaming Example
 
 ```rust
 use simd_r_drive::DataStore;
