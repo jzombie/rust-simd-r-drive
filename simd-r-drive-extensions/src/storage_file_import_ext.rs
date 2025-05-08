@@ -1,5 +1,5 @@
 use crate::NamespaceHasher;
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, EntryHandle, EntryStream};
 use std::fs::File;
 use std::io::{self};
 use std::path::Path;
@@ -20,6 +20,36 @@ pub trait StorageFileImportExt {
         base_dir: P,
         namespace: Option<&[u8]>,
     ) -> io::Result<Vec<(Vec<u8>, u64)>>;
+
+    /// Retrieves a file entry from storage given its relative path and optional namespace.
+    ///
+    /// # Arguments
+    /// - `rel_path`: Relative file path using OS-native separators.
+    /// - `namespace`: Optional namespace prefix used during import.
+    ///
+    /// # Returns
+    /// - `Some(EntryHandle)`: If the file exists.
+    /// - `None`: If the key is missing or expired.
+    fn read_file_entry<P: AsRef<Path>>(
+        &self,
+        rel_path: P,
+        namespace: Option<&[u8]>,
+    ) -> Option<EntryHandle>;
+
+    /// Retrieves a streamed entry for a given relative file path.
+    ///
+    /// # Arguments
+    /// - `rel_path`: Path relative to the import base.
+    /// - `namespace`: Optional namespace used during import.
+    ///
+    /// # Returns
+    /// - `Some(EntryStream)`: If the entry exists.
+    /// - `None`: If the key is not found or deleted.
+    fn open_file_stream<P: AsRef<Path>>(
+        &self,
+        rel_path: P,
+        namespace: Option<&[u8]>,
+    ) -> Option<EntryStream>;
 }
 
 impl StorageFileImportExt for DataStore {
@@ -30,7 +60,6 @@ impl StorageFileImportExt for DataStore {
     ) -> io::Result<Vec<(Vec<u8>, u64)>> {
         let mut results = Vec::new();
         let base = base_dir.as_ref();
-        let hasher = namespace.map(|ns| NamespaceHasher::new(ns));
 
         for entry in walkdir::WalkDir::new(base)
             .into_iter()
@@ -42,17 +71,8 @@ impl StorageFileImportExt for DataStore {
             }
 
             let rel_path = path.strip_prefix(base).unwrap();
-            let unix_key = rel_path
-                .components()
-                .map(|c| c.as_os_str().to_string_lossy())
-                .collect::<Vec<_>>()
-                .join("/"); // Force Unix-style path separation
 
-            let key_bytes = unix_key.as_bytes();
-            let namespaced_key = hasher
-                .as_ref()
-                .map(|h| h.namespace(key_bytes))
-                .unwrap_or_else(|| key_bytes.to_vec());
+            let namespaced_key = to_namespaced_key(rel_path, namespace);
 
             let mut file = File::open(path)?;
             let offset = self.write_stream(&namespaced_key, &mut file)?;
@@ -60,5 +80,38 @@ impl StorageFileImportExt for DataStore {
         }
 
         Ok(results)
+    }
+
+    fn read_file_entry<P: AsRef<Path>>(
+        &self,
+        rel_path: P,
+        namespace: Option<&[u8]>,
+    ) -> Option<EntryHandle> {
+        let namespaced_key = to_namespaced_key(rel_path, namespace);
+        self.read(&namespaced_key)
+    }
+
+    fn open_file_stream<P: AsRef<Path>>(
+        &self,
+        rel_path: P,
+        namespace: Option<&[u8]>,
+    ) -> Option<EntryStream> {
+        let namespaced_key = to_namespaced_key(rel_path, namespace);
+        self.read(&namespaced_key).map(EntryStream::from)
+    }
+}
+
+fn to_namespaced_key<P: AsRef<Path>>(rel_path: P, namespace: Option<&[u8]>) -> Vec<u8> {
+    let unix_key = rel_path
+        .as_ref()
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+        .into_bytes();
+
+    match namespace {
+        Some(ns) => NamespaceHasher::new(ns).namespace(&unix_key),
+        None => unix_key,
     }
 }

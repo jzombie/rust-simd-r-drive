@@ -95,3 +95,76 @@ fn test_import_without_namespace() {
         assert_eq!(stored.as_slice(), expected.as_slice());
     }
 }
+
+#[test]
+fn test_read_file_entry_returns_correct_contents() {
+    let source_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("utils");
+
+    let (_dir, storage) = create_temp_storage();
+
+    storage
+        .import_dir_recursively(&source_dir, None)
+        .expect("Failed to import files");
+
+    // Pick a known file (assumes at least one exists)
+    let known_file = source_dir
+        .read_dir()
+        .expect("Failed to read source dir")
+        .filter_map(Result::ok)
+        .find(|entry| entry.path().is_file())
+        .expect("No file found in utils dir")
+        .file_name();
+
+    let entry = storage
+        .read_file_entry(&known_file, None)
+        .expect("Expected file entry to be present");
+
+    let mut expected = Vec::new();
+    let file_path = source_dir.join(&known_file);
+    fs::File::open(&file_path)
+        .expect("Failed to open original file")
+        .read_to_end(&mut expected)
+        .expect("Failed to read original file");
+
+    assert_eq!(entry.as_slice(), expected.as_slice());
+}
+
+#[test]
+fn test_open_file_stream_reads_all_bytes() {
+    let source_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("utils");
+
+    let (_dir, storage) = create_temp_storage();
+
+    storage
+        .import_dir_recursively(&source_dir, None)
+        .expect("Failed to import files");
+
+    let known_file = source_dir
+        .read_dir()
+        .expect("Failed to read source dir")
+        .filter_map(Result::ok)
+        .find(|entry| entry.path().is_file())
+        .expect("No file found in utils dir")
+        .file_name();
+
+    let mut stream = storage
+        .open_file_stream(&known_file, None)
+        .expect("Expected file stream to be present");
+
+    let mut streamed = Vec::new();
+    stream
+        .read_to_end(&mut streamed)
+        .expect("Failed to stream file");
+
+    let mut expected = Vec::new();
+    fs::File::open(source_dir.join(&known_file))
+        .expect("Failed to open original")
+        .read_to_end(&mut expected)
+        .expect("Failed to read original");
+
+    assert_eq!(streamed, expected);
+}
