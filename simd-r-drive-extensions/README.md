@@ -92,10 +92,24 @@ let imported = storage
     .import_dir_recursively("./assets", None)
     .expect("Failed to import directory");
 
-for (key, offset) in imported {
+for (key, offset) in &imported {
     println!(
         "Imported file at key: {} (offset {})",
-        String::from_utf8_lossy(&key),
+        String::from_utf8_lossy(key),
+        offset
+    );
+}
+
+// Optional: use a namespace to avoid key collisions
+let namespace: Option<&[u8]> = Some(b"assets");
+let namespace_imported = storage
+    .import_dir_recursively("./assets", namespace)
+    .expect("Failed to import with namespace");
+
+for (key, offset) in &namespace_imported {
+    println!(
+        "Imported (namespaced) file at key: {:02X?} (offset {})",
+        key,
         offset
     );
 }
