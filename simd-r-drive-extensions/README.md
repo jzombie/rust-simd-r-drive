@@ -40,6 +40,12 @@ assert_eq!(
 assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
 ```
 
+#### Notes
+
+- Uses a predefined tombstone marker (`[0xFF, 0xFE]`) to represent `None`.
+- Values are serialized using [bincode](https://crates.io/crates/bincode).
+- ⚠️ Unlike [SIMD R Drive](https://crates.io/crates/simd-r-drive), values are non-zero-copy, as they require deserialization.
+
 ### Working with TTL-based Caching
 ```rust
 use simd_r_drive::DataStore;
@@ -64,14 +70,40 @@ assert_eq!(
     None // Key should be expired and removed
 );
 ```
+#### Notes
 
-## Implementation Details
-
-- Uses a predefined tombstone marker (`[0xFF, 0xFE]`) to represent `None`.
 - TTL values are stored as a **binary prefix** before the actual value.
 - Values are serialized using [bincode](https://crates.io/crates/bincode).
 - ⚠️ Unlike [SIMD R Drive](https://crates.io/crates/simd-r-drive), values are non-zero-copy, as they require deserialization.
 - TTL-based storage will **automatically evict expired values upon read** to prevent stale data.
+
+### Importing Files from a Directory (Recursive + Streaming)
+
+```rust
+use simd_r_drive::DataStore;
+use simd_r_drive_extensions::StorageFileImportExt;
+use std::path::PathBuf;
+
+let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
+
+// Recursively stream and import all files under `./assets`
+// Keys will use Unix-style paths like "subdir/file.txt"
+let imported = storage
+    .import_dir_recursively("./assets", None)
+    .expect("Failed to import directory");
+
+for (key, offset) in imported {
+    println!(
+        "Imported file at key: {} (offset {})",
+        String::from_utf8_lossy(&key),
+        offset
+    );
+}
+```
+
+#### Note
+
+- File import uses **streaming I/O**, avoiding full file loads into memory.
 
 ## License
 
