@@ -14,3 +14,6 @@ mod constants;
 
 pub mod namespace_hasher;
 pub use namespace_hasher::NamespaceHasher;
+
+mod storage_file_import_ext;
+pub use storage_file_import_ext::*;
