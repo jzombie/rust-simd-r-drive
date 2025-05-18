@@ -1,0 +1,7 @@
+[package]
+name = "simd_r_drive_py"
+version = "0.1.0"
+edition = "2021"
+publish = false # Temporarily
+
+[dependencies]
