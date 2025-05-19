@@ -37,9 +37,9 @@ jobs:
       - name: Install built wheel and run tests
         run: |
           python -c "import sys, glob, subprocess; \
-            ver = f'cp{sys.version_info[0]}{sys.version_info[1]}'; \
-            whl = glob.glob(f'bindings/python/dist/*{ver}*.whl')[0]; \
-            subprocess.run(['pip', 'install', whl], check=True)"
+            wheels = glob.glob('bindings/python/dist/*.whl'); \
+            if not wheels: raise RuntimeError('No wheels found'); \
+            subprocess.run([sys.executable, '-m', 'pip', 'install', wheels[0]], check=True)"
           python -m site
           pytest bindings/python/tests --import-mode=importlib
 
