@@ -56,8 +56,7 @@ def test_read_entry_returns_memoryview():
         # Windows workaround: Explicitly drop strong references
         del mv
         del entry
-
-        # engine.close()
+        del engine
 
         # Windows workaround: Force garbage collection to release mmap handle
         gc.collect()
@@ -74,7 +73,7 @@ def test_delete():
         assert not engine.exists(b"to_delete")
         assert engine.read(b"to_delete") is None
 
-        # engine.close()
+        del engine
 
 def test_read_missing_key_returns_none():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -84,7 +83,7 @@ def test_read_missing_key_returns_none():
         assert not engine.exists(b"nonexistent")
         assert engine.read(b"nonexistent") is None
 
-        # engine.close()
+        del engine
 
 def test_write_stream_and_read_stream():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -115,5 +114,5 @@ def test_write_stream_and_read_stream():
 
         # Cleanup
         del reader
-        # engine.close()
+        del engine
         gc.collect()
