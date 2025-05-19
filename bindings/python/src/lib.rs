@@ -1,11 +1,35 @@
 use memmap2::Mmap;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::types::PyAnyMethods;
 // use pyo3::types::PyMemoryView;
 use pyo3::types::{PyBytes, PyModule};
 use pyo3::PyResult;
 use simd_r_drive::DataStore as RustDataStore;
+use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+// /// Python wrapper for streaming an EntryHandle
+// #[pyclass]
+// pub struct PyEntryStream {
+//     inner: RefCell<EntryStream>,
+// }
+
+// #[pymethods]
+// impl PyEntryStream {
+//     /// Reads up to `size` bytes from the stream (returns bytes)
+//     fn read<'py>(&self, py: Python<'py>, size: usize) -> PyResult<&'py PyBytes> {
+//         let mut buffer = vec![0u8; size];
+//         let n = self
+//             .inner
+//             .borrow_mut()
+//             .read(&mut buffer)
+//             .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+//         Ok(PyBytes::new(py, &buffer[..n]))
+//     }
+// }
 
 /// Python wrapper around EntryHandle that exposes mmap-backed data
 #[pyclass]
@@ -49,6 +73,49 @@ impl DataStore {
             .write(key, data)
             .map(|_| ()) // Discard offset
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+    }
+
+    fn write_stream<'py>(
+        &mut self,
+        py: Python<'py>,
+        key: &[u8],
+        reader: Bound<'py, PyAny>,
+    ) -> PyResult<()> {
+        use std::io::Read;
+
+        struct PyReader<'py> {
+            obj: Bound<'py, PyAny>,
+            py: Python<'py>,
+        }
+
+        impl<'py> Read for PyReader<'py> {
+            fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+                let py_bytes = self
+                    .obj
+                    .call_method1("read", (buf.len(),))
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+                let bytes: Bound<'py, PyBytes> = py_bytes
+                    .extract()
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+                let b = bytes.as_bytes();
+                let len = b.len().min(buf.len());
+                buf[..len].copy_from_slice(&b[..len]);
+
+                Ok(len)
+            }
+        }
+
+        let mut reader = PyReader { obj: reader, py };
+
+        self.inner
+            .as_mut()
+            .unwrap()
+            .write_stream(key, &mut reader)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        Ok(())
     }
 
     fn read<'py>(&self, py: Python<'py>, key: &[u8]) -> PyResult<Option<Py<PyBytes>>> {
