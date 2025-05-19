@@ -27,7 +27,7 @@ jobs:
       - name: Install build tooling
         run: |
           python -m pip install -U pip cibuildwheel
-          python -m pip install puccinialin>=0.1.2
+          python -m pip install maturin>=1.5 puccinialin>=0.1.2
 
       - name: Build wheels
         env:
