@@ -4,10 +4,9 @@ on:
   push:
     tags:
       - "python-v*"
-  pull_request:
     paths:
       - "bindings/python/**"
-  push:
+  pull_request:
     paths:
       - "bindings/python/**"
 
