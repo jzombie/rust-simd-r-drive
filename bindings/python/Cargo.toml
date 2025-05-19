@@ -4,4 +4,13 @@ version = "0.1.0"
 edition = "2021"
 publish = false # Temporarily
 
+[lib]
+name = "simd_r_drive_py"
+crate-type = ["cdylib"]
+
 [dependencies]
+pyo3 = { version = "0.25.0", features = ["extension-module"] }
+simd-r-drive = { path = "../.." }
+
+[build-dependencies]
+maturin = "1.8.6"

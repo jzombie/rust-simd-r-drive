@@ -45,7 +45,8 @@ harness = false
 
 [workspace]
 members = [
-    ".", "bindings/python/simd_r_drive_py",
-    "simd-r-drive-extensions"
+    ".",
+    "simd-r-drive-extensions",
+    "bindings/python"
 ]
 resolver = "2"

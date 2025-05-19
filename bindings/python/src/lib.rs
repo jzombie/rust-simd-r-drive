@@ -1,32 +1,50 @@
 use pyo3::prelude::*;
-use simd_r_drive::Engine; // Replace with actual structs/functions
+use pyo3::types::PyBytes;
+use simd_r_drive::DataStore;
+use std::path::PathBuf;
 
 #[pyclass]
 struct PyEngine {
-    inner: Engine,
+    inner: DataStore,
 }
 
 #[pymethods]
 impl PyEngine {
     #[new]
-    fn new() -> Self {
-        PyEngine {
-            inner: Engine::new(), // Replace with actual constructor
+    fn new(path: &str) -> PyResult<Self> {
+        let store = DataStore::open(&PathBuf::from(path))
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
+        Ok(Self { inner: store })
+    }
+
+    fn write(&mut self, key: &str, data: &[u8]) -> PyResult<()> {
+        self.inner
+            .write(key.as_bytes(), data)
+            .map(|_| ()) // discard the offset
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+    }
+
+    fn read<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Option<Py<PyBytes>>> {
+        match self.inner.read(key.as_bytes()) {
+            Some(entry) => Ok(Some(PyBytes::new(py, &entry).into())),
+            None => Ok(None),
         }
     }
 
-    fn append(&mut self, key: &str, data: &[u8]) -> PyResult<()> {
-        self.inner.append(key, data); // Replace with actual method
-        Ok(())
+    fn delete(&mut self, key: &str) -> PyResult<()> {
+        self.inner
+            .delete_entry(key.as_bytes())
+            .map(|_| ()) // discard the offset
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
-    fn read(&self, key: &str) -> PyResult<Vec<u8>> {
-        Ok(self.inner.read(key)) // Replace with actual method
+    fn exists(&self, key: &str) -> bool {
+        self.inner.read(key.as_bytes()).is_some()
     }
 }
 
 #[pymodule]
-fn simd_r_drive_py(_py: Python, m: &PyModule) -> PyResult<()> {
+fn simd_r_drive_py(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyEngine>()?;
     Ok(())
 }
