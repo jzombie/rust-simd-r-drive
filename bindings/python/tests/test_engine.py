@@ -41,7 +41,6 @@ def test_delete():
 
         engine.close()
 
-
 def test_read_missing_key_returns_none():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")
