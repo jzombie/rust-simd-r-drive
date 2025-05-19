@@ -45,7 +45,7 @@ jobs:
         run: |
           python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
           python -m site
-          pytest  --import-mode=importlib
+          pytest --import-mode=importlib
 
       - name: Run doctest on README.md
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
