@@ -6,8 +6,6 @@ This library provides access to core functionality of `simd-r-drive` from Python
 
 > ⚠ **Threaded streaming writes from Python are not supported.** See [Thread Safety](#thread-safety) for important limitations.
 
----
-
 ## Features
 
 * 🔑 Append-only key/value storage
@@ -16,8 +14,6 @@ This library provides access to core functionality of `simd-r-drive` from Python
 * 📆 Single-file binary container (no schema or serialization required)
 * ↺ Streaming interface for writing and reading large entries
 * 🐍 Fully native Python interface (no C extension required)
-
----
 
 ## Installation
 
@@ -36,8 +32,6 @@ Or to build a wheel:
 maturin build --release
 pip install dist/simd_r_drive_py-*.whl
 ```
-
----
 
 ## Usage
 
@@ -68,17 +62,6 @@ data = bytearray()
 while chunk := stream.read(4096):
     data.extend(chunk)
 ```
-
----
-
-## Thread Safety
-
-* ✅ **Safe**: Concurrent **reads** from multiple threads using the same `DataStore` instance.
-* ✅ **Safe**: Concurrent **writes to different keys**, serialized using internal locks.
-* ❌ **Not safe**: Streaming writes (`write_stream`) from multiple threads sharing a `DataStore`.
-* ❌ **Not supported**: Sharing a storage file between Python processes. Use one writer per file.
-
----
 
 ## API
 
@@ -114,7 +97,18 @@ Marks an entry as deleted. The file remains append-only; use Rust-side compactio
 
 Returns whether a key is currently valid in the index.
 
----
+## Thread Safety
+
+This Python binding **is not thread-safe**.
+
+Due to Python’s Global Interpreter Lock (GIL) and the limitations of `PyO3`, concurrent streaming writes or reads from multiple threads are **not supported**, and doing so may cause hangs or inconsistent behavior.
+
+* ⚠ **Use only from a single thread.**
+* ❌ Do not call methods like `write_stream` or `read_stream` from multiple threads.
+* ❌ Do not share a `DataStore` instance across threads.
+* ✅ For concurrent, high-performance use — especially with streaming — use the native Rust version directly.
+
+> This design avoids working around the GIL or spawning internal locks for artificial concurrency. If you need reliable multithreading, call into the Rust API instead.
 
 ## Limitations
 
@@ -122,8 +116,6 @@ Returns whether a key is currently valid in the index.
 * `write_stream` is blocking and not safe for concurrent use.
 * Compaction is not yet exposed via Python.
 * This is **not a drop-in database** — you're expected to manage your own data formats.
-
----
 
 ## Development
 
@@ -134,9 +126,6 @@ pip install -r requirements-dev.txt
 pytest tests/
 ```
 
----
-
 ## License
 
-Licensed under [Apache-2.0](./LICENSE).
-Copyright © 2024–2025.
+Licensed under the [Apache-2.0 License](LICENSE).
