@@ -798,6 +798,7 @@ dependencies = [
 name = "simd-r-drive-py"
 version = "0.3.0-alpha.1"
 dependencies = [
+ "memmap2",
  "pyo3",
  "simd-r-drive",
 ]

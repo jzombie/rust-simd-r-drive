@@ -237,4 +237,9 @@ impl EntryHandle {
         let end_ptr = unsafe { start_ptr.add(slice.len()) };
         start_ptr..end_ptr
     }
+
+    // TODO: Document
+    pub fn mmap_arc(&self) -> &Arc<Mmap> {
+        &self.mmap_arc
+    }
 }

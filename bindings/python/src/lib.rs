@@ -1,7 +1,32 @@
+use memmap2::Mmap;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+// use pyo3::types::PyMemoryView;
+use pyo3::types::{PyBytes, PyModule};
+use pyo3::PyResult;
 use simd_r_drive::DataStore as RustDataStore;
 use std::path::PathBuf;
+use std::sync::Arc;
+
+/// Python wrapper around EntryHandle that exposes mmap-backed data
+#[pyclass]
+pub struct EntryHandle {
+    data: Arc<Mmap>,
+    start: usize,
+    end: usize,
+}
+
+#[pymethods]
+impl EntryHandle {
+    /// Returns a memoryview (zero-copy) over the entry payload
+    fn as_memoryview<'py>(slf: PyRef<'py, Self>, py: Python<'py>) -> PyResult<Py<PyAny>> {
+        let slice = &slf.data[slf.start..slf.end];
+        let pybytes = PyBytes::new(py, slice);
+        let memoryview = PyModule::import(py, "builtins")?
+            .getattr("memoryview")?
+            .call1((pybytes,))?;
+        Ok(memoryview.into())
+    }
+}
 
 #[pyclass]
 struct DataStore {
@@ -33,6 +58,23 @@ impl DataStore {
         }
     }
 
+    fn read_entry(&self, py: Python<'_>, key: &[u8]) -> PyResult<Option<Py<EntryHandle>>> {
+        match self.inner.as_ref().unwrap().read(key) {
+            Some(entry) => {
+                let handle = Py::new(
+                    py,
+                    EntryHandle {
+                        data: entry.mmap_arc().clone(),
+                        start: entry.start_offset(),
+                        end: entry.end_offset(),
+                    },
+                )?;
+                Ok(Some(handle))
+            }
+            None => Ok(None),
+        }
+    }
+
     fn delete(&mut self, key: &[u8]) -> PyResult<()> {
         self.inner
             .as_mut()
@@ -54,5 +96,6 @@ impl DataStore {
 #[pymodule(name = "simd_r_drive")]
 fn python_entry(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<DataStore>()?;
+    m.add_class::<EntryHandle>()?;
     Ok(())
 }

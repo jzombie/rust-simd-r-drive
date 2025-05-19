@@ -2,6 +2,7 @@ import tempfile
 import os
 import pytest
 from simd_r_drive import DataStore
+import numpy as np
 
 
 def test_write_and_read():
@@ -25,6 +26,31 @@ def test_write_and_read():
         # the Python object. This can cause file deletion or cleanup to fail.
         #
         # Manually calling `engine.close()` ensures internal Rust resources are dropped.
+        engine.close()
+
+def test_read_entry_returns_memoryview():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = os.path.join(tmpdir, "store.bin")
+        engine = DataStore(filepath)
+
+        key = b"abc"
+        value = b"xyz123"
+
+        engine.write(key, value)
+
+        entry = engine.read_entry(key)
+        assert entry is not None
+
+        mv = entry.as_memoryview()
+        assert isinstance(mv, memoryview)
+
+        # Confirm contents are correct
+        assert bytes(mv) == value
+
+        # Optional: convert to NumPy and validate zero-copy
+        arr = np.frombuffer(mv, dtype=np.uint8)
+        assert arr.tobytes() == value
+
         engine.close()
 
 def test_delete():
