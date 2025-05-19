@@ -4,9 +4,12 @@ on:
   push:
     tags:
       - "python-v*"
-    branches:
-      - "**" # Allow tag pushes from any branch
+
   pull_request:
+    paths:
+      - "bindings/python/**"
+
+  push:
     paths:
       - "bindings/python/**"
 
