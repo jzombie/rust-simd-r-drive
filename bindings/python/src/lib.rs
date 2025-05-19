@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 #[pyclass]
 struct PyEngine {
-    inner: DataStore,
+    inner: Option<DataStore>,
 }
 
 #[pymethods]
@@ -14,18 +14,20 @@ impl PyEngine {
     fn new(path: &str) -> PyResult<Self> {
         let store = DataStore::open(&PathBuf::from(path))
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
-        Ok(Self { inner: store })
+        Ok(Self { inner: Some(store) })
     }
 
     fn write(&mut self, key: &str, data: &[u8]) -> PyResult<()> {
         self.inner
+            .as_mut()
+            .unwrap()
             .write(key.as_bytes(), data)
-            .map(|_| ()) // discard the offset
+            .map(|_| ()) // Discard offset
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
     fn read<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Option<Py<PyBytes>>> {
-        match self.inner.read(key.as_bytes()) {
+        match self.inner.as_ref().unwrap().read(key.as_bytes()) {
             Some(entry) => Ok(Some(PyBytes::new(py, &entry).into())),
             None => Ok(None),
         }
@@ -33,13 +35,19 @@ impl PyEngine {
 
     fn delete(&mut self, key: &str) -> PyResult<()> {
         self.inner
+            .as_mut()
+            .unwrap()
             .delete_entry(key.as_bytes())
-            .map(|_| ()) // discard the offset
+            .map(|_| ()) // Discard offset
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
     fn exists(&self, key: &str) -> bool {
-        self.inner.read(key.as_bytes()).is_some()
+        self.inner.as_ref().unwrap().read(key.as_bytes()).is_some()
+    }
+
+    fn close(&mut self) {
+        self.inner = None; // Drops the DataStore
     }
 }
 
