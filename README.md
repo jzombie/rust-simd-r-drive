@@ -91,7 +91,7 @@ Think of it as a self-contained binary filesystem—capable of storing and retri
 #### Storage Layout
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/jzombie/rust-simd-r-drive/main/assets/storage-layout.png" title="Storage Layout" />
+  <img src="assets/storage-layout.png" title="Storage Layout" />
 </div>
 
 | Offset Range      | Field           | Size (Bytes) | Description                                       |
