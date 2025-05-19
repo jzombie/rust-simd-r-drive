@@ -7,7 +7,6 @@ from simd_r_drive_py import PyEngine
 def test_write_and_read():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")
-        filepath = "store.bin"
         engine = PyEngine(filepath)
 
         key = "hello"
