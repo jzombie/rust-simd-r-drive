@@ -1,13 +1,13 @@
 import tempfile
 import os
 import pytest
-from simd_r_drive_py import PyEngine
+from simd_r_drive_py import DataStore
 
 
 def test_write_and_read():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")
-        engine = PyEngine(filepath)
+        engine = DataStore(filepath)
 
         key = b"hello"
         value = b"world"
@@ -30,7 +30,7 @@ def test_write_and_read():
 def test_delete():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")
-        engine = PyEngine(filepath)
+        engine = DataStore(filepath)
 
         engine.write(b"to_delete", b"data")
         assert engine.exists(b"to_delete")
@@ -44,7 +44,7 @@ def test_delete():
 def test_read_missing_key_returns_none():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")
-        engine = PyEngine(filepath)
+        engine = DataStore(filepath)
 
         assert not engine.exists(b"nonexistent")
         assert engine.read(b"nonexistent") is None

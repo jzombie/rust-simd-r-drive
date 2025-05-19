@@ -1,18 +1,18 @@
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use simd_r_drive::DataStore;
+use simd_r_drive::DataStore as RustDataStore;
 use std::path::PathBuf;
 
 #[pyclass]
-struct PyEngine {
-    inner: Option<DataStore>,
+struct DataStore {
+    inner: Option<RustDataStore>,
 }
 
 #[pymethods]
-impl PyEngine {
+impl DataStore {
     #[new]
     fn new(path: &str) -> PyResult<Self> {
-        let store = DataStore::open(&PathBuf::from(path))
+        let store = RustDataStore::open(&PathBuf::from(path))
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
         Ok(Self { inner: Some(store) })
     }
@@ -53,6 +53,6 @@ impl PyEngine {
 
 #[pymodule]
 fn simd_r_drive_py(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<PyEngine>()?;
+    m.add_class::<DataStore>()?;
     Ok(())
 }
