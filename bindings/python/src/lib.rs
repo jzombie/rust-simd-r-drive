@@ -77,13 +77,12 @@ impl DataStore {
 
     fn write_stream<'py>(
         &self,
-        py: Python<'py>,
+        _py: Python<'py>,
         key: &[u8],
         reader: Bound<'py, PyAny>,
     ) -> PyResult<()> {
         struct PyReader<'py> {
             obj: Bound<'py, PyAny>,
-            py: Python<'py>,
         }
 
         impl<'py> Read for PyReader<'py> {
@@ -105,7 +104,7 @@ impl DataStore {
             }
         }
 
-        let mut reader = PyReader { obj: reader, py };
+        let mut reader = PyReader { obj: reader };
 
         self.inner
             .lock()
