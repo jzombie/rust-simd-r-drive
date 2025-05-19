@@ -31,7 +31,7 @@ jobs:
 
       - name: Build wheels
         env:
-          CIBW_SKIP: "cp38-* cp39-* pp38-*"
+          CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp*"
         run: cibuildwheel bindings/python --output-dir bindings/python/dist
 
       - name: Upload wheels
