@@ -85,3 +85,35 @@ def test_read_missing_key_returns_none():
         assert engine.read(b"nonexistent") is None
 
         engine.close()
+
+def test_write_stream_and_read_stream():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = os.path.join(tmpdir, "store.bin")
+        engine = DataStore(filepath)
+
+        key = b"stream_key"
+        value = os.urandom(1024 * 256)  # 256 KB of random data
+
+        # Simulate a streaming reader using BytesIO
+        import io
+        stream = io.BytesIO(value)
+        engine.write_stream(key, stream)
+
+        # Retrieve streaming handle
+        reader = engine.read_stream(key)
+        assert reader is not None
+
+        chunks = []
+        while True:
+            chunk = reader.read(8192)
+            if not chunk:
+                break
+            chunks.append(chunk)
+
+        result = b"".join(chunks)
+        assert result == value
+
+        # Cleanup
+        del reader
+        engine.close()
+        gc.collect()

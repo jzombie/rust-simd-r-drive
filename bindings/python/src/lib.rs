@@ -2,34 +2,32 @@ use memmap2::Mmap;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyAnyMethods;
-// use pyo3::types::PyMemoryView;
 use pyo3::types::{PyBytes, PyModule};
 use pyo3::PyResult;
-use simd_r_drive::DataStore as RustDataStore;
+use simd_r_drive::{DataStore as RustDataStore, EntryStream as RustEntryStream};
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-// /// Python wrapper for streaming an EntryHandle
-// #[pyclass]
-// pub struct PyEntryStream {
-//     inner: RefCell<EntryStream>,
-// }
+/// Python wrapper for streaming an EntryHandle
+#[pyclass]
+pub struct EntryStream {
+    inner: Mutex<RustEntryStream>,
+}
 
-// #[pymethods]
-// impl PyEntryStream {
-//     /// Reads up to `size` bytes from the stream (returns bytes)
-//     fn read<'py>(&self, py: Python<'py>, size: usize) -> PyResult<&'py PyBytes> {
-//         let mut buffer = vec![0u8; size];
-//         let n = self
-//             .inner
-//             .borrow_mut()
-//             .read(&mut buffer)
-//             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-
-//         Ok(PyBytes::new(py, &buffer[..n]))
-//     }
-// }
+#[pymethods]
+impl EntryStream {
+    fn read(&self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
+        let mut buffer = vec![0u8; size];
+        let n = self
+            .inner
+            .lock()
+            .unwrap()
+            .read(&mut buffer)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(PyBytes::new(py, &buffer[..n]).into())
+    }
+}
 
 /// Python wrapper around EntryHandle that exposes mmap-backed data
 #[pyclass]
@@ -125,6 +123,18 @@ impl DataStore {
         }
     }
 
+    fn read_stream<'py>(&self, py: Python<'py>, key: &[u8]) -> PyResult<Option<Py<EntryStream>>> {
+        match self.inner.as_ref().unwrap().read(key) {
+            Some(entry) => {
+                let stream = EntryStream {
+                    inner: Mutex::new(RustEntryStream::from(entry)),
+                };
+                Ok(Some(Py::new(py, stream)?))
+            }
+            None => Ok(None),
+        }
+    }
+
     fn read_entry(&self, py: Python<'_>, key: &[u8]) -> PyResult<Option<Py<EntryHandle>>> {
         match self.inner.as_ref().unwrap().read(key) {
             Some(entry) => {
@@ -164,5 +174,6 @@ impl DataStore {
 fn python_entry(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<DataStore>()?;
     m.add_class::<EntryHandle>()?;
+    m.add_class::<EntryStream>()?;
     Ok(())
 }
