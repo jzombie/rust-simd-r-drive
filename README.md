@@ -32,7 +32,7 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
   - [Streaming](#streaming)
 - [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
 - [Extensions](#extensions)
-- [Python Support](#python-support)
+- [Python Language Bindings](#python-language-bindings)
 - [License](#license)
 
 
@@ -223,7 +223,7 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 [SIMD R Drive Extensions](./extensions/) provide additional functionality.
 
-## Python Support
+## Python Language Bindings
 
 [Experimental Python bindings](./bindings/python) are available for integrating with Python applications.
 
