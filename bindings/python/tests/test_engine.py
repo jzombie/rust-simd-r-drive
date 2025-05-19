@@ -37,4 +37,5 @@ def test_read_missing_key_returns_none():
         filepath = os.path.join(tmpdir, "store.bin")
         engine = PyEngine(filepath)
 
+        assert not engine.exists("nonexistent")
         assert engine.read("nonexistent") is None
