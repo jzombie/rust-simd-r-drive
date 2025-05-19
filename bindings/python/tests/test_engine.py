@@ -18,6 +18,7 @@ def test_write_and_read():
         assert result == value
         assert engine.exists(key)
 
+        engine.close()
 
 def test_delete():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -31,6 +32,8 @@ def test_delete():
         assert not engine.exists("to_delete")
         assert engine.read("to_delete") is None
 
+        engine.close()
+
 
 def test_read_missing_key_returns_none():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -39,3 +42,5 @@ def test_read_missing_key_returns_none():
 
         assert not engine.exists("nonexistent")
         assert engine.read("nonexistent") is None
+
+        engine.close()
