@@ -1,15 +1,15 @@
-[build-system]
-requires = ["maturin>=1.5"]
-build-backend = "maturin"
-
 [project]
 name = "simd_r_drive_py"
 version = "0.1.0"
 description = "Python bindings for SIMD R Drive"
-authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
+authors = [{ name = "Jeremy Harris", email = "jeremy.harris@zenosmosis.com" }]
 license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.8"
+
+[build-system]
+requires = ["maturin>=1.5"]
+build-backend = "maturin"
 
 [tool.maturin]
 bindings = "pyo3"
