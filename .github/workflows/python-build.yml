@@ -37,7 +37,7 @@ jobs:
       - name: Build wheels
         env:
           CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp* *-manylinux_i686 *-musllinux_*"
-        run: cibuildwheel bindings/python --output-dir dist
+        run: cibuildwheel --output-dir dist
 
       - name: Install built wheel and run tests
         run: |
