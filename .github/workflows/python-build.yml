@@ -36,7 +36,7 @@ jobs:
 
       - name: Install built wheel and run tests
         run: |
-          python -m pip install bindings/python/dist/*.whl
+          python -m pip install --find-links=bindings/python/dist --prefer-binary simd_r_drive_py
           python -m site
           pytest bindings/python/tests --import-mode=importlib
 
