@@ -2,7 +2,7 @@
 name = "simd_r_drive_py"
 version = "0.1.0"
 edition = "2021"
-publish = false
+publish = false # Python bindings only — do not publish to crates.io
 
 [lib]
 name = "simd_r_drive_py"
