@@ -30,6 +30,8 @@ jobs:
           python -m pip install puccinialin>=0.1.2
 
       - name: Build wheels
+        env:
+          CIBW_SKIP: "cp38-* cp39-*"
         run: cibuildwheel bindings/python --output-dir bindings/python/dist
 
       - name: Upload wheels
