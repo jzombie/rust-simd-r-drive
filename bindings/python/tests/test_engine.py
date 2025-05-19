@@ -47,7 +47,7 @@ def test_read_entry_returns_memoryview():
         # Confirm contents are correct
         assert bytes(mv) == value
 
-        # Optional: convert to NumPy and validate zero-copy
+        # Convert to NumPy and validate zero-copy
         arr = np.frombuffer(mv, dtype=np.uint8)
         assert arr.tobytes() == value
 
