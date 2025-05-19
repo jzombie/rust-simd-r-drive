@@ -43,6 +43,10 @@ features = ["rt-multi-thread", "macros", "time", "sync"]
 name = "storage_benchmark"
 harness = false
 
+[features]
+default = []
+expose-internal-api = []
+
 [workspace]
 members = [
     ".",

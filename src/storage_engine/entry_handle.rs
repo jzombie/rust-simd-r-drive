@@ -238,7 +238,33 @@ impl EntryHandle {
         start_ptr..end_ptr
     }
 
-    // TODO: Document
+    /// Returns a reference to the shared memory-mapped file.
+    ///
+    /// This exposes the underlying `Arc<Mmap>` used to back the entry's data.
+    ///
+    /// # Returns
+    /// - A reference to the `Arc<Mmap>` instance holding the memory-mapped file.
+    ///
+    /// # Use Cases
+    /// - Verifying that two `EntryHandle`s share the same `Mmap` backing.
+    /// - Providing foreign-language bindings (e.g., Python) access to shared memory.
+    /// - Internal testing or diagnostics (e.g., checking refcounts).
+    ///
+    /// # Safety Considerations
+    /// - Do **not** attempt to unmap, remap, or modify the memory manually.
+    /// - The returned mapping is shared and valid only as long as an `Arc` exists.
+    ///
+    /// # Feature Flag
+    /// This method is gated behind the `expose-internal-api` Cargo feature:
+    ///
+    /// ```toml
+    /// [features]
+    /// expose-internal-api = []
+    /// ```
+    ///
+    /// It is **not part of the stable public API** and may be changed or removed
+    /// in future versions. It is intended for internal or FFI-bound use only.
+    #[cfg(feature = "expose-internal-api")]
     pub fn mmap_arc(&self) -> &Arc<Mmap> {
         &self.mmap_arc
     }
