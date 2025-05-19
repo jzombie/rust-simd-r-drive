@@ -3,6 +3,8 @@ import os
 import pytest
 from simd_r_drive import DataStore
 import numpy as np
+import gc
+
 
 
 def test_write_and_read():
@@ -51,7 +53,14 @@ def test_read_entry_returns_memoryview():
         arr = np.frombuffer(mv, dtype=np.uint8)
         assert arr.tobytes() == value
 
+        # Windows workaround: Explicitly drop strong references
+        del mv
+        del entry
+
         engine.close()
+
+        # Windows workaround: Force garbage collection to release mmap handle
+        gc.collect()
 
 def test_delete():
     with tempfile.TemporaryDirectory() as tmpdir:
