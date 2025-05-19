@@ -34,10 +34,10 @@ jobs:
 
       - name: Install built wheel and run tests
         run: |
-          PY_VER=$(python -c "import sys; print(f'cp{sys.version_info[0]}{sys.version_info[1]}')")
-          WHEEL=$(ls bindings/python/dist/*${PY_VER}*.whl | head -n1)
-          pip install "$WHEEL"
-          pip install pytest
+          python -c "import sys, glob, subprocess; \
+            ver = f'cp{sys.version_info[0]}{sys.version_info[1]}'; \
+            whl = glob.glob(f'bindings/python/dist/*{ver}*.whl')[0]; \
+            subprocess.run(['pip', 'install', whl], check=True)"
           pytest bindings/python/tests
 
       - name: Upload wheels
