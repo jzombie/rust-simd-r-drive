@@ -75,6 +75,20 @@ impl DataStore {
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
+    fn batch_write(&self, items: Vec<(Vec<u8>, Vec<u8>)>) -> PyResult<()> {
+        let refs: Vec<(&[u8], &[u8])> = items
+            .iter()
+            .map(|(k, v)| (k.as_slice(), v.as_slice()))
+            .collect();
+
+        self.inner
+            .lock()
+            .unwrap()
+            .batch_write(&refs)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+            .map(|_| ())
+    }
+
     fn write_stream<'py>(
         &self,
         _py: Python<'py>,
