@@ -220,7 +220,7 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 ## Extensions
 
-[SIMD R Drive Extensions](https://crates.io/crates/simd-r-drive-extensions) provide additional functionality.
+[SIMD R Drive Extensions](./extensions/) provide additional functionality.
 
 ## License
 
