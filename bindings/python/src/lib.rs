@@ -52,7 +52,7 @@ impl EntryHandle {
 
 #[pyclass]
 struct DataStore {
-    inner: Option<RustDataStore>,
+    inner: Arc<Mutex<RustDataStore>>,
 }
 
 #[pymethods]
@@ -61,26 +61,26 @@ impl DataStore {
     fn new(path: &str) -> PyResult<Self> {
         let store = RustDataStore::open(&PathBuf::from(path))
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
-        Ok(Self { inner: Some(store) })
+        Ok(Self {
+            inner: Arc::new(Mutex::new(store)),
+        })
     }
 
-    fn write(&mut self, key: &[u8], data: &[u8]) -> PyResult<()> {
+    fn write(&self, key: &[u8], data: &[u8]) -> PyResult<()> {
         self.inner
-            .as_mut()
+            .lock()
             .unwrap()
             .write(key, data)
-            .map(|_| ()) // Discard offset
+            .map(|_| ())
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
     fn write_stream<'py>(
-        &mut self,
+        &self,
         py: Python<'py>,
         key: &[u8],
         reader: Bound<'py, PyAny>,
     ) -> PyResult<()> {
-        use std::io::Read;
-
         struct PyReader<'py> {
             obj: Bound<'py, PyAny>,
             py: Python<'py>,
@@ -108,7 +108,7 @@ impl DataStore {
         let mut reader = PyReader { obj: reader, py };
 
         self.inner
-            .as_mut()
+            .lock()
             .unwrap()
             .write_stream(key, &mut reader)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -117,14 +117,14 @@ impl DataStore {
     }
 
     fn read<'py>(&self, py: Python<'py>, key: &[u8]) -> PyResult<Option<Py<PyBytes>>> {
-        match self.inner.as_ref().unwrap().read(key) {
+        match self.inner.lock().unwrap().read(key) {
             Some(entry) => Ok(Some(PyBytes::new(py, &entry).into())),
             None => Ok(None),
         }
     }
 
     fn read_stream<'py>(&self, py: Python<'py>, key: &[u8]) -> PyResult<Option<Py<EntryStream>>> {
-        match self.inner.as_ref().unwrap().read(key) {
+        match self.inner.lock().unwrap().read(key) {
             Some(entry) => {
                 let stream = EntryStream {
                     inner: Mutex::new(RustEntryStream::from(entry)),
@@ -136,7 +136,7 @@ impl DataStore {
     }
 
     fn read_entry(&self, py: Python<'_>, key: &[u8]) -> PyResult<Option<Py<EntryHandle>>> {
-        match self.inner.as_ref().unwrap().read(key) {
+        match self.inner.lock().unwrap().read(key) {
             Some(entry) => {
                 let handle = Py::new(
                     py,
@@ -152,21 +152,17 @@ impl DataStore {
         }
     }
 
-    fn delete(&mut self, key: &[u8]) -> PyResult<()> {
+    fn delete(&self, key: &[u8]) -> PyResult<()> {
         self.inner
-            .as_mut()
+            .lock()
             .unwrap()
             .delete_entry(key)
-            .map(|_| ()) // Discard offset
+            .map(|_| ())
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
     fn exists(&self, key: &[u8]) -> bool {
-        self.inner.as_ref().unwrap().read(key).is_some()
-    }
-
-    fn close(&mut self) {
-        self.inner = None; // Drops the DataStore
+        self.inner.lock().unwrap().read(key).is_some()
     }
 }
 

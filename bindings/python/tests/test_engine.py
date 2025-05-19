@@ -28,7 +28,7 @@ def test_write_and_read():
         # the Python object. This can cause file deletion or cleanup to fail.
         #
         # Manually calling `engine.close()` ensures internal Rust resources are dropped.
-        engine.close()
+        # engine.close()
 
 def test_read_entry_returns_memoryview():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -57,7 +57,7 @@ def test_read_entry_returns_memoryview():
         del mv
         del entry
 
-        engine.close()
+        # engine.close()
 
         # Windows workaround: Force garbage collection to release mmap handle
         gc.collect()
@@ -74,7 +74,7 @@ def test_delete():
         assert not engine.exists(b"to_delete")
         assert engine.read(b"to_delete") is None
 
-        engine.close()
+        # engine.close()
 
 def test_read_missing_key_returns_none():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -84,7 +84,7 @@ def test_read_missing_key_returns_none():
         assert not engine.exists(b"nonexistent")
         assert engine.read(b"nonexistent") is None
 
-        engine.close()
+        # engine.close()
 
 def test_write_stream_and_read_stream():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -115,5 +115,5 @@ def test_write_stream_and_read_stream():
 
         # Cleanup
         del reader
-        engine.close()
+        # engine.close()
         gc.collect()
