@@ -32,22 +32,22 @@ jobs:
 
       - name: Install build tooling from requirements.txt
         run: |
-          pip install -r "$PYTHON_BINDING_DIR/requirements.txt"
-          pip install -r "$PYTHON_BINDING_DIR/requirements-dev.txt"
+          pip install -r "${{ env.PYTHON_BINDING_DIR }}/requirements.txt"
+          pip install -r "${{ env.PYTHON_BINDING_DIR }}/requirements-dev.txt"
 
       - name: Build wheels
         env:
           CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp* *-manylinux_i686 *-musllinux_*"
-        run: cibuildwheel "$PYTHON_BINDING_DIR" --output-dir "$PYTHON_BINDING_DIR/dist"
+        run: cibuildwheel "${{ env.PYTHON_BINDING_DIR }}" --output-dir "${{ env.PYTHON_BINDING_DIR }}/dist"
 
       - name: Install built wheel and run tests
         run: |
-          python -m pip install --find-links="$PYTHON_BINDING_DIR/dist" --prefer-binary simd_r_drive_py
+          python -m pip install --find-links="${{ env.PYTHON_BINDING_DIR }}/dist" --prefer-binary simd_r_drive_py
           python -m site
-          pytest "$PYTHON_BINDING_DIR/tests" --import-mode=importlib
+          pytest "${{ env.PYTHON_BINDING_DIR }}tests" --import-mode=importlib
 
       - name: Run doctest on README.md
-        run: pytest --doctest-glob="$PYTHON_BINDING_DIR/README.md"
+        run: pytest --doctest-glob="${{ env.PYTHON_BINDING_DIR }}/README.md"
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
