@@ -54,13 +54,16 @@ view = entry.as_memoryview()
 assert bytes(view) == b"myvalue"
 
 # Streaming write
-store.write_stream(b"large", io.BytesIO(b"x" * 1024 * 1024))
+payload = b"x" * 1024 * 1024
+store.write_stream(b"large", io.BytesIO(payload))
 
 # Streaming read
 stream = store.read_stream(b"large")
 data = bytearray()
 while chunk := stream.read(4096):
     data.extend(chunk)
+
+assert data == payload
 ```
 
 ## API
