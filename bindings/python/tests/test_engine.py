@@ -28,7 +28,7 @@ def test_write_and_read():
         # the Python object. This can cause file deletion or cleanup to fail.
         #
         # Manually calling `engine.close()` ensures internal Rust resources are dropped.
-        # engine.close()
+        del engine
 
 def test_read_entry_returns_memoryview():
     with tempfile.TemporaryDirectory() as tmpdir:
