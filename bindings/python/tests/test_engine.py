@@ -18,6 +18,13 @@ def test_write_and_read():
         assert result == value
         assert engine.exists(key)
 
+        # Explicitly close the engine to ensure the file is released on Windows
+        #
+        # PyO3 does not guarantee deterministic destruction of Rust-backed objects.
+        # Especially on Windows, mmap or file handles may remain open until GC finalizes
+        # the Python object. This can cause file deletion or cleanup to fail.
+        #
+        # Manually calling `engine.close()` ensures internal Rust resources are dropped.
         engine.close()
 
 def test_delete():
