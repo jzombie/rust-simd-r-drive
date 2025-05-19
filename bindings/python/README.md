@@ -1,5 +1,8 @@
 [Draft]
 
+# NOTE: This library does not support concurrent streaming writes from Python.
+#       Use Rust concurrency or serialize writes explicitly.
+
 To create a high-performance Python interface for the [SIMD R Drive](https://github.com/jzombie/rust-simd-r-drive) Rust library, you can leverage [PyO3](https://github.com/PyO3/pyo3) in conjunction with [maturin](https://github.com/PyO3/maturin). This approach allows you to write Rust code that can be called from Python, ensuring minimal overhead and maximal performance.
 
 ---
