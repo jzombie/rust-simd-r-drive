@@ -2,6 +2,15 @@
 requires = ["maturin>=1.5"]
 build-backend = "maturin"
 
-[tool.cibuildwheel]
-build = "cp38-* cp39-* cp310-* cp311-* cp312-*"
-skip = "pp* *-musllinux*"  # Skip PyPy and Alpine
+[project]
+name = "simd_r_drive_py"
+version = "0.1.0"
+description = "Python bindings for SIMD R Drive"
+authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[tool.maturin]
+bindings = "pyo3"
+manifest-path = "../../Cargo.toml"
