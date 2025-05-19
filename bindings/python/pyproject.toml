@@ -1,0 +1,7 @@
+[build-system]
+requires = ["maturin>=1.5"]
+build-backend = "maturin"
+
+[tool.cibuildwheel]
+build = "cp38-* cp39-* cp310-* cp311-* cp312-*"
+skip = "pp* *-musllinux*"  # Skip PyPy and Alpine

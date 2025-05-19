@@ -1,0 +1,36 @@
+name: Build Python Wheels
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  build:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -U pip build cibuildwheel
+        working-directory: bindings/python
+
+      - name: Build wheels
+        run: cibuildwheel --output-dir dist
+        working-directory: bindings/python
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: simd_r_drive_py-wheels-${{ matrix.os }}
+          path: bindings/python/dist/*.whl
