@@ -1,7 +1,7 @@
 import tempfile
 import os
 import pytest
-from simd_r_drive_py import DataStore
+from simd_r_drive import DataStore
 
 
 def test_write_and_read():
