@@ -48,41 +48,41 @@ jobs:
           name: simd_r_drive_py-wheels-${{ matrix.os }}
           path: bindings/python/dist/*.whl
 
-publish:
-  name: Upload wheels to PyPI
-  needs: build
-  runs-on: ubuntu-latest
+  publish:
+    name: Upload wheels to PyPI
+    needs: build
+    runs-on: ubuntu-latest
 
-  # Accept tags like: python-v0.3.0-test or python-v0.3.0
-  # Example test tagging:
-  #   git tag python-v0.3.0-test (or `*-test2`, etc)
-  #   git push origin python-v0.3.0-test (or `*-test2`, etc)
-  if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/python-v')
+    # Accept tags like: python-v0.3.0-test or python-v0.3.0
+    # Example test tagging:
+    #   git tag python-v0.3.0-test (or `*-test2`, etc)
+    #   git push origin python-v0.3.0-test (or `*-test2`, etc)
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/python-v')
 
-  steps:
-    - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Download built wheels from all platforms
-      uses: actions/download-artifact@v4
-      with:
-        pattern: simd_r_drive_py-wheels-*
-        merge-multiple: true
-        path: dist
+      - name: Download built wheels from all platforms
+        uses: actions/download-artifact@v4
+        with:
+          pattern: simd_r_drive_py-wheels-*
+          merge-multiple: true
+          path: dist
 
-    - name: Determine PyPI repository and token
-      id: pypi
-      run: |
-        if [[ "${GITHUB_REF}" == *-test* ]]; then
-          echo "url=https://test.pypi.org/legacy/" >> $GITHUB_OUTPUT
-          echo "token=${{ secrets.PYPI_TEST_API_TOKEN }}" >> $GITHUB_OUTPUT
-        else
-          echo "url=https://upload.pypi.org/legacy/" >> $GITHUB_OUTPUT
-          echo "token=${{ secrets.PYPI_API_TOKEN }}" >> $GITHUB_OUTPUT
-        fi
+      - name: Determine PyPI repository and token
+        id: pypi
+        run: |
+          if [[ "${GITHUB_REF}" == *-test* ]]; then
+            echo "url=https://test.pypi.org/legacy/" >> $GITHUB_OUTPUT
+            echo "token=${{ secrets.PYPI_TEST_API_TOKEN }}" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://upload.pypi.org/legacy/" >> $GITHUB_OUTPUT
+            echo "token=${{ secrets.PYPI_API_TOKEN }}" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Upload to PyPI (or Test PyPI)
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        repository-url: ${{ steps.pypi.outputs.url }}
-        user: __token__
-        password: ${{ steps.pypi.outputs.token }}
+      - name: Upload to PyPI (or Test PyPI)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ steps.pypi.outputs.url }}
+          user: __token__
+          password: ${{ steps.pypi.outputs.token }}
