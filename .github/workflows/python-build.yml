@@ -35,12 +35,22 @@ jobs:
         run: cibuildwheel bindings/python --output-dir bindings/python/dist
 
       - name: Install built wheel and run tests
+        shell: bash
         run: |
-          python -c "import sys, glob, subprocess; \
-            wheels = glob.glob('bindings/python/dist/*.whl'); \
-            if not wheels: raise RuntimeError('No wheels found'); \
-            subprocess.run([sys.executable, '-m', 'pip', 'install', wheels[0]], check=True)"
+          # Find a matching wheel in dist/
+          WHEEL=$(find bindings/python/dist -name "*.whl" | head -n1)
+          if [[ -z "$WHEEL" ]]; then
+            echo "❌ No wheel found in dist/"
+            exit 1
+          fi
+
+          # Install the wheel using the current Python
+          python -m pip install "$WHEEL"
+
+          # Show import paths for debugging
           python -m site
+
+          # Run tests with pytest (assumes it's in requirements-dev.txt)
           pytest bindings/python/tests --import-mode=importlib
 
       - name: Upload wheels
