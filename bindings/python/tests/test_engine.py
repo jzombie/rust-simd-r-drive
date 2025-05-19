@@ -9,7 +9,7 @@ def test_write_and_read():
         filepath = os.path.join(tmpdir, "store.bin")
         engine = PyEngine(filepath)
 
-        key = "hello"
+        key = b"hello"
         value = b"world"
 
         engine.write(key, value)
@@ -32,12 +32,12 @@ def test_delete():
         filepath = os.path.join(tmpdir, "store.bin")
         engine = PyEngine(filepath)
 
-        engine.write("to_delete", b"data")
-        assert engine.exists("to_delete")
+        engine.write(b"to_delete", b"data")
+        assert engine.exists(b"to_delete")
 
-        engine.delete("to_delete")
-        assert not engine.exists("to_delete")
-        assert engine.read("to_delete") is None
+        engine.delete(b"to_delete")
+        assert not engine.exists(b"to_delete")
+        assert engine.read(b"to_delete") is None
 
         engine.close()
 
@@ -46,7 +46,7 @@ def test_read_missing_key_returns_none():
         filepath = os.path.join(tmpdir, "store.bin")
         engine = PyEngine(filepath)
 
-        assert not engine.exists("nonexistent")
-        assert engine.read("nonexistent") is None
+        assert not engine.exists(b"nonexistent")
+        assert engine.read(b"nonexistent") is None
 
         engine.close()

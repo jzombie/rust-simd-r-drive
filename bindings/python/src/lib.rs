@@ -17,33 +17,33 @@ impl PyEngine {
         Ok(Self { inner: Some(store) })
     }
 
-    fn write(&mut self, key: &str, data: &[u8]) -> PyResult<()> {
+    fn write(&mut self, key: &[u8], data: &[u8]) -> PyResult<()> {
         self.inner
             .as_mut()
             .unwrap()
-            .write(key.as_bytes(), data)
+            .write(key, data)
             .map(|_| ()) // Discard offset
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
-    fn read<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Option<Py<PyBytes>>> {
-        match self.inner.as_ref().unwrap().read(key.as_bytes()) {
+    fn read<'py>(&self, py: Python<'py>, key: &[u8]) -> PyResult<Option<Py<PyBytes>>> {
+        match self.inner.as_ref().unwrap().read(key) {
             Some(entry) => Ok(Some(PyBytes::new(py, &entry).into())),
             None => Ok(None),
         }
     }
 
-    fn delete(&mut self, key: &str) -> PyResult<()> {
+    fn delete(&mut self, key: &[u8]) -> PyResult<()> {
         self.inner
             .as_mut()
             .unwrap()
-            .delete_entry(key.as_bytes())
+            .delete_entry(key)
             .map(|_| ()) // Discard offset
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
-    fn exists(&self, key: &str) -> bool {
-        self.inner.as_ref().unwrap().read(key.as_bytes()).is_some()
+    fn exists(&self, key: &[u8]) -> bool {
+        self.inner.as_ref().unwrap().read(key).is_some()
     }
 
     fn close(&mut self) {
