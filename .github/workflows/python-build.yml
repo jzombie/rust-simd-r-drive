@@ -42,6 +42,9 @@ jobs:
           python -m site
           pytest bindings/python/tests --import-mode=importlib
 
+      - name: Run doctest on README.md
+        run: pytest --doctest-glob="bindings/python/README.md"
+
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:

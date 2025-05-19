@@ -1,4 +1,5 @@
 pytest
+pytest-doctestplus
 numpy
 maturin>=1.5
 puccinialin>=0.1.2
