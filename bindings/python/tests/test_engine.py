@@ -117,7 +117,6 @@ def test_write_stream_and_read_stream():
         del engine
         gc.collect()
 
-# TODO: Uncomment (problematic on Windows)
 def test_write_and_read_many_numpy_arrays():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")
@@ -147,7 +146,6 @@ def test_write_and_read_many_numpy_arrays():
         del engine
         gc.collect()
 
-# TODO: Uncomment (problematic on Windows)
 def test_write_and_read_numpy_matrix():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")
@@ -175,7 +173,6 @@ def test_write_and_read_numpy_matrix():
         del engine
         gc.collect()
 
-# TODO: Uncomment (problematic on Windows)
 def test_write_and_read_mixed_dtypes():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")
