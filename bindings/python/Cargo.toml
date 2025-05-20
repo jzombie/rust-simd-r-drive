@@ -1,6 +1,6 @@
 [package]
 name = "simd-r-drive-py"
-version = "0.3.0-alpha.1"
+version = "0.4.0-alpha"
 edition = "2021"
 description = "SIMD-optimized append-only schema-less storage engine. Key-based binary storage in a single-file storage container."
 repository = "https://github.com/jzombie/rust-simd-r-drive"

@@ -764,7 +764,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.3.0-alpha.1"
+version = "0.4.0-alpha"
 dependencies = [
  "bincode",
  "clap",
@@ -784,7 +784,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-extensions"
-version = "0.4.0-alpha.8"
+version = "0.4.0-alpha.9"
 dependencies = [
  "bincode",
  "doc-comment",
@@ -796,7 +796,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-py"
-version = "0.3.0-alpha.1"
+version = "0.4.0-alpha"
 dependencies = [
  "memmap2",
  "pyo3",
