@@ -1,6 +1,6 @@
 # SIMD R Drive (Python Bindings)
 
-**Experimental Python bindings for [SIMD R Drive](https://crates.io/crates/simd-r-drive)** — an append-only, zero-copy storage engine built in Rust.
+**Experimental Python bindings for [SIMD R Drive](https://crates.io/crates/simd-r-drive)** — a high-performance, schema-less storage engine using a single-file storage container optimized for zero-copy binary access, written in [Rust](https://www.rust-lang.org/).
 
 This library provides access to core functionality of `simd-r-drive` from Python, including high-performance key/value storage, zero-copy reads via `memoryview`, and support for streaming writes and reads.
 
