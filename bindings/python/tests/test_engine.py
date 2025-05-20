@@ -200,3 +200,54 @@ def test_write_and_read_mixed_dtypes():
         del mv
         del engine
         gc.collect()
+
+def test_entry_accessors():
+    import struct
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = os.path.join(tmpdir, "store.bin")
+        engine = DataStore(filepath)
+
+        key = b"meta"
+        value = b"test_payload_123456"
+        engine.write(key, value)
+
+        entry = engine.read_entry(key)
+        assert entry is not None
+
+        # Access basic metadata
+        assert isinstance(entry.size, int)
+        assert entry.size == len(value)
+        assert entry.size_with_metadata > entry.size
+
+        # Check offset logic
+        start = entry.start_offset
+        end = entry.end_offset
+        assert end - start == entry.size
+        offset_range = entry.offset_range()
+        assert offset_range == (start, end)
+
+        # Check address range returns usable values
+        addr_start, addr_end = entry.address_range()
+        assert isinstance(addr_start, int)
+        assert addr_end > addr_start
+
+        # Check checksum
+        assert isinstance(entry.checksum, int)
+        raw = entry.raw_checksum()
+        assert isinstance(raw, bytes) or isinstance(raw, bytearray) or isinstance(raw, (list, tuple))
+        assert len(raw) == 4
+
+        # Validate checksum correctness
+        assert entry.is_valid_checksum()
+
+        # Confirm memoryview still works
+        mv = entry.as_memoryview()
+        assert isinstance(mv, memoryview)
+        assert bytes(mv) == value
+
+        # Cleanup
+        del mv
+        del entry
+        del engine
+        gc.collect()

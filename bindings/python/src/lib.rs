@@ -1,4 +1,3 @@
-use memmap2::Mmap;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyAnyMethods;
@@ -8,6 +7,8 @@ use simd_r_drive::{DataStore as RustDataStore, EntryStream as RustEntryStream};
 use std::io::Read;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+mod entry_handle;
+use entry_handle::EntryHandle;
 
 /// Python wrapper for streaming an EntryHandle
 #[pyclass]
@@ -30,25 +31,25 @@ impl EntryStream {
 }
 
 /// Python wrapper around EntryHandle that exposes mmap-backed data
-#[pyclass]
-pub struct EntryHandle {
-    data: Arc<Mmap>,
-    start: usize,
-    end: usize,
-}
+// #[pyclass]
+// pub struct EntryHandle {
+//     data: Arc<Mmap>,
+//     start: usize,
+//     end: usize,
+// }
 
-#[pymethods]
-impl EntryHandle {
-    /// Returns a memoryview (zero-copy) over the entry payload
-    fn as_memoryview<'py>(slf: PyRef<'py, Self>, py: Python<'py>) -> PyResult<Py<PyAny>> {
-        let slice = &slf.data[slf.start..slf.end];
-        let pybytes = PyBytes::new(py, slice);
-        let memoryview = PyModule::import(py, "builtins")?
-            .getattr("memoryview")?
-            .call1((pybytes,))?;
-        Ok(memoryview.into())
-    }
-}
+// #[pymethods]
+// impl EntryHandle {
+//     /// Returns a memoryview (zero-copy) over the entry payload
+//     fn as_memoryview<'py>(slf: PyRef<'py, Self>, py: Python<'py>) -> PyResult<Py<PyAny>> {
+//         let slice = &slf.data[slf.start..slf.end];
+//         let pybytes = PyBytes::new(py, slice);
+//         let memoryview = PyModule::import(py, "builtins")?
+//             .getattr("memoryview")?
+//             .call1((pybytes,))?;
+//         Ok(memoryview.into())
+//     }
+// }
 
 #[pyclass]
 struct DataStore {
@@ -151,14 +152,7 @@ impl DataStore {
     fn read_entry(&self, py: Python<'_>, key: &[u8]) -> PyResult<Option<Py<EntryHandle>>> {
         match self.inner.lock().unwrap().read(key) {
             Some(entry) => {
-                let handle = Py::new(
-                    py,
-                    EntryHandle {
-                        data: entry.mmap_arc().clone(),
-                        start: entry.start_offset(),
-                        end: entry.end_offset(),
-                    },
-                )?;
+                let handle = Py::new(py, EntryHandle { inner: entry })?;
                 Ok(Some(handle))
             }
             None => Ok(None),

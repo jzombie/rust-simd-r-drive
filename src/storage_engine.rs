@@ -1,5 +1,8 @@
-mod constants;
-use constants::*;
+#[cfg(feature = "expose-internal-api")]
+pub mod constants;
+
+#[cfg(feature = "expose-internal-api")]
+pub use constants::*;
 
 mod data_store;
 pub use data_store::DataStore;
