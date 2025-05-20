@@ -35,6 +35,11 @@ pip install dist/simd_r_drive_py-*.whl
 
 ## Usage
 
+TODO: Separate examples into 3 categories
+    - regular writes
+    - batch writes
+    - stream writes
+
 ```python
 from simd_r_drive import DataStore
 import io
