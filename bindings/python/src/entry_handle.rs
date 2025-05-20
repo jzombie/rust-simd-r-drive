@@ -1,9 +1,10 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyModule};
+use simd_r_drive::EntryHandle as BaseEntryHandle;
 
 #[pyclass]
 pub struct EntryHandle {
-    pub(crate) inner: simd_r_drive::EntryHandle,
+    pub(crate) inner: BaseEntryHandle,
 }
 
 #[pymethods]

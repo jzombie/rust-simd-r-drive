@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyAnyMethods;
 use pyo3::types::{PyBytes, PyModule};
 use pyo3::PyResult;
-use simd_r_drive::{DataStore as RustDataStore, EntryStream as RustEntryStream};
+use simd_r_drive::{DataStore as BaseDataStore, EntryStream as BaseEntryStream};
 use std::io::Read;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -14,14 +14,14 @@ use entry_stream::EntryStream;
 
 #[pyclass]
 struct DataStore {
-    inner: Arc<Mutex<RustDataStore>>,
+    inner: Arc<Mutex<BaseDataStore>>,
 }
 
 #[pymethods]
 impl DataStore {
     #[new]
     fn new(path: &str) -> PyResult<Self> {
-        let store = RustDataStore::open(&PathBuf::from(path))
+        let store = BaseDataStore::open(&PathBuf::from(path))
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
         Ok(Self {
             inner: Arc::new(Mutex::new(store)),
@@ -102,7 +102,7 @@ impl DataStore {
         match self.inner.lock().unwrap().read(key) {
             Some(entry) => {
                 let stream = EntryStream {
-                    inner: Mutex::new(RustEntryStream::from(entry)),
+                    inner: Mutex::new(BaseEntryStream::from(entry)),
                 };
                 Ok(Some(Py::new(py, stream)?))
             }
