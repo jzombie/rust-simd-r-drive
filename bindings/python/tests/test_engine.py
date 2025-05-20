@@ -29,6 +29,30 @@ def test_write_and_read():
         #
         # Manually calling `engine.close()` ensures internal Rust resources are dropped.
         del engine
+        
+def test_batch_write():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = os.path.join(tmpdir, "store.bin")
+        engine = DataStore(filepath)
+
+        # Create a batch of key-value pairs
+        entries = [
+            (b"user:1", b"alice"),
+            (b"user:2", b"bob"),
+            (b"user:3", b"charlie"),
+        ]
+
+        engine.batch_write(entries)
+
+        # Validate all entries were correctly stored
+        for key, value in entries:
+            assert engine.exists(key)
+            assert engine.read(key) == value
+
+        # Cleanup
+        del engine
+        gc.collect()
+
 
 def test_read_entry_returns_memoryview():
     with tempfile.TemporaryDirectory() as tmpdir:

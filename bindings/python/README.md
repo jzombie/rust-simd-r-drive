@@ -82,17 +82,19 @@ from simd_r_drive import DataStore
 
 store = DataStore("batch.bin")
 
-entries = {
-    b"user:1": b"alice",
-    b"user:2": b"bob",
-    b"user:3": b"charlie",
-}
+# Prepare entries as a list of (key, value) byte tuples
+entries = [
+    (b"user:1", b"alice"),
+    (b"user:2", b"bob"),
+    (b"user:3", b"charlie"),
+]
 
-for key, value in entries.items():
-    store.write(key, value)
+# Write all entries in a single batch
+store.batch_write(entries)
 
-for key in entries:
-    assert store.read(key) == entries[key]
+# Verify that all entries were written correctly
+for key, value in entries:
+    assert store.read(key) == value
 ```
 
 ### Streamed Writes and Reads (Large Payloads)
