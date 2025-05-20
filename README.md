@@ -223,10 +223,6 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 [SIMD R Drive Extensions](./extensions/) provide additional functionality.
 
-Here’s the updated **Python Language Bindings** section with an added sentence about platform support, consistent with your earlier README wording — professionally stated but firm:
-
----
-
 ## Python Language Bindings
 
 [Experimental Python bindings](./bindings/python) are available for integrating with Python applications.
