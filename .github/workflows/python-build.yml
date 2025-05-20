@@ -52,27 +52,12 @@ jobs:
 
       - name: Install built wheel and run tests
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
-        # Using bash for consistent cross-platform scripting.
-        # Bash is available on Windows runners (usually Git Bash).
-        shell: bash
         run: |
-          # Check if the platform is Windows using Python
-          # Python script will exit 0 if it IS win32 (making the 'if' condition true),
-          # and exit 1 otherwise.
-          if python -c "import sys; sys.exit(0) if sys.platform == 'win32' else sys.exit(1)"; then
-            echo "Detected Windows (sys.platform == 'win32'). Tests will be skipped for this step."
-            # If you want the step to be marked as "successful" but skip tests:
-            exit 0
-            # If you want the step to FAIL on Windows to clearly indicate tests were not run:
-            # echo "Error: Refusing to run tests on win32 for this step."
-            # exit 1
-          else
-            echo "Not Windows, proceeding with installation and tests."
-            python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
-            python -m site
-            python extract_readme_tests.py
-            pytest --import-mode=importlib
-          fi
+
+          python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
+          python -m site
+          python extract_readme_tests.py
+          pytest --import-mode=importlib
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
