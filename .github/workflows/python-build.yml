@@ -23,8 +23,6 @@ jobs:
         include:
           - os: ubuntu-latest
           - os: macos-latest
-          - os: windows-latest
-            architecture: x64
 
     steps:
       - uses: actions/checkout@v4
@@ -33,9 +31,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          # Only relevant on Windows — forces 64-bit (x64).
-          # Ignored on macOS and Linux, which are already 64-bit.
-          architecture: ${{ matrix.architecture || 'x64' }}
 
       - name: Install build tooling from requirements.txt
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
@@ -46,8 +41,7 @@ jobs:
       # Note: Using `working-directory` here is problematic due to relative path linking
       - name: Build wheels
         env:
-          CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp* *-manylinux_i686 *-musllinux_* *-win32"
-          CIBW_ARCHS_WINDOWS: "AMD64" # ARM64 not supported in this build environment
+          CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp* *-manylinux_i686 *-musllinux_*"
         run: cibuildwheel "${{ env.PYTHON_BINDING_DIR }}" --output-dir "${{ env.PYTHON_BINDING_DIR }}/dist"
 
       - name: Install built wheel and run tests
