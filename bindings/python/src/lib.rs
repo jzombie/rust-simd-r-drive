@@ -9,47 +9,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 mod entry_handle;
 use entry_handle::EntryHandle;
-
-/// Python wrapper for streaming an EntryHandle
-#[pyclass]
-pub struct EntryStream {
-    inner: Mutex<RustEntryStream>,
-}
-
-#[pymethods]
-impl EntryStream {
-    fn read(&self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
-        let mut buffer = vec![0u8; size];
-        let n = self
-            .inner
-            .lock()
-            .unwrap()
-            .read(&mut buffer)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(PyBytes::new(py, &buffer[..n]).into())
-    }
-}
-
-/// Python wrapper around EntryHandle that exposes mmap-backed data
-// #[pyclass]
-// pub struct EntryHandle {
-//     data: Arc<Mmap>,
-//     start: usize,
-//     end: usize,
-// }
-
-// #[pymethods]
-// impl EntryHandle {
-//     /// Returns a memoryview (zero-copy) over the entry payload
-//     fn as_memoryview<'py>(slf: PyRef<'py, Self>, py: Python<'py>) -> PyResult<Py<PyAny>> {
-//         let slice = &slf.data[slf.start..slf.end];
-//         let pybytes = PyBytes::new(py, slice);
-//         let memoryview = PyModule::import(py, "builtins")?
-//             .getattr("memoryview")?
-//             .call1((pybytes,))?;
-//         Ok(memoryview.into())
-//     }
-// }
+mod entry_stream;
+use entry_stream::EntryStream;
 
 #[pyclass]
 struct DataStore {
