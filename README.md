@@ -128,9 +128,9 @@ Because metadata is appended after each payload, there is no unnecessary seeking
 
 Content retrieval is optimized using hashed keys, managed internally by a `HashMap` powered by the `xxh3_64` hashing algorithm. This algorithm takes advantage of hardware acceleration where available:
 
-  - SSE2 – Universally supported on x86_64, enabled by default.
-  - AVX2 – Offers additional performance gains on capable CPUs.
-  - Neon – Default on aarch64 targets, providing SIMD acceleration.
+  - `SSE2` – Universally supported on x86_64, enabled by default.
+  - `AVX2` – Offers additional performance gains on capable CPUs.
+  - `Neon` – Default on aarch64 targets, providing SIMD acceleration.
 
 This indexing system works seamlessly with memory-mapped (`mmap`) pages, enabling high-speed random access. Benchmarks show that 1 million random seeks, retrieving 8-byte entries, typically complete in well under 1 second, demonstrating reasonable query performance.
 
