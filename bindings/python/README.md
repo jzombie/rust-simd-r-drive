@@ -15,6 +15,35 @@ This library provides access to core functionality of `simd-r-drive` from Python
 * ↺ Streaming interface for writing and reading large entries
 * 🐍 Native Rust extension module for Python (via [PyO3](https://github.com/PyO3/pyo3))
 
+Certainly. Here's a **"Supported Environments"** section you can add to your README, placed right after the **"Installation"** section or just before **"Development"**, depending on your preference:
+
+## Supported Environments
+
+The `simd_r_drive_py` Python bindings are built as native extension modules and require environments that support both Python and Rust toolchains.
+
+### ✅ Platforms
+
+* **Linux (x86\_64, aarch64)**
+* **macOS (x86\_64, arm64/M1/M2)**
+* **Windows (x86\_64)**
+
+> Wheels are built using [cibuildwheel](https://github.com/pypa/cibuildwheel) and tested on GitHub Actions for all three platforms.
+
+### ✅ Supported Python Versions
+
+* **Python 3.10 – 3.12**
+
+Older versions (≤3.9) are explicitly skipped during wheel builds.
+
+### ❌ Not Supported
+
+* **Python < 3.10**
+* **32-bit Python**
+* **musl-based Linux environments** (e.g., Alpine Linux)
+* **PyPy** or other alternative Python interpreters
+
+> If you need support for other environments or interpreters, consider compiling from source with `maturin develop` inside a compatible environment.
+
 ## Installation
 
 ```sh
