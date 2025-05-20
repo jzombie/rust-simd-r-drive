@@ -26,7 +26,7 @@ The `simd_r_drive_py` Python bindings are built as native extension modules and 
 * **Linux (x86\_64, aarch64)**
 * **macOS (x86\_64, arm64/M1/M2)**
 
-> Wheels are built using [cibuildwheel](https://github.com/pypa/cibuildwheel) and tested on GitHub Actions for all three platforms.
+> Wheels are built using [cibuildwheel](https://github.com/pypa/cibuildwheel) and tested on GitHub Actions.
 
 ### ✅ Supported Python Versions
 
