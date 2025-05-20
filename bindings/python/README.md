@@ -17,20 +17,8 @@ This library provides access to core functionality of `simd-r-drive` from Python
 
 ## Installation
 
-TODO: Update with non-development pre-built wheel instructions
-
-Requires Rust and [maturin](https://github.com/PyO3/maturin) to build from source:
-
-```bash
-pip install maturin
-maturin develop
-```
-
-Or to build a wheel:
-
-```bash
-maturin build --release
-pip install dist/simd_r_drive_py-*.whl
+```sh
+pip install -i simd-r-drive-py
 ```
 
 ## Usage
@@ -127,11 +115,29 @@ Due to Python’s Global Interpreter Lock (GIL) and the limitations of `PyO3`, c
 
 ## Development
 
-To run tests:
+To develop and test the Python bindings:
+
+### Requirements
+
+- Python 3.10 or above
+- Rust toolchain (with `cargo`)
+
+```sh
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+### Test Changes
+
+```sh
+maturin develop # Builds the Rust library
+pytest # Tests the Python integration
+```
+
+### Build a Release Wheel
 
 ```bash
-pip install -r requirements-dev.txt
-pytest tests/
+maturin build --release
+pip install dist/simd_r_drive_py-*.whl
 ```
 
 ## License
