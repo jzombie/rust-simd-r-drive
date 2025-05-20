@@ -152,7 +152,7 @@ Returns a streaming reader exposing `.read(n)`.
 
 ### `.delete(key: bytes) -> None`
 
-Marks an entry as deleted. The file remains append-only; use Rust-side compaction if needed.
+Marks an entry as deleted and no longer available to be read. The file remains append-only; use Rust-side compaction if needed.
 
 ### `.exists(key: bytes) -> bool`
 
