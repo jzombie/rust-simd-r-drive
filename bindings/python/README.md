@@ -105,11 +105,11 @@ import io
 
 store = DataStore("streamed.bin")
 
-# Create a large payload
-payload = b"x" * (10 * 1024 * 1024)  # 10 MB
-
-# Write the payload using a stream
+# Simulated payload — in practice, this could be any file-like stream,
+# including one that does not fit entirely into memory.
+payload = b"x" * (10 * 1024 * 1024)  # Example: 10 MB of dummy data
 stream = io.BytesIO(payload)
+
 store.write_stream(b"large-file", stream)
 
 # Read the payload back in chunks
