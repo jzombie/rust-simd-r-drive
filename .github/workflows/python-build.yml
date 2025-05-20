@@ -50,11 +50,12 @@ jobs:
           python extract_readme_tests.py
           pytest --import-mode=importlib
 
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: simd_r_drive_py-wheels-${{ matrix.os }}
-          path: ${{ env.PYTHON_BINDING_DIR }}/dist/*.whl
+      # TODO: Uncomment or move to separate job
+      # - name: Upload wheels
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: simd_r_drive_py-wheels-${{ matrix.os }}
+      #     path: ${{ env.PYTHON_BINDING_DIR }}/dist/*.whl
 
   publish:
     name: Upload wheels to PyPI
