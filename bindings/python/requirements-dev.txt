@@ -1,0 +1,5 @@
+pytest>=8.3.5,<9.0
+pytest-benchmark>=4.0
+numpy>=2.2.6,<3.0
+maturin>=1.5
+puccinialin>=0.1.2

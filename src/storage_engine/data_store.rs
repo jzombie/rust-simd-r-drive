@@ -80,6 +80,7 @@ impl DataStore {
         // Recover valid chain using mmap, not file
         let final_len = Self::recover_valid_chain(&mmap, file_len)?;
 
+        // TODO: Don't automatically do this; make it configurable with parameter
         if final_len < file_len {
             warn!(
                 "Truncating corrupted data in {} from offset {} to {}.",

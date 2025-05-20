@@ -32,6 +32,7 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
   - [Streaming](#streaming)
 - [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
 - [Extensions](#extensions)
+- [Python Language Bindings](#python-language-bindings)
 - [License](#license)
 
 
@@ -127,9 +128,9 @@ Because metadata is appended after each payload, there is no unnecessary seeking
 
 Content retrieval is optimized using hashed keys, managed internally by a `HashMap` powered by the `xxh3_64` hashing algorithm. This algorithm takes advantage of hardware acceleration where available:
 
-  - SSE2 – Universally supported on x86_64, enabled by default.
-  - AVX2 – Offers additional performance gains on capable CPUs.
-  - Neon – Default on aarch64 targets, providing SIMD acceleration.
+  - `SSE2` – Universally supported on x86_64, enabled by default.
+  - `AVX2` – Offers additional performance gains on capable CPUs.
+  - `Neon` – Default on aarch64 targets, providing SIMD acceleration.
 
 This indexing system works seamlessly with memory-mapped (`mmap`) pages, enabling high-speed random access. Benchmarks show that 1 million random seeks, retrieving 8-byte entries, typically complete in well under 1 second, demonstrating reasonable query performance.
 
@@ -220,7 +221,25 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 ## Extensions
 
-[SIMD R Drive Extensions](./simd-r-drive-extensions/) provide additional functionality.
+[SIMD R Drive Extensions](./extensions/) provide additional functionality.
+
+Here’s the updated **Python Language Bindings** section with an added sentence about platform support, consistent with your earlier README wording — professionally stated but firm:
+
+---
+
+## Python Language Bindings
+
+[Experimental Python bindings](./bindings/python) are available for integrating with Python applications.
+
+These bindings expose high-performance, zero-copy access to `SIMD R Drive` from Python using `PyO3` and `maturin`.
+
+> ❌ **Python bindings for Windows is not supported** due to inconsistent file and memory-mapping semantics (though the bindings *can* build in Windows). These bindings target UNIX-like systems where `mmap` and thread behavior are reliable and consistent.  
+✅ The Rust library itself fully supports Windows, and is continuously tested on Windows targets.
+
+Bindings are tested on:
+
+* **Linux (x86\_64, aarch64)**
+* **macOS (x86\_64, arm64/M1/M2)**
 
 ## License
 
