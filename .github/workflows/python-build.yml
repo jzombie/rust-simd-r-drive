@@ -53,6 +53,7 @@ jobs:
       - name: Install built wheel and run tests
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
+          python -c "import sys; sys.exit('Refusing to run tests on win32') if sys.platform == 'win32' else None"
           python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
           python -m site
           python extract_readme_tests.py
