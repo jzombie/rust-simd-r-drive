@@ -234,6 +234,7 @@ Here’s the updated **Python Language Bindings** section with an added sentence
 These bindings expose high-performance, zero-copy access to `SIMD R Drive` from Python using `PyO3` and `maturin`.
 
 > ❌ **Python bindings for Windows is not supported** due to inconsistent file and memory-mapping semantics (though the bindings *can* build in Windows). These bindings target UNIX-like systems where `mmap` and thread behavior are reliable and consistent.
+✅ The Rust library itself fully supports Windows, and is continuously tested on Windows targets.
 
 Bindings are tested on:
 
