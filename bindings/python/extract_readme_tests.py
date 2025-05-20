@@ -28,7 +28,7 @@ def wrap_as_test_fn(code: str, idx: int) -> str:
     return f"def test_readme_block_{idx}():\n{indented or '    pass'}\n"
 
 def main():
-    content = README.read_text()
+    content = README.read_text(encoding="utf-8")
     blocks = extract_python_blocks(content)
 
     test_fns = [wrap_as_test_fn(code, i) for i, code in enumerate(blocks)]
