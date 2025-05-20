@@ -15,8 +15,6 @@ This library provides access to core functionality of `simd-r-drive` from Python
 * ↺ Streaming interface for writing and reading large entries
 * 🐍 Native Rust extension module for Python (via [PyO3](https://github.com/PyO3/pyo3))
 
-Certainly. Here's a **"Supported Environments"** section you can add to your README, placed right after the **"Installation"** section or just before **"Development"**, depending on your preference:
-
 ## Supported Environments
 
 The `simd_r_drive_py` Python bindings are built as native extension modules and require environments that support both Python and Rust toolchains.
