@@ -118,61 +118,62 @@ def test_write_stream_and_read_stream():
         gc.collect()
 
 # TODO: Uncomment (problematic on Windows)
-# def test_write_and_read_many_numpy_arrays():
-#     with tempfile.TemporaryDirectory() as tmpdir:
-#         filepath = os.path.join(tmpdir, "store.bin")
-#         engine = DataStore(filepath)
+def test_write_and_read_many_numpy_arrays():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = os.path.join(tmpdir, "store.bin")
+        engine = DataStore(filepath)
 
-#         shape = (16, 16)
-#         dtype = np.float32
-#         arrays = {}
+        shape = (16, 16)
+        dtype = np.float32
+        arrays = {}
 
-#         # Write 100 arrays
-#         for i in range(100):
-#             key = f"array_{i}".encode()
-#             arr = (np.random.rand(*shape) * 100).astype(dtype)
-#             engine.write(key, arr.tobytes())
-#             arrays[key] = arr
+        # Write 100 arrays
+        for i in range(100):
+            key = f"array_{i}".encode()
+            arr = (np.random.rand(*shape) * 100).astype(dtype)
+            engine.write(key, arr.tobytes())
+            arrays[key] = arr
 
-#         # Read and verify each
-#         for key, original in arrays.items():
-#             entry = engine.read_entry(key)
-#             assert entry is not None
-#             mv = entry.as_memoryview()
-#             recovered = np.frombuffer(mv, dtype=dtype).reshape(shape)
-#             assert np.allclose(recovered, original)
+        # Read and verify each
+        for key, original in arrays.items():
+            entry = engine.read_entry(key)
+            assert entry is not None
+            mv = entry.as_memoryview()
+            recovered = np.frombuffer(mv, dtype=dtype).reshape(shape)
+            assert np.allclose(recovered, original)
 
-#         # Cleanup
-#         del engine
-#         gc.collect()
+        # Cleanup
+        del mv
+        del engine
+        gc.collect()
 
 # TODO: Uncomment (problematic on Windows)
-# def test_write_and_read_numpy_matrix():
-#     with tempfile.TemporaryDirectory() as tmpdir:
-#         filepath = os.path.join(tmpdir, "store.bin")
-#         engine = DataStore(filepath)
+def test_write_and_read_numpy_matrix():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = os.path.join(tmpdir, "store.bin")
+        engine = DataStore(filepath)
 
-#         key = b"matrix"
-#         original = (np.random.rand(32, 32) * 255).astype(np.uint8)
+        key = b"matrix"
+        original = (np.random.rand(32, 32) * 255).astype(np.uint8)
 
-#         engine.write(key, original.tobytes())
+        engine.write(key, original.tobytes())
 
-#         entry = engine.read_entry(key)
-#         assert entry is not None
+        entry = engine.read_entry(key)
+        assert entry is not None
 
-#         mv = entry.as_memoryview()
-#         assert isinstance(mv, memoryview)
-#         assert len(mv) == original.size
+        mv = entry.as_memoryview()
+        assert isinstance(mv, memoryview)
+        assert len(mv) == original.size
 
-#         # Reconstruct from buffer and reshape
-#         recovered = np.frombuffer(mv, dtype=np.uint8).reshape(original.shape)
-#         assert np.array_equal(recovered, original)
+        # Reconstruct from buffer and reshape
+        recovered = np.frombuffer(mv, dtype=np.uint8).reshape(original.shape)
+        assert np.array_equal(recovered, original)
 
-#         # Cleanup
-#         del mv
-#         del entry
-#         del engine
-#         gc.collect()
+        # Cleanup
+        del mv
+        del entry
+        del engine
+        gc.collect()
 
 # TODO: Uncomment (problematic on Windows)
 def test_write_and_read_mixed_dtypes():
@@ -200,7 +201,5 @@ def test_write_and_read_mixed_dtypes():
 
         # Cleanup
         del mv
-        del recovered
-        del original
         del engine
         gc.collect()
