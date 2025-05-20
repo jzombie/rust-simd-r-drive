@@ -36,7 +36,7 @@ Older versions (≤3.9) are explicitly skipped during wheel builds.
 
 ### ❌ Not Supported
 
-* **Windows (x86\_64)** Python bindings are not officially supported on Windows due to platform-specific filesystem and memory-mapping inconsistencies in the Python runtime.
+* **Windows (x86\_64, AMD64, ARM64)** Python bindings are not officially supported on Windows due to platform-specific filesystem and memory-mapping inconsistencies in the Python runtime.
     > The underlying Rust library works on Windows and is tested continuously, but the Python bindings fail some unit tests in CI. Manual builds (including `AMD64` and `ARM64`) have succeeded locally but are not considered production-stable.
 * **Python < 3.10**
 * **32-bit Python**
