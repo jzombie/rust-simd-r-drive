@@ -10,7 +10,6 @@ This library provides access to core functionality of `simd-r-drive` from Python
 
 * 🔑 Append-only key/value storage
 * ⚡ Zero-copy reads via `memoryview` and `mmap`
-* 🧵 Thread-safe reads and writes from Python (with restrictions)
 * 📆 Single-file binary container (no schema or serialization required)
 * ↺ Streaming interface for writing and reading large entries
 * 🐍 Native Rust extension module for Python (via [PyO3](https://github.com/PyO3/pyo3))
