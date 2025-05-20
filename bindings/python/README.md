@@ -23,40 +23,72 @@ pip install -i simd-r-drive-py
 
 ## Usage
 
-TODO: Separate examples into 3 categories
-    - regular writes
-    - batch writes
-    - stream writes
+### Regular Writes and Reads
+
+```python
+from simd_r_drive import DataStore
+
+# Create or open a datastore
+store = DataStore("mydata.bin")
+
+# Write a key/value pair
+store.write(b"username", b"jdoe")
+
+# Read the value
+value = store.read(b"username")
+print(value)  # b'jdoe'
+
+# Check existence
+assert store.exists(b"username")
+
+# Delete the key
+store.delete(b"username")
+assert store.read(b"username") is None
+```
+
+### Batch Writes
+
+```python
+from simd_r_drive import DataStore
+
+store = DataStore("batch.bin")
+
+entries = {
+    b"user:1": b"alice",
+    b"user:2": b"bob",
+    b"user:3": b"charlie",
+}
+
+for key, value in entries.items():
+    store.write(key, value)
+
+for key in entries:
+    assert store.read(key) == entries[key]
+```
+
+### Streamed Writes and Reads (Large Payloads)
 
 ```python
 from simd_r_drive import DataStore
 import io
 
-# Open or create a storage file
-store = DataStore("mydata.bin")
+store = DataStore("streamed.bin")
 
-# Write a key/value pair
-store.write(b"mykey", b"myvalue")
+# Create a large payload
+payload = b"x" * (10 * 1024 * 1024)  # 10 MB
 
-# Read as bytes
-assert store.read(b"mykey") == b"myvalue"
+# Write the payload using a stream
+stream = io.BytesIO(payload)
+store.write_stream(b"large-file", stream)
 
-# Read as zero-copy memoryview
-entry = store.read_entry(b"mykey")
-view = entry.as_memoryview()
-assert bytes(view) == b"myvalue"
+# Read the payload back in chunks
+read_stream = store.read_stream(b"large-file")
+result = bytearray()
 
-# Streaming write
-payload = b"x" * 1024 * 1024
-store.write_stream(b"large", io.BytesIO(payload))
+while chunk := read_stream.read(4096):
+    result.extend(chunk)
 
-# Streaming read
-stream = store.read_stream(b"large")
-data = bytearray()
-while chunk := stream.read(4096):
-    data.extend(chunk)
-
-assert data == payload
+assert result == payload
 ```
 
 ## API
