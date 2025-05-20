@@ -223,9 +223,22 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 [SIMD R Drive Extensions](./extensions/) provide additional functionality.
 
+Here’s the updated **Python Language Bindings** section with an added sentence about platform support, consistent with your earlier README wording — professionally stated but firm:
+
+---
+
 ## Python Language Bindings
 
 [Experimental Python bindings](./bindings/python) are available for integrating with Python applications.
+
+These bindings expose high-performance, zero-copy access to `SIMD R Drive` from Python using `PyO3` and `maturin`.
+
+> ❌ **Python bindings for Windows is not supported** due to inconsistent file and memory-mapping semantics (though the bindings *can* build in Windows). These bindings target UNIX-like systems where `mmap` and thread behavior are reliable and consistent.
+
+Bindings are tested on:
+
+* **Linux (x86\_64, aarch64)**
+* **macOS (x86\_64, arm64/M1/M2)**
 
 ## License
 
