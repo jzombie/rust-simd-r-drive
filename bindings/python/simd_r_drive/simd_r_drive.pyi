@@ -43,11 +43,11 @@ class EntryStream:
         """
         ...
 
-    # def __iter__(self) -> Iterator[bytes]:
-    #     """
-    #     Returns self as an iterator.
-    #     """
-    #     ...
+    def __iter__(self) -> Iterator[bytes]:
+        """
+        Returns self as an iterator.
+        """
+        ...
 
     # def __next__(self) -> bytes:
     #     """

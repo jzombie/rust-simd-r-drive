@@ -13,10 +13,9 @@ pub struct EntryStream {
 
 #[pymethods]
 impl EntryStream {
-    // #[pyo3(name = "__iter__")]
-    // fn iter(slf: PyRefMut<'_, Self>) -> PyResult<PyRefMut<'_, Self>> {
-    //     Ok(slf)
-    // }
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
 
     // #[pyo3(name = "__next__")]
     // fn next(slf: PyRefMut<'_, Self>, py: Python<'_>) -> PyResult<Option<Py<PyBytes>>> {
