@@ -5,3 +5,14 @@ __pycache__/
 *.pyd
 
 tests/test_readme_blocks.py
+
+# Compiled Python extension modules
+*.so
+*.pyd
+*.dll
+*.dylib
+
+# Build artifacts
+build/
+target/
+*.egg-info/
