@@ -139,5 +139,11 @@ fn python_entry(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<DataStore>()?;
     m.add_class::<EntryHandle>()?;
     m.add_class::<EntryStream>()?;
+
+    // Force export of dunder methods (workaround for release builds)
+    m.add("__len__", "force export")?;
+    m.add("__iter__", "force export")?;
+    m.add("__next__", "force export")?;
+
     Ok(())
 }
