@@ -5,7 +5,6 @@ import numpy as np
 import gc
 
 
-
 def test_write_and_read():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")
@@ -225,8 +224,6 @@ def test_write_and_read_mixed_dtypes():
         gc.collect()
 
 def test_entry_accessors():
-    import struct
-
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")
         engine = DataStore(filepath)
