@@ -9,15 +9,15 @@ pub struct EntryHandle {
 
 #[pymethods]
 impl EntryHandle {
-    #[pyo3(name = "__len__")]
-    fn len(&self) -> PyResult<usize> {
-        Ok(self.inner.size())
-    }
+    // #[pyo3(name = "__len__")]
+    // fn len(&self) -> PyResult<usize> {
+    //     Ok(self.inner.size())
+    // }
 
-    #[getter]
-    fn size(&self) -> usize {
-        self.inner.size()
-    }
+    // #[getter]
+    // fn size(&self) -> usize {
+    //     self.inner.size()
+    // }
 
     #[getter]
     fn size_with_metadata(&self) -> usize {

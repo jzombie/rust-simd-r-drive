@@ -15,7 +15,7 @@ class EntryHandle:
     def offset_range(self) -> Tuple[int, int]: ...
     def address_range(self) -> Tuple[int, int]: ...
     def clone_arc(self) -> "EntryHandle": ...
-    def __len__(self) -> int: ...
+    # def __len__(self) -> int: ...
 
     @property
     def size(self) -> int: ...
@@ -43,17 +43,17 @@ class EntryStream:
         """
         ...
 
-    def __iter__(self) -> Iterator[bytes]:
-        """
-        Returns self as an iterator.
-        """
-        ...
+    # def __iter__(self) -> Iterator[bytes]:
+    #     """
+    #     Returns self as an iterator.
+    #     """
+    #     ...
 
-    def __next__(self) -> bytes:
-        """
-        Reads the next chunk from the stream.
-        """
-        ...
+    # def __next__(self) -> bytes:
+    #     """
+    #     Reads the next chunk from the stream.
+    #     """
+    #     ...
 
 
 @final
@@ -62,11 +62,11 @@ class DataStore:
     A high-performance, append-only binary key/value store.
     """
 
-    def __init__(self, path: str) -> None:
-        """
-        Opens (or creates) a datastore at the given file path.
-        """
-        ...
+    # def __init__(self, path: str) -> None:
+    #     """
+    #     Opens (or creates) a datastore at the given file path.
+    #     """
+    #     ...
 
     def write(self, key: bytes, data: bytes) -> None:
         """
