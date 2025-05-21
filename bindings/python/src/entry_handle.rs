@@ -14,10 +14,10 @@ impl EntryHandle {
     //     Ok(self.inner.size())
     // }
 
-    // #[getter]
-    // fn size(&self) -> usize {
-    //     self.inner.size()
-    // }
+    #[getter]
+    fn size(&self) -> usize {
+        self.inner.size()
+    }
 
     #[getter]
     fn size_with_metadata(&self) -> usize {
