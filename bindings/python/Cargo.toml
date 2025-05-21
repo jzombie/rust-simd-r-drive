@@ -17,3 +17,6 @@ crate-type = ["cdylib"]
 memmap2 = "0.9.5"
 pyo3 = { version = "0.25.0", features = ["extension-module"] }
 simd-r-drive = { path = "../..", features = ["expose-internal-api"] }
+
+[profile.release]
+codegen-units = 1
