@@ -130,6 +130,10 @@ Opens (or creates) a file-backed storage container at the given path.
 
 Atomically appends a new key-value entry. Overwrites any previous version of the key.
 
+### `.batch_write(items: List[Tuple[bytes, bytes]]) -> None`
+
+Writes multiple key-value pairs in a single operation. Each item must be a tuple of (key, value) where both are bytes.
+
 ### `.write_stream(key: bytes, reader: IO[bytes]) -> None`
 
 Streams from a Python file-like object (`.read(n)` interface). Not thread-safe.
@@ -148,7 +152,7 @@ Returns a streaming reader exposing `.read(n)`.
 
 ### `.delete(key: bytes) -> None`
 
-Marks an entry as deleted. The file remains append-only; use Rust-side compaction if needed.
+Marks an entry as deleted and no longer available to be read. The file remains append-only; use Rust-side compaction if needed.
 
 ### `.exists(key: bytes) -> bool`
 
