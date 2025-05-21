@@ -1,7 +1,6 @@
 import tempfile
 import os
-import pytest
-from simd_r_drive_py import DataStore
+from simd_r_drive import DataStore
 import numpy as np
 import gc
 

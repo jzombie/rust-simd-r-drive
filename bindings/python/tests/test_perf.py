@@ -2,7 +2,7 @@ import os
 import numpy as np
 import tempfile
 import pytest
-from simd_r_drive_py import DataStore
+from simd_r_drive import DataStore
 
 ENTRY_SIZE = 8
 WRITE_BATCH_SIZE = 1024
