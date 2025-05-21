@@ -38,6 +38,11 @@ jobs:
           pip install -r "requirements.txt"
           pip install -r "requirements-dev.txt"
 
+      - name: Remove old wheels/artifacts
+        run: |
+          rm -rf bindings/python/dist
+          rm -rf bindings/python/build
+
       # Note: Using `working-directory` here is problematic due to relative path linking
       - name: Build wheels
         env:
