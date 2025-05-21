@@ -9,7 +9,8 @@ pub struct EntryHandle {
 
 #[pymethods]
 impl EntryHandle {
-    fn __len__(&self) -> usize {
+    #[pyo3(name = "__len__")]
+    fn len(&self) -> usize {
         self.inner.size()
     }
 
