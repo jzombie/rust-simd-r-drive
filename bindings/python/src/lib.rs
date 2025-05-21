@@ -135,15 +135,15 @@ impl DataStore {
 }
 
 #[pymodule(name = "simd_r_drive")]
-fn python_entry(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn python_entry(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<DataStore>()?;
     m.add_class::<EntryHandle>()?;
     m.add_class::<EntryStream>()?;
 
     // Ensure these dunder symbols are interned so they aren't stripped
-    pyo3::intern!(py, "__len__");
-    pyo3::intern!(py, "__iter__");
-    pyo3::intern!(py, "__next__");
+    // pyo3::intern!(py, "__len__");
+    // pyo3::intern!(py, "__iter__");
+    // pyo3::intern!(py, "__next__");
 
     Ok(())
 }
