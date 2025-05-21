@@ -9,6 +9,10 @@ pub struct EntryHandle {
 
 #[pymethods]
 impl EntryHandle {
+    fn __len__(&self) -> usize {
+        self.inner.size()
+    }
+
     #[getter]
     fn size(&self) -> usize {
         self.inner.size()

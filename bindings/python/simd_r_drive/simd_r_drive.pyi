@@ -1,23 +1,37 @@
-from typing import Optional, IO
+from typing import Optional, IO, Tuple, Union, Iterator, final
 
+__all__ = ["DataStore", "EntryHandle", "EntryStream"]
+
+@final
 class EntryHandle:
     """
     A memory-mapped handle to a binary entry in the datastore.
     """
 
-    def as_memoryview(self) -> memoryview:
-        """
-        Returns a zero-copy memoryview of the entry's payload.
-        """
-        ...
+    def as_memoryview(self) -> memoryview: ...
+    def as_slice(self) -> bytes: ...
+    def raw_checksum(self) -> bytes: ...
+    def is_valid_checksum(self) -> bool: ...
+    def offset_range(self) -> Tuple[int, int]: ...
+    def address_range(self) -> Tuple[int, int]: ...
+    def clone_arc(self) -> "EntryHandle": ...
+    def __len__(self) -> int: ...
 
-    def __len__(self) -> int:
-        """
-        Returns the size of the entry in bytes.
-        """
-        ...
+    @property
+    def size(self) -> int: ...
+    @property
+    def size_with_metadata(self) -> int: ...
+    @property
+    def key_hash(self) -> int: ...
+    @property
+    def checksum(self) -> int: ...
+    @property
+    def start_offset(self) -> int: ...
+    @property
+    def end_offset(self) -> int: ...
 
 
+@final
 class EntryStream:
     """
     A streaming reader for large binary entries.
@@ -29,7 +43,7 @@ class EntryStream:
         """
         ...
 
-    def __iter__(self) -> "EntryStream":
+    def __iter__(self) -> Iterator[bytes]:
         """
         Returns self as an iterator.
         """
@@ -42,6 +56,7 @@ class EntryStream:
         ...
 
 
+@final
 class DataStore:
     """
     A high-performance, append-only binary key/value store.

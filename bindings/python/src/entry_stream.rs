@@ -13,6 +13,19 @@ pub struct EntryStream {
 
 #[pymethods]
 impl EntryStream {
+    fn __iter__(slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self, py: Python<'_>) -> Option<Py<PyBytes>> {
+        let mut buf = vec![0u8; 4096]; // or smaller if you prefer
+        match self.inner.lock().unwrap().read(&mut buf) {
+            Ok(0) => None,
+            Ok(n) => Some(PyBytes::new(py, &buf[..n]).into()),
+            Err(_) => None,
+        }
+    }
+
     fn read(&self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
         let mut buffer = vec![0u8; size];
         let n = self
