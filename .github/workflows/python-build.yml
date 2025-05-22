@@ -51,6 +51,7 @@ jobs:
 
       # TODO: Remove
       - name: Check contents of dist/
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: ls -alh dist/
 
       # TODO: Remove
