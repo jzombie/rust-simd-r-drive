@@ -45,7 +45,7 @@ Older versions (≤3.9) are explicitly skipped during wheel builds.
 ## Storage Layout
 
 <div align="center">
-  <img src="assets/storage-layout.png" title="Storage Layout" />
+  <img src="./assets/storage-layout.png" title="Storage Layout" />
 </div>
 
 | Offset Range      | Field           | Size (Bytes) | Description                                       |
