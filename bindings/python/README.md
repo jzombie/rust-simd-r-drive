@@ -114,7 +114,7 @@ store.write_stream(b"large-file", stream)
 read_stream = store.read_stream(b"large-file")
 result = bytearray()
 
-while chunk := read_stream.read(4096):
+for chunk in read_stream:
     result.extend(chunk)
 
 assert result == payload
