@@ -61,6 +61,11 @@ jobs:
           CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp* *-manylinux_i686 *-musllinux_*"
         run: cibuildwheel "${{ env.PYTHON_BINDING_DIR }}" --output-dir "${{ env.PYTHON_BINDING_DIR }}/dist"
 
+      # TODO: Remove
+      - name: Debug3
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        run: ls -lsa dist
+
       - name: Install built wheel and run tests
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
