@@ -43,6 +43,7 @@ jobs:
         run: |
           rm -rf dist
           rm -rf build
+          find . -name '*.so' -delete  # important if the .so file ends up in source tree
 
       # Note: Using `working-directory` here is problematic due to relative path linking
       - name: Build wheels
@@ -53,7 +54,7 @@ jobs:
       - name: Install built wheel and run tests
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
-
+          pip uninstall -y simd_r_drive_py || true  # force uninstall stale builds
           python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
           python -m site
           stubtest simd_r_drive
