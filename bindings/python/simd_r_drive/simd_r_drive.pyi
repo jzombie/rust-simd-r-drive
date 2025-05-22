@@ -330,14 +330,21 @@ class DataStore:
         """
         Reads the value for a given key.
 
-        This method retrieves the value for a given key from the datastore.
+        This method retrieves the value for the given key from the datastore. 
+        Note that this operation **performs a memory copy** of the data into 
+        a new `bytes` object. If **zero-copy access** is required, use 
+        `read_entry` instead.
 
         Args:
             key (bytes): The key whose value is to be retrieved.
 
         Returns:
-            Optional[bytes]: The data associated with the key, or None if the key
+            Optional[bytes]: The data associated with the key, or `None` if the key 
             does not exist.
+
+        # ⚠️ **Non Zero-Copy Warning**
+        - Unlike the Rust library this method **copies** data from the memory-mapped file into a new `bytes` object.
+        - If zero-copy access is needed, use `read_entry` instead, which provides a memory-mapped handle to the data.
         """
         ...
 
@@ -345,14 +352,22 @@ class DataStore:
         """
         Returns a memory-mapped handle to the value for a given key.
 
-        This method retrieves the value for the key as an `EntryHandle`, which
-        allows zero-copy access to the entry data.
+        This method retrieves the value for the key as an `EntryHandle`, which 
+        provides **zero-copy access** to the entry data. It does not perform 
+        any memory copying, instead returning a handle to the original memory-mapped 
+        entry in the datastore. This is the preferred method for accessing data 
+        when zero-copy access is necessary.
 
         Args:
             key (bytes): The key whose value is to be retrieved.
 
         Returns:
-            Optional[EntryHandle]: A handle to the entry, or None if the key does not exist.
+            Optional[EntryHandle]: A handle to the entry, or `None` if the key 
+            does not exist.
+
+        # Zero-Copy Access
+        - This method does **not copy** data, and instead provides a memory-mapped handle.
+        - Use this method for accessing data directly from memory without copying.
         """
         ...
 
