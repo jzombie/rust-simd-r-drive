@@ -51,6 +51,7 @@ jobs:
       - name: Remove old wheels/artifacts
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
+          rm -rf /tmp/cibuildwheel
           rm -rf dist
           rm -rf build
           find . -name '*.so' -delete  # important if the .so file ends up in source tree
