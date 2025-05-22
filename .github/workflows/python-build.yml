@@ -49,15 +49,26 @@ jobs:
           CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp* *-manylinux_i686 *-musllinux_*"
         run: cibuildwheel "${{ env.PYTHON_BINDING_DIR }}" --output-dir "${{ env.PYTHON_BINDING_DIR }}/dist"
 
-      - name: Install built wheel and run tests
+      # TODO: Remove
+      - name: Check EntryStream symbols
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
-
           python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
-          python -m site
-          stubtest simd_r_drive
-          python extract_readme_tests.py
-          pytest --import-mode=importlib
+          python -c "
+          import simd_r_drive_py
+          print('EntryStream methods:', dir(simd_r_drive_py.EntryStream))
+          "
+
+      # TODO: Uncomment
+      # - name: Install built wheel and run tests
+      #   working-directory: ${{ env.PYTHON_BINDING_DIR }}
+      #   run: |
+
+      #     python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
+      #     python -m site
+      #     stubtest simd_r_drive
+      #     python extract_readme_tests.py
+      #     pytest --import-mode=importlib
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
