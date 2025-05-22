@@ -1,6 +1,6 @@
 [package]
 # Refer to `[project]` section in `pyproject.toml` for build artifact details
-name = "simd-r-drive-py2"
+name = "simd-r-drive-py"
 edition = "2021"
 publish = false # Python bindings only — do not publish to crates.io
 
