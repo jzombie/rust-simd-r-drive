@@ -35,7 +35,12 @@ jobs:
       # TODO: Remove
       - name: Debug
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
-        run: ls
+        run: ls -lsa
+
+      # TODO: Remove
+      - name: Debug2
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        run: ls -lsa simd_r_drive
 
       - name: Install build tooling from requirements.txt
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
