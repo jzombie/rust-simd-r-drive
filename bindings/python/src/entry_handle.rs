@@ -9,6 +9,7 @@ pub struct EntryHandle {
 
 #[pymethods]
 impl EntryHandle {
+    #[link_section = ".dunder_methods"]
     fn __len__(&self) -> PyResult<usize> {
         Ok(self.inner.size())
     }
