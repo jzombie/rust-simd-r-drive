@@ -12,10 +12,11 @@ use namespace_hasher::NamespaceHasher;
 
 #[pymodule(name = "simd_r_drive")]
 fn python_entry(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<DataStore>()?;
-    m.add_class::<EntryHandle>()?;
-    m.add_class::<EntryStream>()?;
-    m.add_class::<NamespaceHasher>()?;
+    // TODO: Uncomment
+    // m.add_class::<DataStore>()?;
+    // m.add_class::<EntryHandle>()?;
+    // m.add_class::<EntryStream>()?;
+    // m.add_class::<NamespaceHasher>()?;
 
     Ok(())
 }
