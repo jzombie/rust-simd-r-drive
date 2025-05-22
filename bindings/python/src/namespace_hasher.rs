@@ -9,6 +9,7 @@ pub struct NamespaceHasher {
 
 #[pymethods]
 impl NamespaceHasher {
+    #[no_mangle]
     #[new]
     fn new(prefix: &[u8]) -> Self {
         NamespaceHasher {
@@ -17,6 +18,7 @@ impl NamespaceHasher {
     }
 
     /// Call the `namespace` method from Rust and expose it to Python.
+    #[no_mangle]
     fn namespace<'py>(&self, py: Python<'py>, key: &[u8]) -> Py<PyBytes> {
         let namespaced_key = self.inner.namespace(key); // Use existing function
         PyBytes::new(py, &namespaced_key).into() // Return as PyBytes
