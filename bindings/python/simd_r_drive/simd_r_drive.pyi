@@ -6,30 +6,193 @@ __all__ = ["DataStore", "EntryHandle", "EntryStream"]
 class EntryHandle:
     """
     A memory-mapped handle to a binary entry in the datastore.
+
+    This class represents a handle to an entry in the storage that has been memory-mapped.
+    It provides direct access to the data entry, including its raw bytes, metadata (such as key hash and checksum),
+    and additional helper methods to facilitate data integrity verification, memory access, and manipulation.
+
+    This handle guarantees zero-copy access to the entry data, ensuring efficient reading without unnecessary allocations.
     """
 
-    def as_memoryview(self) -> memoryview: ...
-    def as_slice(self) -> bytes: ...
-    def raw_checksum(self) -> bytes: ...
-    def is_valid_checksum(self) -> bool: ...
-    def offset_range(self) -> Tuple[int, int]: ...
-    def address_range(self) -> Tuple[int, int]: ...
-    def clone_arc(self) -> "EntryHandle": ...
-    def __len__(self) -> int: ...
+    def as_memoryview(self) -> memoryview:
+        """
+        Returns the entry as a memoryview.
+
+        This allows the entry to be accessed and manipulated as a memory view, providing
+        an efficient way to access the data in a low-level, binary format.
+
+        Returns:
+            memoryview: A memoryview of the entry's data, allowing zero-copy access to the entry's bytes.
+        """
+        ...
+
+    def as_slice(self) -> bytes:
+        """
+        Returns the entry as a byte slice.
+
+        This method provides access to the entry's data as a byte slice (`&[u8]`), directly referencing
+        the underlying memory-mapped file. The data is not copied, but the byte slice is wrapped in a 
+        Python object (`PyBytes`), which introduces a small overhead. While no physical data copy occurs, 
+        creating the `PyBytes` object does involve allocating memory to store the reference.
+
+        Returns:
+            bytes: A byte slice of the entry's data, backed by the underlying memory-mapped file.
+        """
+        ...
+
+    def raw_checksum(self) -> bytes:
+        """
+        Returns the raw checksum of the entry.
+
+        This method retrieves the checksum associated with the entry’s data in its raw form (as bytes),
+        which can be used for verification or further processing.
+
+        Returns:
+            bytes: A 4-byte checksum of the entry's data.
+        """
+        ...
+
+    def is_valid_checksum(self) -> bool:
+        """
+        Validates the integrity of the entry using its checksum.
+
+        This method computes the checksum of the entry’s data and compares it against the stored checksum to verify
+        data integrity. If the computed checksum matches the stored value, it confirms that the data is intact.
+
+        Returns:
+            bool: True if the checksum is valid, False otherwise.
+        """
+        ...
+
+    def offset_range(self) -> Tuple[int, int]:
+        """
+        Returns the byte offset range within the memory-mapped file corresponding to the entry's data.
+
+        This provides the start and end byte offsets for the entry in the memory-mapped file, which can be used
+        for low-level memory operations or diagnostics.
+
+        Returns:
+            Tuple[int, int]: A tuple representing the start and end byte offsets of the entry within the file.
+        """
+        ...
+
+    def address_range(self) -> Tuple[int, int]:
+        """
+        Returns the virtual address range of the entry in memory.
+
+        This method provides the memory addresses corresponding to the start and end of the entry's data
+        in the current process’s address space. The address range can be useful for debugging or low-level analysis.
+
+        Returns:
+            Tuple[int, int]: A tuple representing the start and end virtual memory addresses of the entry.
+        """
+        ...
+
+    def clone_arc(self) -> "EntryHandle":
+        """
+        Clones the entry handle, sharing the same underlying memory.
+
+        This method clones the `EntryHandle` and returns a new instance, but both handles will reference
+        the same underlying memory-mapped data, avoiding any unnecessary memory duplication. The reference count
+        on the `Arc<Mmap>` is incremented to ensure that the memory remains valid as long as any handle exists.
+
+        Returns:
+            EntryHandle: A new `EntryHandle` that shares the same memory-mapped data.
+        """
+        ...
+
+    def __len__(self) -> int:
+        """
+        Returns the size of the entry (payload size).
+
+        This method returns the size of the data portion of the entry, excluding metadata. This corresponds
+        to the number of bytes in the payload.
+
+        Returns:
+            int: The size of the entry's payload in bytes.
+        """
+        ...
 
     @property
-    def size(self) -> int: ...
-    @property
-    def size_with_metadata(self) -> int: ...
-    @property
-    def key_hash(self) -> int: ...
-    @property
-    def checksum(self) -> int: ...
-    @property
-    def start_offset(self) -> int: ...
-    @property
-    def end_offset(self) -> int: ...
+    def size(self) -> int:
+        """
+        Property: Returns the size of the entry's payload.
 
+        This is a convenience method for getting the size of the entry's data. It is equivalent to calling 
+        `__len__` on the entry, so you can also use `len(entry)` as an alternative.
+
+        Both `size` and `len()` access the value directly from the memory-mapped file, so they do not require
+        the entry's data to be loaded into RAM.
+
+        Returns:
+            int: The size of the entry's payload in bytes.
+        """
+        ...
+
+    @property
+    def size_with_metadata(self) -> int:
+        """
+        Property: Returns the total size of the entry, including metadata.
+
+        This method includes the metadata overhead (e.g., checksum, key hash) in the total size, providing
+        the complete size of the entry including both data and associated metadata.
+
+        Both `size_with_metadata` and `size` access the value directly from the memory-mapped file, so they do not
+        require the data to be loaded into RAM.
+
+        Returns:
+            int: The total size of the entry, including metadata.
+        """
+        ...
+
+    @property
+    def key_hash(self) -> int:
+        """
+        Property: Returns the computed hash of the entry's key.
+
+        This is the key hash used to quickly look up the entry in the datastore. It is derived from the key itself
+        using a hashing algorithm for efficient lookups.
+
+        Returns:
+            int: The hash of the entry's key.
+        """
+        ...
+
+    @property
+    def checksum(self) -> int:
+        """
+        Property: Returns the checksum of the entry's payload.
+
+        The checksum is a 32-bit value used to verify the integrity of the data.
+
+        Returns:
+            int: The checksum of the entry's payload.
+        """
+        ...
+
+    @property
+    def start_offset(self) -> int:
+        """
+        Property: Returns the start byte offset within the memory-mapped file.
+
+        This is the offset at which the entry’s data begins within the storage file.
+
+        Returns:
+            int: The start byte offset of the entry in the file.
+        """
+        ...
+
+    @property
+    def end_offset(self) -> int:
+        """
+        Property: Returns the end byte offset within the memory-mapped file.
+
+        This is the offset at which the entry’s data ends within the storage file.
+
+        Returns:
+            int: The end byte offset of the entry in the file.
+        """
+        ...
 
 @final
 class EntryStream:
