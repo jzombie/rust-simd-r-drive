@@ -32,6 +32,12 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Nuke workspace
+        run: |
+          sudo rm -rf *
+          git reset --hard
+          git clean -xfd
+
       # TODO: Remove
       # - name: Debug
       #   working-directory: ${{ env.PYTHON_BINDING_DIR }}
