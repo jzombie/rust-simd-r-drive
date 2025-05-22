@@ -76,8 +76,7 @@ jobs:
       - name: Install built wheel and run tests
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
-          pip uninstall -y simd_r_drive_py || true  # force uninstall stale builds
-          python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
+          python -m pip install dist/simd_r_drive_py-*.whl
           python -m site
           python extract_readme_tests.py
           pytest --import-mode=importlib
