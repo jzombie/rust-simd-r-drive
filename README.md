@@ -239,4 +239,4 @@ Bindings are tested on:
 
 ## License
 
-Licensed under the [Apache-2.0 License](https://raw.githubusercontent.com/jzombie/rust-simd-r-drive/main/bindings/python/LICENSE).
+Licensed under the [Apache-2.0 License](LICENSE).
