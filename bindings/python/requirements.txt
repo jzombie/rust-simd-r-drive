@@ -1,1 +1,0 @@
-cibuildwheel>=2.23.3,<3.0
