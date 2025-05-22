@@ -10,9 +10,6 @@ use data_store::DataStore;
 mod namespace_hasher;
 use namespace_hasher::NamespaceHasher;
 
-// TODO: Remove
-bad_rust_code()
-
 #[pymodule(name = "simd_r_drive")]
 fn python_entry(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // TODO: Uncomment
