@@ -1,10 +1,8 @@
 import tempfile
 import os
-import pytest
 from simd_r_drive import DataStore
 import numpy as np
 import gc
-
 
 
 def test_write_and_read():
@@ -20,6 +18,7 @@ def test_write_and_read():
 
         assert result == value
         assert engine.exists(key)
+        assert key in engine # Dunder method
 
         # Explicitly close the engine to ensure the file is released on Windows
         #
@@ -127,10 +126,7 @@ def test_write_stream_and_read_stream():
         assert reader is not None
 
         chunks = []
-        while True:
-            chunk = reader.read(8192)
-            if not chunk:
-                break
+        for chunk in reader:
             chunks.append(chunk)
 
         result = b"".join(chunks)
@@ -225,53 +221,53 @@ def test_write_and_read_mixed_dtypes():
         del engine
         gc.collect()
 
-# def test_entry_accessors():
-#     import struct
+def test_entry_accessors():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = os.path.join(tmpdir, "store.bin")
+        engine = DataStore(filepath)
 
-#     with tempfile.TemporaryDirectory() as tmpdir:
-#         filepath = os.path.join(tmpdir, "store.bin")
-#         engine = DataStore(filepath)
+        key = b"meta"
+        value = b"test_payload_123456"
+        engine.write(key, value)
 
-#         key = b"meta"
-#         value = b"test_payload_123456"
-#         engine.write(key, value)
+        entry = engine.read_entry(key)
+        assert entry is not None
 
-#         entry = engine.read_entry(key)
-#         assert entry is not None
+        # Access basic metadata
+        assert isinstance(entry.size, int)
+        assert entry.size == len(value)
+        assert len(entry) == len(value) # Dunder test
 
-#         # Access basic metadata
-#         assert isinstance(entry.size, int)
-#         assert entry.size == len(value)
-#         assert entry.size_with_metadata > entry.size
+        assert entry.size_with_metadata > entry.size
 
-#         # Check offset logic
-#         start = entry.start_offset
-#         end = entry.end_offset
-#         assert end - start == entry.size
-#         offset_range = entry.offset_range()
-#         assert offset_range == (start, end)
+        # Check offset logic
+        start = entry.start_offset
+        end = entry.end_offset
+        assert end - start == entry.size
+        offset_range = entry.offset_range()
+        assert offset_range == (start, end)
 
-#         # Check address range returns usable values
-#         addr_start, addr_end = entry.address_range()
-#         assert isinstance(addr_start, int)
-#         assert addr_end > addr_start
+        # Check address range returns usable values
+        addr_start, addr_end = entry.address_range()
+        assert isinstance(addr_start, int)
+        assert addr_end > addr_start
 
-#         # Check checksum
-#         assert isinstance(entry.checksum, int)
-#         raw = entry.raw_checksum()
-#         assert isinstance(raw, bytes) or isinstance(raw, bytearray) or isinstance(raw, (list, tuple))
-#         assert len(raw) == 4
+        # Check checksum
+        assert isinstance(entry.checksum, int)
+        raw = entry.raw_checksum()
+        assert isinstance(raw, bytes) or isinstance(raw, bytearray) or isinstance(raw, (list, tuple))
+        assert len(raw) == 4
 
-#         # Validate checksum correctness
-#         assert entry.is_valid_checksum()
+        # Validate checksum correctness
+        assert entry.is_valid_checksum()
 
-#         # Confirm memoryview still works
-#         mv = entry.as_memoryview()
-#         assert isinstance(mv, memoryview)
-#         assert bytes(mv) == value
+        # Confirm memoryview still works
+        mv = entry.as_memoryview()
+        assert isinstance(mv, memoryview)
+        assert bytes(mv) == value
 
-#         # Cleanup
-#         del mv
-#         del entry
-#         del engine
-#         gc.collect()
+        # Cleanup
+        del mv
+        del entry
+        del engine
+        gc.collect()

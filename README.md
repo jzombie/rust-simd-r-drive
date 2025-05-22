@@ -91,7 +91,7 @@ Think of it as a self-contained binary filesystem—capable of storing and retri
 #### Storage Layout
 
 <div align="center">
-  <img src="assets/storage-layout.png" title="Storage Layout" />
+  <img src="./assets/storage-layout.png" title="Storage Layout" />
 </div>
 
 | Offset Range      | Field           | Size (Bytes) | Description                                       |
@@ -227,7 +227,7 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 [Experimental Python bindings](./bindings/python) are available for integrating with Python applications.
 
-These bindings expose high-performance, zero-copy access to `SIMD R Drive` from Python using `PyO3` and `maturin`.
+These bindings expose high-performance, zero-copy access to `SIMD R Drive` from Python using [PyO3](https://github.com/PyO3/pyo3) and [maturin](https://github.com/PyO3/maturin).
 
 > ❌ **Python bindings for Windows is not supported** due to inconsistent file and memory-mapping semantics (though the bindings *can* build in Windows). These bindings target UNIX-like systems where `mmap` and thread behavior are reliable and consistent.  
 ✅ The Rust library itself fully supports Windows, and is continuously tested on Windows targets.

@@ -2,13 +2,17 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyModule};
 use simd_r_drive::EntryHandle as BaseEntryHandle;
 
-#[pyclass]
+#[pyclass(sequence)]
 pub struct EntryHandle {
     pub(crate) inner: BaseEntryHandle,
 }
 
 #[pymethods]
 impl EntryHandle {
+    fn __len__(&self) -> PyResult<usize> {
+        Ok(self.inner.size())
+    }
+
     #[getter]
     fn size(&self) -> usize {
         self.inner.size()

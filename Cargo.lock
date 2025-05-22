@@ -796,7 +796,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-py"
-version = "0.4.1-alpha.1"
+version = "0.4.1-alpha.5"
 dependencies = [
  "memmap2",
  "pyo3",

@@ -38,6 +38,12 @@ jobs:
           pip install -r "requirements.txt"
           pip install -r "requirements-dev.txt"
 
+      - name: Remove old wheels/artifacts
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        run: |
+          rm -rf dist
+          rm -rf build
+
       # Note: Using `working-directory` here is problematic due to relative path linking
       - name: Build wheels
         env:
@@ -50,6 +56,7 @@ jobs:
 
           python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
           python -m site
+          stubtest simd_r_drive
           python extract_readme_tests.py
           pytest --import-mode=importlib
 

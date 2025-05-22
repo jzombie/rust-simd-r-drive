@@ -13,6 +13,19 @@ pub struct EntryStream {
 
 #[pymethods]
 impl EntryStream {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(slf: PyRefMut<'_, Self>, py: Python<'_>) -> PyResult<Option<Py<PyBytes>>> {
+        let mut buf = vec![0u8; 4096];
+        match slf.inner.lock().unwrap().read(&mut buf) {
+            Ok(0) => Ok(None),
+            Ok(n) => Ok(Some(PyBytes::new(py, &buf[..n]).into())),
+            Err(e) => Err(pyo3::exceptions::PyIOError::new_err(e.to_string())),
+        }
+    }
+
     fn read(&self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
         let mut buffer = vec![0u8; size];
         let n = self

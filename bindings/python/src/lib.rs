@@ -129,6 +129,10 @@ impl DataStore {
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
+    fn __contains__(&self, key: &[u8]) -> bool {
+        self.exists(key)
+    }
+
     fn exists(&self, key: &[u8]) -> bool {
         self.inner.lock().unwrap().read(key).is_some()
     }
@@ -139,5 +143,6 @@ fn python_entry(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<DataStore>()?;
     m.add_class::<EntryHandle>()?;
     m.add_class::<EntryStream>()?;
+
     Ok(())
 }

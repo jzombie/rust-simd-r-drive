@@ -42,6 +42,19 @@ Older versions (≤3.9) are explicitly skipped during wheel builds.
 
 > If you need support for other environments or interpreters, consider compiling from source with `maturin develop` inside a compatible environment.
 
+## Storage Layout
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/jzombie/rust-simd-r-drive/main/assets/storage-layout.png" title="Storage Layout" />
+</div>
+
+| Offset Range      | Field           | Size (Bytes) | Description                                       |
+|-------------------|-----------------|--------------|---------------------------------------------------|
+| `0 → N`           | **Payload**     | `N`          | Variable-length data                              |
+| `N → N + 8`       | **Key Hash**    | `8`          | 64-bit XXH3 hash of the key (fast lookups)        |
+| `N + 8 → N + 16`  | **Prev Offset** | `8`          | Absolute offset pointing to the previous version  |
+| `N + 16 → N + 20` | **Checksum**    | `4`          | 32-bit CRC32C checksum for integrity verification |
+
 ## Installation
 
 ```sh
@@ -114,7 +127,7 @@ store.write_stream(b"large-file", stream)
 read_stream = store.read_stream(b"large-file")
 result = bytearray()
 
-while chunk := read_stream.read(4096):
+for chunk in read_stream:
     result.extend(chunk)
 
 assert result == payload
@@ -207,4 +220,4 @@ pip install dist/simd_r_drive_py-*.whl
 
 ## License
 
-Licensed under the [Apache-2.0 License](LICENSE).
+Licensed under the [Apache-2.0 License](https://raw.githubusercontent.com/jzombie/rust-simd-r-drive/main/bindings/python/LICENSE).
