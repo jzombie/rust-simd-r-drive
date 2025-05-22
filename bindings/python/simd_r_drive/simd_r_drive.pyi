@@ -1,6 +1,6 @@
 from typing import Optional, IO, Tuple, Iterator, final
 
-__all__ = ["DataStore", "EntryHandle", "EntryStream"]
+__all__ = ["DataStore", "EntryHandle", "EntryStream", "NamespaceHasher"]
 
 @final
 class EntryHandle:
@@ -426,7 +426,7 @@ class DataStore:
         """
         return self.exists(key)
 
-# @final
-# class NamespaceHasher:
-#     def __init__(self, prefix: bytes) -> None: ...
-#     def namespace(self, key: bytes) -> bytes: ...
+@final
+class NamespaceHasher:
+    def __init__(self, prefix: bytes) -> None: ...
+    def namespace(self, key: bytes) -> bytes: ...
