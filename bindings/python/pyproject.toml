@@ -1,6 +1,6 @@
 [project]
 name = "simd-r-drive-py"
-version = "0.4.1-alpha.14"
+version = "0.4.1-alpha.15"
 edition = "2021"
 description = "SIMD-optimized append-only schema-less storage engine. Key-based binary storage in a single-file storage container."
 repository = "https://github.com/jzombie/rust-simd-r-drive"
@@ -18,7 +18,6 @@ classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",  # Only CPython
     "Programming Language :: Python",  # Python support
-    "Programming Language :: Python :: 3.9",  # Supporting Python 3.9+
     "Programming Language :: Python :: 3.10", # Supporting Python 3.10
     "Programming Language :: Python :: 3.11", # Supporting Python 3.11
     "Programming Language :: Python :: 3.12", # Supporting Python 3.12
