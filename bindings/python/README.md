@@ -27,7 +27,7 @@ The `simd_r_drive_py` Python bindings are built as native extension modules and 
 
 ### ✅ Supported Python Versions
 
-* **Python 3.10 – 3.13**
+* **Python 3.10 – 3.13 (CPython)** – Supported on CPython only.
 
 Older versions (≤3.9) are explicitly skipped during wheel builds.
 

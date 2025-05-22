@@ -1,3 +1,32 @@
+[project]
+name = "simd-r-drive-py"
+version = "0.4.1-alpha.14"
+edition = "2021"
+description = "SIMD-optimized append-only schema-less storage engine. Key-based binary storage in a single-file storage container."
+repository = "https://github.com/jzombie/rust-simd-r-drive"
+license = "Apache-2.0"
+categories = ["database-implementations", "data-structures", "filesystem"]
+keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
+# For PyPi
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Filesystems",
+    "Topic :: Database :: Database Engines/Servers",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",  # Only CPython
+    "Programming Language :: Python",  # Python support
+    "Programming Language :: Python :: 3.9",  # Supporting Python 3.9+
+    "Programming Language :: Python :: 3.10", # Supporting Python 3.10
+    "Programming Language :: Python :: 3.11", # Supporting Python 3.11
+    "Programming Language :: Python :: 3.12", # Supporting Python 3.12
+    "Programming Language :: Python :: 3.13", # Supporting Python 3.13
+    "Operating System :: POSIX :: Linux",  # Linux support
+    "Operating System :: MacOS",  # macOS support (PyPi doesn't group macOS under the `POSIX` classifier)
+]
+
 [build-system]
 requires = ["maturin>=1.5"]
 build-backend = "maturin"
@@ -5,8 +34,3 @@ build-backend = "maturin"
 [tool.maturin]
 bindings = "pyo3"
 requires-python = ">=3.8"
-include = [
-    "simd_r_drive/__init__.py",
-    "simd_r_drive/simd_r_drive.pyi",
-    "simd_r_drive/py.typed"
-]
