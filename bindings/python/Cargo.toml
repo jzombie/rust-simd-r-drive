@@ -18,7 +18,7 @@ memmap2 = "0.9.5"
 pyo3 = { version = "0.25.0", features = ["extension-module"] }
 simd-r-drive = { path = "../..", features = ["expose-internal-api"] }
 
-[profile.release]
+# [profile.release]
 # lto = false
 # codegen-units = 1
-debug = true # TODO: Don't use in production
+# debug = true # TODO: Don't use in production
