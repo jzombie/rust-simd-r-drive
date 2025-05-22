@@ -125,10 +125,7 @@ def test_write_stream_and_read_stream():
         assert reader is not None
 
         chunks = []
-        while True:
-            chunk = reader.read(8192)
-            if not chunk:
-                break
+        for chunk in reader:
             chunks.append(chunk)
 
         result = b"".join(chunks)
