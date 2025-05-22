@@ -27,9 +27,9 @@ impl DataStore {
     }
 
     // TODO: Remove
-    fn proto(&self) -> usize {
-        4 as usize
-    }
+    // fn proto(&self) -> usize {
+    //     4 as usize
+    // }
 
     fn write(&self, key: &[u8], data: &[u8]) -> PyResult<()> {
         self.inner
