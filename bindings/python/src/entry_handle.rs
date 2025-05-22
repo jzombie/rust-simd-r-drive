@@ -9,7 +9,6 @@ pub struct EntryHandle {
 
 #[pymethods]
 impl EntryHandle {
-    #[no_mangle]
     fn __len__(&self) -> PyResult<usize> {
         Ok(self.inner.size())
     }
