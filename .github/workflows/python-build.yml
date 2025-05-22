@@ -50,6 +50,18 @@ jobs:
         run: cibuildwheel "${{ env.PYTHON_BINDING_DIR }}" --output-dir "${{ env.PYTHON_BINDING_DIR }}/dist"
 
       # TODO: Remove
+      - name: Check contents of dist/
+        run: ls -alh dist/
+
+      # TODO: Remove
+      - name: Extract and list wheel contents
+        run: |
+          WHEEL_FILE=$(ls bindings/python/dist/*.whl)
+          mkdir -p wheel_contents
+          unzip -q $WHEEL_FILE -d wheel_contents
+          ls -alh wheel_contents
+
+      # TODO: Remove
       - name: Check EntryStream symbols
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
