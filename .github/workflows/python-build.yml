@@ -52,15 +52,16 @@ jobs:
       # TODO: Remove
       - name: Check contents of dist/
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
-        run: ls -alh dist/
-
-      # TODO: Remove
-      - name: Extract and list wheel contents
         run: |
-          WHEEL_FILE=$(ls bindings/python/dist/*.whl)
-          mkdir -p wheel_contents
-          unzip -q $WHEEL_FILE -d wheel_contents
-          ls -alh wheel_contents
+          # List all files in the dist directory
+          echo "Listing all files in dist/"
+          ls -alh dist/
+
+          # Iterate through all wheel files in the dist/ directory and list their contents
+          for WHEEL_FILE in dist/*.whl; do
+            echo "Listing contents of wheel file: $WHEEL_FILE"
+            unzip -l "$WHEEL_FILE"  # List the contents of the .whl file
+          done
 
       # TODO: Remove
       - name: Check EntryStream symbols
