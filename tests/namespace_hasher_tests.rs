@@ -95,71 +95,54 @@ mod tests {
     }
 
     #[test]
-    fn test_hashing_keys_and_pca() {
+    fn test_namespace_isolation() {
         let (_dir, storage) = create_temp_storage();
 
-        // Example ticker data for testing namespace hashing
-        let data = vec![
-            (
-                b"key1",
-                b"First Entry".as_slice(),
-                b"First Entry PCA".as_slice(),
-            ),
-            (
-                b"key2",
-                b"Second Entry".as_slice(),
-                b"Second Entry PCA".as_slice(),
-            ),
-            (
-                b"key3",
-                b"Third Entry".as_slice(),
-                b"Third Entry PCA".as_slice(),
-            ),
-        ];
+        let key = b"shared_key";
+        let payload_ns1 = b"Data from namespace1".as_slice();
+        let payload_ns2 = b"Data from namespace2".as_slice();
+        let payload_ns3 = b"Data from namespace3".as_slice();
 
-        // Hash each key using the NamespaceHasher and write to the storage
-        let hasher = NamespaceHasher::new(b"namespace1");
+        let ns1 = NamespaceHasher::new(b"ns1");
+        let ns2 = NamespaceHasher::new(b"ns2");
+        let ns3 = NamespaceHasher::new(b"ns3");
 
-        for (key, payload, pca_payload) in data {
-            let namespaced_key = hasher.namespace(key);
+        let key_ns1 = ns1.namespace(key);
+        let key_ns2 = ns2.namespace(key);
+        let key_ns3 = ns3.namespace(key);
 
-            // Save namespaced keys with vector and PCA data
-            storage
-                .write(&namespaced_key, payload)
-                .expect("Failed to write entry");
-
-            // Use extend_from_slice to append the ":pca" part to the namespaced key
-            let mut namespaced_key_pca = namespaced_key.clone();
-            namespaced_key_pca.extend_from_slice(b":pca");
-
-            storage
-                .write(&namespaced_key_pca, pca_payload)
-                .expect("Failed to write PCA entry");
-        }
-
-        // Verify retrieval
-        let namespaced_key1 = hasher.namespace(b"key1");
-        let retrieved = storage
-            .read(&namespaced_key1)
-            .expect("Entry should be found");
-
-        assert_eq!(
-            retrieved.as_slice(),
-            b"First Entry",
-            "Retrieved payload does not match expected value for key1"
+        // Ensure the keys are different
+        assert_ne!(
+            key_ns1, key_ns2,
+            "Namespaces ns1 and ns2 should not collide"
+        );
+        assert_ne!(
+            key_ns1, key_ns3,
+            "Namespaces ns1 and ns3 should not collide"
+        );
+        assert_ne!(
+            key_ns2, key_ns3,
+            "Namespaces ns2 and ns3 should not collide"
         );
 
-        // Check PCA entry
-        let mut namespaced_key_pca = namespaced_key1.clone();
-        namespaced_key_pca.extend_from_slice(b":pca");
-        let retrieved_pca = storage
-            .read(&namespaced_key_pca)
-            .expect("PCA entry should be found");
+        // Write each payload under the corresponding namespaced key
+        storage
+            .write(&key_ns1, payload_ns1)
+            .expect("Failed to write ns1 data");
+        storage
+            .write(&key_ns2, payload_ns2)
+            .expect("Failed to write ns2 data");
+        storage
+            .write(&key_ns3, payload_ns3)
+            .expect("Failed to write ns3 data");
 
-        assert_eq!(
-            retrieved_pca.as_slice(),
-            b"First Entry PCA",
-            "Retrieved PCA payload does not match expected value for key1"
-        );
+        // Read back and verify
+        let read_ns1 = storage.read(&key_ns1).expect("Missing ns1 entry");
+        let read_ns2 = storage.read(&key_ns2).expect("Missing ns2 entry");
+        let read_ns3 = storage.read(&key_ns3).expect("Missing ns3 entry");
+
+        assert_eq!(read_ns1.as_slice(), payload_ns1);
+        assert_eq!(read_ns2.as_slice(), payload_ns2);
+        assert_eq!(read_ns3.as_slice(), payload_ns3);
     }
 }
