@@ -43,11 +43,11 @@ class EntryStream:
         """
         ...
 
-    def __iter__(self) -> Iterator[bytes]:
-        """
-        Returns self as an iterator.
-        """
-        ...
+    # def __iter__(self) -> Iterator[bytes]:
+    #     """
+    #     Returns self as an iterator.
+    #     """
+    #     ...
 
     # def __next__(self) -> bytes:
     #     """
@@ -62,11 +62,11 @@ class DataStore:
     A high-performance, append-only binary key/value store.
     """
 
-    # def __init__(self, path: str) -> None:
-    #     """
-    #     Opens (or creates) a datastore at the given file path.
-    #     """
-    #     ...
+    def __init__(self, path: str) -> None:
+        """
+        Opens (or creates) a datastore at the given file path.
+        """
+        ...
 
     def write(self, key: bytes, data: bytes) -> None:
         """
