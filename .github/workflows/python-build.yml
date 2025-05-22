@@ -56,7 +56,7 @@ jobs:
           python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
           python -c "
           import simd_r_drive
-          print('EntryStream methods:', dir(simd_r_drive_py.EntryStream))
+          print('EntryStream methods:', dir(simd_r_drive.EntryStream))
           "
 
       # TODO: Uncomment
