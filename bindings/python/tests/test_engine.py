@@ -235,6 +235,8 @@ def test_entry_accessors():
         # Access basic metadata
         assert isinstance(entry.size, int)
         assert entry.size == len(value)
+        assert len(entry) == len(value) # Dunder test
+
         assert entry.size_with_metadata > entry.size
 
         # Check offset logic
