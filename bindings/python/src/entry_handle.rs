@@ -9,8 +9,7 @@ pub struct EntryHandle {
 
 #[pymethods]
 impl EntryHandle {
-    #[pyo3(name = "__len__")]
-    fn len(&self) -> PyResult<usize> {
+    fn __len__(&self) -> PyResult<usize> {
         Ok(self.inner.size())
     }
 
