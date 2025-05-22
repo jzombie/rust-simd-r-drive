@@ -18,6 +18,7 @@ def test_write_and_read():
 
         assert result == value
         assert engine.exists(key)
+        assert key in engine # Dunder method
 
         # Explicitly close the engine to ensure the file is released on Windows
         #

@@ -115,3 +115,9 @@ class DataStore:
         Returns True if the key is present in the store.
         """
         ...
+
+    def __contains__(self, key: bytes) -> bool:
+        """
+        Checks if the given key exists in the store using the `in` operator.
+        """
+        return self.exists(key)
