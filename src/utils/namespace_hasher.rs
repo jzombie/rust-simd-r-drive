@@ -8,7 +8,7 @@ use crate::storage_engine::digest::compute_hash;
 ///
 /// # Example:
 /// ```
-/// use simd_r_drive_extensions::utils::NamespaceHasher;
+/// use simd_r_drive::utils::NamespaceHasher;
 ///
 /// let hasher = NamespaceHasher::new(b"opt");
 /// let namespaced_key = hasher.namespace(b"my_key");
