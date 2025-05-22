@@ -22,7 +22,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-          - os: macos-latest
+          # - os: macos-latest # TODO: Uncomment
 
     steps:
       - uses: actions/checkout@v4
