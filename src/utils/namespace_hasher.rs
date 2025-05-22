@@ -1,4 +1,4 @@
-use simd_r_drive::storage_engine::digest::compute_hash;
+use crate::storage_engine::digest::compute_hash;
 
 /// A utility struct for namespacing keys using XXH3 hashing.
 ///
@@ -8,7 +8,7 @@ use simd_r_drive::storage_engine::digest::compute_hash;
 ///
 /// # Example:
 /// ```
-/// use simd_r_drive_extensions::NamespaceHasher;
+/// use simd_r_drive_extensions::utils::NamespaceHasher;
 ///
 /// let hasher = NamespaceHasher::new(b"opt");
 /// let namespaced_key = hasher.namespace(b"my_key");

@@ -1,8 +1,7 @@
 use crate::constants::TTL_PREFIX;
-use crate::NamespaceHasher;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use simd_r_drive::DataStore;
+use simd_r_drive::{utils::NamespaceHasher, DataStore};
 use std::io::{self, ErrorKind};
 use std::sync::{Arc, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};

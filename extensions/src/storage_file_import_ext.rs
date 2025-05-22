@@ -1,5 +1,4 @@
-use crate::NamespaceHasher;
-use simd_r_drive::{DataStore, EntryHandle, EntryStream};
+use simd_r_drive::{utils::NamespaceHasher, DataStore, EntryHandle, EntryStream};
 use std::fs::File;
 use std::io::{self};
 use std::path::Path;

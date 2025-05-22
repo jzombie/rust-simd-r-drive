@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
     use serde::{Deserialize, Serialize};
-    use simd_r_drive::DataStore;
+    use simd_r_drive::{utils::NamespaceHasher, DataStore};
     use simd_r_drive_extensions::{
-        NamespaceHasher, StorageOptionExt, TEST_OPTION_PREFIX, TEST_OPTION_TOMBSTONE_MARKER,
+        StorageOptionExt, TEST_OPTION_PREFIX, TEST_OPTION_TOMBSTONE_MARKER,
     };
     use std::io::ErrorKind;
     use tempfile::tempdir;

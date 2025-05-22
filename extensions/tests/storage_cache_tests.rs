@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use simd_r_drive::DataStore;
-use simd_r_drive_extensions::{NamespaceHasher, StorageCacheExt, TEST_TTL_PREFIX};
+use simd_r_drive::{utils::NamespaceHasher, DataStore};
+use simd_r_drive_extensions::{StorageCacheExt, TEST_TTL_PREFIX};
 use std::io::ErrorKind;
 use std::thread::sleep;
 use std::time::Duration;
