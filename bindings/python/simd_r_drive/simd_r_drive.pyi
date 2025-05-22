@@ -197,24 +197,70 @@ class EntryHandle:
 @final
 class EntryStream:
     """
-    A streaming reader for large binary entries.
+     A streaming reader for large binary entries.
+
+    `EntryStream` provides a **streaming interface** over an `EntryHandle`, allowing for reading 
+    large entries in chunks instead of loading the entire entry into memory. This is especially 
+    useful for working with entries that may be larger than available RAM.
+
+    # ⚠️ **Non Zero-Copy Warning**
+    Unlike `EntryHandle`, `EntryStream` **performs memory copies**. Each call to `read()` 
+    copies a portion of the entry into a user-provided buffer. If you need **zero-copy access**, 
+    use `EntryHandle::as_slice()` instead.
     """
 
     def read(self, size: int) -> bytes:
         """
         Reads up to `size` bytes from the entry stream.
+
+        This method allows you to read the entry's data in chunks, making it ideal 
+        for processing large entries that may not fit entirely in memory. Each 
+        call to `read()` advances the position in the entry by the number of bytes 
+        that have been read.
+
+        Args:
+            size (int): The number of bytes to read.
+
+        Returns:
+            bytes: A chunk of the entry’s data. The chunk size will be at most `size`, 
+            or smaller if the remaining entry data is less than `size`.
+
+        # ⚠️ **Non Zero-Copy Warning**
+        - Data is **copied** from the memory-mapped file into the buffer.
+        - For zero-copy access, use `EntryHandle::as_slice()` instead.
         """
         ...
 
     def __iter__(self) -> Iterator[bytes]:
         """
-        Returns self as an iterator.
+        Returns the `EntryStream` itself as an iterator.
+
+        This allows you to iterate over the entry in chunks. Each iteration reads a 
+        new portion of the entry, enabling efficient processing of large entries.
+
+        Returns:
+            Iterator[bytes]: An iterator over the entry, yielding chunks of data 
+            from the entry.
+
+        # ⚠️ **Non Zero-Copy Warning**
+        - Data is **copied** into each chunk returned by the iterator.
+        - Use `EntryHandle::as_slice()` for zero-copy access.
         """
         ...
 
     def __next__(self) -> bytes:
         """
-        Reads the next chunk from the stream.
+        Reads the next chunk of the entry.
+
+        This method is used when the `EntryStream` is treated as an iterator. It reads 
+        the next portion of the entry’s data.
+
+        Returns:
+            bytes: The next chunk of the entry’s data.
+
+        # ⚠️ **Non Zero-Copy Warning**
+        - This method **copies** data from the memory-mapped file into the buffer.
+        - Use `EntryHandle::as_slice()` for zero-copy access.
         """
         ...
 
