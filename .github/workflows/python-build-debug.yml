@@ -1,0 +1,140 @@
+name: Build Python Wheels
+
+on:
+  push:
+    tags:
+      - "python-v*"
+    paths:
+      - "bindings/python/**"
+  pull_request:
+    paths:
+      - "bindings/python/**"
+
+jobs:
+  build:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHON_BINDING_DIR: bindings/python
+      # For more verbose output from maturin/cargo if you're using Rust
+      RUSTFLAGS: "-Z Wcross-crate-reproducible-build-artifact" # Example, may need adjustment or other flags
+      CARGO_TERM_VERBOSE: "true" # More verbose cargo output
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          # - os: macos-latest # TODO: Uncomment
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Ensure submodules are also clean if you use them
+          # submodules: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Verify Git pristine state
+        run: |
+          git status
+          echo "Running git reset and clean..."
+          git reset --hard
+          git clean -xfd
+          echo "Git status after clean:"
+          git status
+
+      - name: Extra cleanup of stale artifacts (more comprehensive)
+        # Run this from the workspace root to catch user-level caches
+        run: |
+          echo "Cleaning in PYTHON_BINDING_DIR: ${{ env.PYTHON_BINDING_DIR }}"
+          cd "${{ env.PYTHON_BINDING_DIR }}"
+          rm -rf build dist *.egg-info target # Target for Rust
+          find . -maxdepth 1 -name '*.so' -delete # Only top-level .so in this dir
+          find . -name '*.pyc' -delete
+          find . -name '__pycache__' -exec rm -rf {} +
+          echo "Listing contents of PYTHON_BINDING_DIR after cleaning:"
+          ls -laR .
+          cd "$GITHUB_WORKSPACE" # Go back to workspace root
+
+          echo "Attempting to clean common cibuildwheel cache locations on runner..."
+          rm -rf ~/.cache/cibuildwheel
+          rm -rf ~/.local/share/cibuildwheel
+          rm -rf /tmp/cibuildwheel # Your original attempt, keep for now
+          echo "Listing /tmp contents:"
+          ls -la /tmp
+          echo "Listing ~/.cache contents (if it exists and is listable):"
+          ls -la ~/.cache || true
+
+      - name: Clean Rust build artifacts (if not already covered)
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        run: |
+          # cargo clean is good, ensure it runs if cargo.toml is present
+          if [ -f "Cargo.toml" ]; then
+            echo "Running cargo clean..."
+            cargo clean
+          fi
+          rm -rf target # Redundant if cargo clean works, but safe
+
+      - name: Install build tooling from requirements.txt
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        run: |
+          pip install -r "requirements-dev.txt"
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel==2.23.2
+
+      - name: List contents of PYTHON_BINDING_DIR before build
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        run: |
+          echo "Contents of ${{ env.PYTHON_BINDING_DIR }} before cibuildwheel:"
+          ls -laR .
+          # If you have a src directory for your Rust code:
+          # echo "Contents of ${{ env.PYTHON_BINDING_DIR }}/src (if exists):"
+          # ls -laR ./src || true
+
+      - name: Build wheels
+        env:
+          CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp* *-manylinux_i686 *-musllinux_*"
+          # Increase verbosity for cibuildwheel itself
+          CIBW_VERBOSITY: "3" # Max verbosity
+          # If using maturin, you might pass further flags via an env var maturin uses
+          # Or setuptools-rust specific flags
+        run: python -m cibuildwheel "${{ env.PYTHON_BINDING_DIR }}" --output-dir "${{ env.PYTHON_BINDING_DIR }}/dist"
+
+      - name: List built wheels and inspect dist directory
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        run: |
+          echo "Contents of dist/ after cibuildwheel:"
+          ls -laR dist/
+          # You can even try to unpack one of the wheels to see its contents
+          # if ls dist/*.whl 1>/dev/null 2>&1; then
+          #   WHEEL_TO_INSPECT=$(ls dist/*.whl | head -n 1)
+          #   echo "Inspecting contents of $WHEEL_TO_INSPECT"
+          #   unzip -l "$WHEEL_TO_INSPECT"
+          # fi
+
+      - name: Install built wheel and run tests
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        run: |
+          echo "Creating a new virtual environment for testing..."
+          python -m venv .venv_test
+          source .venv_test/bin/activate
+          python -m pip install --upgrade pip
+          echo "Looking for wheels in $(pwd)/dist"
+          ls -la dist
+          echo "Installing wheel..."
+          python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
+          echo "DEBUGGING PYTHON PATH AND ENVIRONMENT:"
+          which python
+          python -V
+          echo "PYTHONPATH: $PYTHONPATH"
+          echo "Site packages:"
+          python -m site
+          echo "Attempting to import and print module path..."
+          python -c "import simd_r_drive; print('DEBUG MODULE PATH:', simd_r_drive.__file__); print('MODULE DIR:', dir(simd_r_drive))"
+          # The rest of your tests
+          python extract_readme_tests.py
+          pytest --import-mode=importlib
+          deactivate
