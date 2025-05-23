@@ -21,8 +21,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-          # - os: macos-latest
+          # - os: ubuntu-latest # TODO: Uncomment
+          - os: macos-latest
 
     steps:
       - uses: actions/checkout@v4
