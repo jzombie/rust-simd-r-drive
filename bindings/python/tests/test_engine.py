@@ -4,7 +4,6 @@ from simd_r_drive import DataStore
 import numpy as np
 import gc
 
-
 def test_write_and_read():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")

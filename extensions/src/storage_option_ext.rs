@@ -1,9 +1,8 @@
 use crate::constants::{OPTION_PREFIX, OPTION_TOMBSTONE_MARKER};
-use crate::NamespaceHasher;
 use crate::{deserialize_option, serialize_option};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use simd_r_drive::DataStore;
+use simd_r_drive::{utils::NamespaceHasher, DataStore};
 use std::io::{self, ErrorKind};
 use std::sync::{Arc, OnceLock};
 
