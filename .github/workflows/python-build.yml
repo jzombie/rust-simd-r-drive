@@ -46,6 +46,12 @@ jobs:
           find . -name '__pycache__' -exec rm -rf {} +
           rm -rf /tmp/cibuildwheel
 
+      - name: Clean Rust build artifacts
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        run: |
+          cargo clean || true
+          rm -rf target
+
       - name: Install build tooling from requirements.txt
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
