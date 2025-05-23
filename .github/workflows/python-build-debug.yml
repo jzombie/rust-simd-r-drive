@@ -139,7 +139,7 @@ jobs:
       - name: Install built wheel and run tests
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
-          python -m pip install --find-links="dist" --prefer-binary simd_r_drive_py
+          python -m pip install --no-index --find-links="dist" --prefer-binary simd_r_drive_py
           python -m site
           # stubtest simd_r_drive
           python extract_readme_tests.py
