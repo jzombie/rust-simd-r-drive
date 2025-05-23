@@ -4,15 +4,6 @@ from simd_r_drive import DataStore
 import numpy as np
 import gc
 
-# TODO: Remove
-# def test_proto():
-#     with tempfile.TemporaryDirectory() as tmpdir:
-#         filepath = os.path.join(tmpdir, "store.bin")
-#         engine = DataStore(filepath)
-
-#         assert engine.proto() == 4
-
-
 def test_write_and_read():
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = os.path.join(tmpdir, "store.bin")

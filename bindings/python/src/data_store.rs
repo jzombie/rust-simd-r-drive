@@ -26,20 +26,14 @@ impl DataStore {
         })
     }
 
-    // TODO: Remove
-    // fn proto(&self) -> usize {
-    //     4 as usize
-    // }
-
-    // TODO: Uncomment
-    // fn write(&self, key: &[u8], data: &[u8]) -> PyResult<()> {
-    //     self.inner
-    //         .lock()
-    //         .unwrap()
-    //         .write(key, data)
-    //         .map(|_| ())
-    //         .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
-    // }
+    fn write(&self, key: &[u8], data: &[u8]) -> PyResult<()> {
+        self.inner
+            .lock()
+            .unwrap()
+            .write(key, data)
+            .map(|_| ())
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+    }
 
     fn batch_write(&self, items: Vec<(Vec<u8>, Vec<u8>)>) -> PyResult<()> {
         let refs: Vec<(&[u8], &[u8])> = items
