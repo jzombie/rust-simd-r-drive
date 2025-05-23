@@ -27,9 +27,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Ensure submodules are also clean if you use them
-          # submodules: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
