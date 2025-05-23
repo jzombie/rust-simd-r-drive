@@ -32,18 +32,24 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Git hard clean
+        run: |
+          git reset --hard
+          git clean -xfd
+
+      - name: Extra cleanup of stale artifacts
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        run: |
+          rm -rf build dist *.egg-info
+          find . -name '*.so' -delete
+          find . -name '*.pyc' -delete
+          find . -name '__pycache__' -exec rm -rf {} +
+          rm -rf /tmp/cibuildwheel
+
       - name: Install build tooling from requirements.txt
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
           pip install -r "requirements-dev.txt"
-
-      - name: Remove old wheels/artifacts
-        working-directory: ${{ env.PYTHON_BINDING_DIR }}
-        run: |
-          rm -rf /tmp/cibuildwheel
-          rm -rf dist
-          rm -rf build
-          find . -name '*.so' -delete  # important if the .so file ends up in source tree
 
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.23.2
