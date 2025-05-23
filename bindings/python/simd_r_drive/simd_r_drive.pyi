@@ -428,5 +428,50 @@ class DataStore:
 
 @final
 class NamespaceHasher:
-    def __init__(self, prefix: bytes) -> None: ...
-    def namespace(self, key: bytes) -> bytes: ...
+    """
+    A utility for generating namespaced keys using XXH3 hashing.
+
+    `NamespaceHasher` ensures that keys are uniquely scoped to a given namespace
+    by combining separate hashes of the namespace and the key. This avoids
+    accidental collisions across logical domains (e.g., "opt:foo" vs "sys:foo").
+
+    The final namespaced key is a fixed-length 16-byte identifier:
+    8 bytes for the namespace hash + 8 bytes for the key hash.
+
+     Example:
+        >>> hasher = NamespaceHasher(b"users")
+        >>> key = hasher.namespace(b"user123")
+        >>> assert len(key) == 16
+    """
+
+    def __init__(self, prefix: bytes) -> None:
+        """
+        Initializes the `NamespaceHasher` with a namespace prefix.
+
+        The prefix is hashed once using XXH3 to serve as a unique identifier for
+        the namespace. All keys passed to `namespace()` will be scoped to this
+        prefix.
+
+        Args:
+            prefix (bytes): A byte string that represents the namespace prefix.
+        """
+        ...
+
+    def namespace(self, key: bytes) -> bytes:
+        """
+        Returns a 16-byte namespaced key based on the given input key.
+
+        The output is constructed by concatenating the namespace hash and the
+        hash of the key:
+            - First 8 bytes: XXH3 hash of the namespace prefix.
+            - Next 8 bytes: XXH3 hash of the key.
+
+        This design ensures deterministic and collision-isolated key derivation.
+
+        Args:
+            key (bytes): The key to hash within the current namespace.
+
+        Returns:
+            bytes: A 16-byte namespaced key (`prefix_hash || key_hash`).
+        """
+        ...
