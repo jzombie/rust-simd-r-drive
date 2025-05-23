@@ -69,6 +69,7 @@ jobs:
       - name: Install built wheel and run tests
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |
+          # IMPORTANT: `--no-index` in `pip install` prevents pulling from PyPi
           python -m pip install --no-index --find-links="dist" --prefer-binary simd_r_drive_py
           python -m site
           stubtest simd_r_drive
