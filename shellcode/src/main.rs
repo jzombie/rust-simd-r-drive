@@ -81,10 +81,12 @@ pub fn download_and_store_nushell(store: &mut DataStore, key: &[u8]) -> Result<(
     Ok(())
 }
 
-/// Reads Nushell from `DataStore`, saves to temp, marks executable, and runs.
 pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<i32> {
     let handle = store.read(key).expect("no such key");
     let mut stream = EntryStream::from(handle);
+
+    // Create an isolated temp sandbox directory
+    let sandbox_root = tempfile::tempdir()?;
 
     let tmp_file = NamedTempFile::new()?;
 
@@ -110,9 +112,29 @@ pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<i
     #[cfg(unix)]
     fs::set_permissions(&exec_path, fs::Permissions::from_mode(0o755))?;
 
+    // TODO: Replace direct Command::new with this
+    // exec_in_sandbox(binary, args, {
+    //     fs_root: temp_dir(),
+    //     env: minimal(),
+    //     network: loopback_only(),
+    //     config_path: fs_root.join("config"),
+    //     data_path: fs_root.join("data"),
+    //     stdout: capture(),
+    // });
+
     let mut child = Command::new(&exec_path)
         .args(args)
+        // .current_dir(sandbox_root.path())
         .current_dir(".")
+        // .env_clear()
+        // .env("PATH", sandbox_root.path().join("bin"))
+        .env("HOME", sandbox_root.path())
+        .env("XDG_CONFIG_HOME", sandbox_root.path().join("config"))
+        .env("XDG_DATA_HOME", sandbox_root.path().join("data"))
+        .env("XDG_CACHE_HOME", sandbox_root.path().join("cache"))
+        .env("TMPDIR", sandbox_root.path().join("tmp"))
+        .env("TEMP", sandbox_root.path().join("tmp"))
+        .env("TMP", sandbox_root.path().join("tmp"))
         .spawn()?;
 
     let status = child.wait()?;
