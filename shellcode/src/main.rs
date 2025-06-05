@@ -53,11 +53,11 @@ pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<i
         .current_dir(".")
         .spawn()?;
 
-    // Delete the temp file immediately after spawn
-    fs::remove_file(&exec_path)?;
-
     // Wait for child after deletion
     let status = child.wait()?;
+
+    // Delete the temp file after process exit (should already be handled by `NamedTempFile`)
+    fs::remove_file(&exec_path)?;
 
     let code = status.code().unwrap_or(-1);
 
@@ -73,5 +73,5 @@ pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<i
 
 fn main() {
     let store = DataStore::open_existing(Path::new("../data.bin")).unwrap();
-    exec_from_store(&store, b"python", &[]).unwrap();
+    exec_from_store(&store, b"code", &[]).unwrap();
 }
