@@ -53,7 +53,7 @@ pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<i
         .current_dir(".")
         .spawn()?;
 
-    // Wait for child after deletion
+    // Wait for child
     let status = child.wait()?;
 
     // Delete the temp file after process exit (should already be handled by `NamedTempFile`)
