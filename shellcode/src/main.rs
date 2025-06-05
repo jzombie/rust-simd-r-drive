@@ -113,6 +113,26 @@ pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<i
     #[cfg(unix)]
     fs::set_permissions(&exec_path, fs::Permissions::from_mode(0o755))?;
 
+    // TODO: For file/directory watching
+    // use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+    //
+    // let (tx, rx) = std::sync::mpsc::channel();
+    // let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())?;
+    // watcher.watch(sandbox_root.path(), RecursiveMode::Recursive)?;
+    //
+    // // Listen for file system events
+    // std::thread::spawn(move || {
+    //     for event in rx {
+    //         println!("Watch event: {:?}", event);
+    //     }
+    // });
+    //
+    // Considerations
+    //      You may want to throttle or debounce event handling to avoid syncing half-written files.
+    //      Using Arc<DataStore> or wrapping access in a Mutex may be necessary if you're sharing it.
+    //      notify does not give you the actual file contents, only the path — so you have to read it manually.
+    //      For performance, you might want to batch and flush updates periodically.
+
     // TODO: Replace direct `Command::new` with this
     // exec_in_sandbox(binary, args, {
     //     fs_root: temp_dir(),
