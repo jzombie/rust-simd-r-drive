@@ -56,7 +56,8 @@ pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<i
     // Wait for child
     let status = child.wait()?;
 
-    // Delete the temp file after process exit (should already be handled by `NamedTempFile`)
+    // Delete the temp file after process exit (should already be handled by
+    // `NamedTempFile` when this parent process exits)
     fs::remove_file(&exec_path)?;
 
     let code = status.code().unwrap_or(-1);
