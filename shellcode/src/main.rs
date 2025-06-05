@@ -19,6 +19,7 @@ use tar::Archive;
 
 /// Downloads and caches Nushell release for the current platform into `DataStore`.
 pub fn download_and_store_nushell(store: &mut DataStore, key: &[u8]) -> Result<()> {
+    // TODO: Don't harecode paths
     let (url, binary_path_in_tar) = match (env::consts::OS, env::consts::ARCH) {
         ("macos", "aarch64") => (
             "https://github.com/nushell/nushell/releases/download/0.94.0/nu-0.94.0-aarch64-apple-darwin.tar.gz",
@@ -112,7 +113,7 @@ pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<i
     #[cfg(unix)]
     fs::set_permissions(&exec_path, fs::Permissions::from_mode(0o755))?;
 
-    // TODO: Replace direct Command::new with this
+    // TODO: Replace direct `Command::new` with this
     // exec_in_sandbox(binary, args, {
     //     fs_root: temp_dir(),
     //     env: minimal(),
