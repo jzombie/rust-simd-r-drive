@@ -48,11 +48,16 @@ pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<i
     #[cfg(unix)]
     fs::set_permissions(&exec_path, fs::Permissions::from_mode(0o755))?;
 
-    let status = Command::new(&exec_path)
+    let mut child = Command::new(&exec_path)
         .args(args)
         .current_dir(".")
-        .spawn()?
-        .wait()?;
+        .spawn()?;
+
+    // Delete the temp file immediately after spawn
+    fs::remove_file(&exec_path)?;
+
+    // Wait for child after deletion
+    let status = child.wait()?;
 
     let code = status.code().unwrap_or(-1);
 
