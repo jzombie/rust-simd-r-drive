@@ -5,6 +5,9 @@ use simd_r_drive::storage_engine::{EntryHandle, EntryStream};
 use std::io::Result;
 use tempfile::NamedTempFile;
 
+// PROTOTYPE only... This started off as an experiment to execute shellcode, but that was
+// rather complex and limiting, and I think this might wind up being something useful.
+
 /// Executes a binary payload stored in `DataStore` by key.
 ///
 /// Streams the entry to a temporary file, marks it executable,
