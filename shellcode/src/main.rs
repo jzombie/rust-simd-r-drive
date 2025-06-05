@@ -1,40 +1,35 @@
-use std::{
-    fs::{self, File},
-    io::Write,
-    os::unix::fs::PermissionsExt,
-    path::Path,
-    process::Command,
-};
+use std::{fs, io::copy, os::unix::fs::PermissionsExt, path::Path, process::Command};
 
 use simd_r_drive::DataStore;
+use simd_r_drive::storage_engine::{EntryHandle, EntryStream};
+use std::io::Result;
 use tempfile::NamedTempFile;
 
-// PROTOTYPE ONLY
-// Note: This originally started off as a shellcode loader but if I can contain binaries and run them this way, that will be good enough
+/// Executes a binary payload stored in `DataStore` by key.
+///
+/// Streams the entry to a temporary file, marks it executable,
+/// and spawns it as a subprocess with CWD set to `.`.
+pub fn exec_from_store(store: &DataStore, key: &[u8]) -> Result<()> {
+    let handle: EntryHandle = store.read(key).expect("no such key");
+    let mut stream = EntryStream::from(handle);
 
-/// Load a binary payload from the data store by key and execute it.
-pub fn exec_from_store(store: &DataStore, key: &[u8]) {
-    let entry = store.read(key).expect("no payload for given key");
-    let bytes = entry.as_slice();
+    // Persist and close the temp file
+    let tmp_path = NamedTempFile::new()?.into_temp_path().keep()?;
 
-    let mut tmp = NamedTempFile::new().expect("failed to create temp file");
-    tmp.write_all(bytes).expect("failed to write payload");
-    let tmp_path = tmp.into_temp_path();
+    {
+        let mut file = fs::OpenOptions::new().write(true).open(&tmp_path)?;
+        copy(&mut stream, &mut file)?;
+    }
 
-    fs::set_permissions(&tmp_path, fs::Permissions::from_mode(0o755))
-        .expect("failed to set permissions");
+    fs::set_permissions(&tmp_path, fs::Permissions::from_mode(0o755))?;
 
-    let status = Command::new(&tmp_path)
-        .current_dir(".")
-        .spawn()
-        .expect("failed to spawn binary")
-        .wait()
-        .expect("failed to wait on process");
+    let status = Command::new(&tmp_path).current_dir(".").spawn()?.wait()?;
 
-    println!("Exited with: {status}");
+    println!("Exited with: {}", status);
+    Ok(())
 }
 
 fn main() {
     let store = DataStore::open_existing(Path::new("../data.bin")).unwrap();
-    exec_from_store(&store, b"hello");
+    exec_from_store(&store, b"self").unwrap();
 }
