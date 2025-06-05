@@ -51,6 +51,6 @@ expose-internal-api = []
 members = [
     ".",
     "extensions",
-    "bindings/python"
-]
+    "bindings/python",
+    "shellcode"]
 resolver = "2"
