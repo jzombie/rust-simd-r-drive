@@ -73,5 +73,8 @@ pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<i
 
 fn main() {
     let store = DataStore::open_existing(Path::new("../data.bin")).unwrap();
-    exec_from_store(&store, b"code", &[]).unwrap();
+    let exit_code = exec_from_store(&store, b"code", &[]);
+
+    println!("--------");
+    println!("Exit: {:?}", exit_code);
 }
