@@ -5,6 +5,11 @@ edition = "2024"
 publish = false
 
 [dependencies]
+bytes = "1.10.1"
+flate2 = "1.1.1"
 libc = "0.2.172"
+reqwest = { version = "0.12.19", features = ["blocking"] }
 simd-r-drive = { path = "../" }
+tar = "0.4.44"
 tempfile = "3.20.0"
+zip = "4.0.0"
