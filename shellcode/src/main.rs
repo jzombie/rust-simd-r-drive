@@ -9,7 +9,7 @@ use tempfile::NamedTempFile;
 ///
 /// Streams the entry to a temporary file, marks it executable,
 /// and spawns it as a subprocess with CWD set to `.`.
-pub fn exec_from_store(store: &DataStore, key: &[u8]) -> Result<()> {
+pub fn exec_from_store(store: &DataStore, key: &[u8], args: &[&str]) -> Result<()> {
     let handle: EntryHandle = store.read(key).expect("no such key");
     let mut stream = EntryStream::from(handle);
 
@@ -23,7 +23,11 @@ pub fn exec_from_store(store: &DataStore, key: &[u8]) -> Result<()> {
 
     fs::set_permissions(&tmp_path, fs::Permissions::from_mode(0o755))?;
 
-    let status = Command::new(&tmp_path).current_dir(".").spawn()?.wait()?;
+    let status = Command::new(&tmp_path)
+        .args(args)
+        .current_dir(".")
+        .spawn()?
+        .wait()?;
 
     println!("Exited with: {}", status);
     Ok(())
@@ -31,5 +35,5 @@ pub fn exec_from_store(store: &DataStore, key: &[u8]) -> Result<()> {
 
 fn main() {
     let store = DataStore::open_existing(Path::new("../data.bin")).unwrap();
-    exec_from_store(&store, b"self").unwrap();
+    exec_from_store(&store, b"sys", &[]).unwrap();
 }
