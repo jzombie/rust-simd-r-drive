@@ -1455,6 +1455,7 @@ dependencies = [
  "muxio-rpc-service",
  "muxio-rpc-service-caller",
  "muxio-tokio-rpc-client",
+ "simd-r-drive",
  "simd-r-drive-muxio-service-definition",
  "tokio",
  "tracing",

@@ -10,9 +10,10 @@ keywords.workspace = true # Inherit from workspace
 publish.workspace = true # Inherit from workspace
 
 [dependencies]
+simd-r-drive = { workspace = true }
+simd-r-drive-muxio-service-definition = { workspace = true }
 muxio-tokio-rpc-client = "0.4.0-alpha"
 muxio-rpc-service = "0.4.0-alpha"
 muxio-rpc-service-caller = "0.4.0-alpha"
-simd-r-drive-muxio-service-definition = { workspace = true }
 tokio = "1.45.1"
 tracing = "0.1.41"

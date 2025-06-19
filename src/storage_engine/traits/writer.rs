@@ -16,3 +16,19 @@ pub trait DataStoreWriter {
 
     fn delete_entry(&self, key: &[u8]) -> Result<u64>;
 }
+
+pub trait AsyncDataStoreWriter {
+    async fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64>;
+
+    async fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64>;
+
+    async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64>;
+
+    async fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64>;
+
+    async fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64>;
+
+    async fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64>;
+
+    async fn delete_entry(&self, key: &[u8]) -> Result<u64>;
+}
