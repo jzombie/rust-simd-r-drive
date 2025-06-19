@@ -1,6 +1,6 @@
 [workspace.package]
 authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
-version = "0.6.0-alpha"
+version = "0.6.1-alpha"
 edition = "2024"
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
