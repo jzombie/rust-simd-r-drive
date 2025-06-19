@@ -38,8 +38,22 @@ unsafe fn simd_copy_x86(dst: &mut [u8], src: &[u8]) {
 
     let mut i = 0;
     while i < chunks * 32 {
-        let data = _mm256_loadu_si256(src.as_ptr().add(i) as *const __m256i);
-        _mm256_storeu_si256(dst.as_mut_ptr().add(i) as *mut __m256i, data);
+        let data = unsafe {
+            // SAFETY:
+            // - `src` has at least `len` valid bytes (ensured by caller).
+            // - `i` is in bounds up to `chunks * 32 <= len`.
+            // - `src.as_ptr().add(i)` is within bounds.
+            // - Cast to *const __m256i is valid for 32-byte load.
+            _mm256_loadu_si256(src.as_ptr().add(i) as *const __m256i)
+        };
+        unsafe {
+            // SAFETY:
+            // - `dst` has at least `len` valid bytes (ensured by caller).
+            // - `i` is in bounds up to `chunks * 32 <= len`.
+            // - `dst.as_mut_ptr().add(i)` is within bounds.
+            // - Cast to *mut __m256i is valid for 32-byte store.
+            _mm256_storeu_si256(dst.as_mut_ptr().add(i) as *mut __m256i, data);
+        }
         i += 32;
     }
 
@@ -72,8 +86,20 @@ unsafe fn simd_copy_arm(dst: &mut [u8], src: &[u8]) {
 
     let mut i = 0;
     while i < chunks * 16 {
-        let data = vld1q_u8(src.as_ptr().add(i));
-        vst1q_u8(dst.as_mut_ptr().add(i), data);
+        let data = unsafe {
+            // SAFETY:
+            // - `src` has at least `len` valid bytes (ensured by caller).
+            // - `i` is in bounds up to `chunks * 16 <= len`.
+            // - `src.as_ptr().add(i)` is safe to read 16 bytes.
+            vld1q_u8(src.as_ptr().add(i))
+        };
+        unsafe {
+            // SAFETY:
+            // - `dst` has at least `len` valid bytes (ensured by caller).
+            // - `i` is in bounds up to `chunks * 16 <= len`.
+            // - `dst.as_mut_ptr().add(i)` is safe to write 16 bytes.
+            vst1q_u8(dst.as_mut_ptr().add(i), data)
+        };
         i += 16;
     }
 
