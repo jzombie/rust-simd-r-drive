@@ -24,7 +24,6 @@ publish.workspace = true # Inherit from workspace
 # Intra-workspace crates
 simd-r-drive = { path = ".", version = "0.7.0-alpha" }
 simd-r-drive-extensions = { path = "./extensions/simd-r-drive-extensions", version = "0.7.0-alpha" }
-simd-r-drive-py = { path = "./bindings/python", version = "0.7.0-alpha" }
 simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.7.0-alpha" }
 
 [dependencies]
