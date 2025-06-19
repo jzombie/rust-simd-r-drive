@@ -2,7 +2,10 @@
 mod tests {
 
     use serde::{Deserialize, Serialize};
-    use simd_r_drive::DataStore;
+    use simd_r_drive::{
+        DataStore,
+        traits::{DataStoreReader, DataStoreWriter},
+    };
     use tempfile::tempdir;
 
     #[test]

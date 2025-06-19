@@ -1,7 +1,11 @@
 use crate::constants::TTL_PREFIX;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
-use simd_r_drive::{utils::NamespaceHasher, DataStore};
+use serde::de::DeserializeOwned;
+use simd_r_drive::{
+    DataStore,
+    traits::{DataStoreReader, DataStoreWriter},
+    utils::NamespaceHasher,
+};
 use std::io::{self, ErrorKind};
 use std::sync::{Arc, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -32,7 +36,7 @@ pub trait StorageCacheExt {
     /// - `Ok(offset)`: The **file offset** where the data was written.
     /// - `Err(std::io::Error)`: If the write operation fails.
     fn write_with_ttl<T: Serialize>(&self, key: &[u8], value: &T, ttl_secs: u64)
-        -> io::Result<u64>;
+    -> io::Result<u64>;
 
     /// Reads a value, checking TTL expiration.
     ///

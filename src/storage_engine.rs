@@ -23,3 +23,5 @@ pub mod digest;
 
 mod simd_copy;
 use simd_copy::*;
+
+pub mod traits;

@@ -16,7 +16,7 @@
 //!
 //! ## Example Usage
 //! ```rust
-//! use simd_r_drive::DataStore;
+//! use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 //! use std::path::PathBuf;
 //!
 //! // Open or create a new storage file
@@ -58,7 +58,7 @@
 //!
 //! ## Streaming Example
 //! ```rust
-//! use simd_r_drive::{DataStore, EntryStream};
+//! use simd_r_drive::{DataStore, EntryStream, traits::{DataStoreReader, DataStoreWriter}};
 //! use std::fs::File;
 //! use std::io::{Cursor, Read, Write};
 //! use std::path::PathBuf;

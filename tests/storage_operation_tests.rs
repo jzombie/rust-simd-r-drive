@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod tests {
 
-    use simd_r_drive::{compute_checksum, compute_hash, DataStore};
+    use simd_r_drive::{
+        DataStore, compute_checksum, compute_hash,
+        traits::{DataStoreReader, DataStoreWriter},
+    };
     use tempfile::tempdir;
 
     /// Helper function to create a temporary file for testing

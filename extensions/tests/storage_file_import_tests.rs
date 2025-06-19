@@ -1,4 +1,4 @@
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::DataStoreReader};
 use simd_r_drive_extensions::StorageFileImportExt;
 use std::fs;
 use std::io::Read;

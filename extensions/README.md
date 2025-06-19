@@ -16,7 +16,7 @@ cargo add simd-r-drive-extensions
 
 ### Working with `Option<T>`
 ```rust
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 use simd_r_drive_extensions::StorageOptionExt;
 use std::path::PathBuf;
 
@@ -48,7 +48,7 @@ assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
 
 ### Working with TTL-based Caching
 ```rust
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 use simd_r_drive_extensions::StorageCacheExt;
 use std::path::PathBuf;
 use std::thread::sleep;
@@ -81,7 +81,7 @@ assert_eq!(
 ### Importing Files from a Directory (Recursive + Streaming)
 
 ```rust
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 use simd_r_drive_extensions::StorageFileImportExt;
 use std::path::PathBuf;
 
@@ -125,7 +125,7 @@ for (key, offset) in &namespace_imported {
 #### Streaming Example
 
 ```rust
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 use simd_r_drive_extensions::StorageFileImportExt;
 use std::fs;
 use std::io::{Read, BufReader};
@@ -170,7 +170,7 @@ assert_eq!(
 #### Non-Streaming Example
 
 ```rust
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 use simd_r_drive_extensions::StorageFileImportExt;
 use std::fs;
 use std::io::{Read, BufReader};

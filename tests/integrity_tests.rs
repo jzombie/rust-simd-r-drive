@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod tests {
 
-    use simd_r_drive::DataStore;
+    use simd_r_drive::{
+        DataStore,
+        traits::{DataStoreReader, DataStoreWriter},
+    };
     use std::fs::OpenOptions;
     use std::io::{Read, Seek, SeekFrom, Write};
     use tempfile::tempdir;

@@ -2,6 +2,7 @@ use crate::storage_engine::constants::*;
 use crate::storage_engine::digest::{Xxh3BuildHasher, compute_checksum, compute_hash};
 use crate::storage_engine::simd_copy;
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
+use crate::traits::{DataStoreReader, DataStoreWriter};
 use crate::utils::verify_file_existence;
 use log::{debug, info, warn};
 use memmap2::Mmap;
@@ -51,6 +52,301 @@ impl From<PathBuf> for DataStore {
     /// - If the file cannot be opened or mapped into memory.
     fn from(path: PathBuf) -> Self {
         DataStore::open(&path).expect("Failed to open storage file")
+    }
+}
+
+impl DataStoreWriter for DataStore {
+    /// Writes an entry using a streaming `Read` source (e.g., file, network).
+    ///
+    /// This method is designed for **large entries** that may exceed available RAM,
+    /// allowing them to be written in chunks without loading the full payload into memory.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** for the entry.
+    /// - `reader`: A **streaming reader** (`Read` trait) supplying the entry's content.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
+    ///
+    /// # Notes:
+    /// - Internally, this method delegates to `write_stream_with_key_hash`, computing
+    ///   the key hash first.
+    /// - If the entry is **small enough to fit in memory**, consider using `write()`
+    ///   or `batch_write()` instead if you don't want to stream the data in.
+    ///
+    /// # Streaming Behavior:
+    /// - The `reader` is **read incrementally in 64KB chunks** (`WRITE_STREAM_BUFFER_SIZE`).
+    /// - Data is immediately **written to disk** as it is read.
+    /// - **A checksum is computed incrementally** during the write.
+    /// - Metadata is appended **after** the full entry is written.
+    fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64> {
+        let key_hash = compute_hash(key);
+        self.write_stream_with_key_hash(key_hash, reader)
+    }
+
+    /// Writes an entry with a given key and payload.
+    ///
+    /// This method computes the hash of the key and delegates to `write_with_key_hash()`.
+    /// It is a **high-level API** for adding new entries to the storage.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** associated with the entry.
+    /// - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - If you need streaming support, use `write_stream` instead.
+    /// - If multiple entries with the **same key** are written, the most recent
+    ///   entry will be retrieved when reading.
+    /// - This method **locks the file for writing** to ensure consistency.
+    /// - For writing **multiple entries at once**, use `batch_write()`.
+    fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
+        let key_hash = compute_hash(key);
+        self.write_with_key_hash(key_hash, payload)
+    }
+
+    /// Writes multiple key-value pairs as a **single transaction**.
+    ///
+    /// This method computes the hashes of the provided keys and delegates to
+    /// `batch_write_hashed_payloads()`, ensuring all writes occur in a single
+    /// locked operation for efficiency.
+    ///
+    /// # Parameters:
+    /// - `entries`: A **slice of key-value pairs**, where:
+    ///   - `key`: The **binary key** for the entry.
+    ///   - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(final_offset)`: The file offset after all writes.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - This method improves efficiency by **minimizing file lock contention**.
+    /// - If a large number of entries are written, **batching reduces overhead**.
+    /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
+    fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
+        let hashed_entries: Vec<(u64, &[u8])> = entries
+            .iter()
+            .map(|(key, payload)| (compute_hash(key), *payload))
+            .collect();
+        self.batch_write_hashed_payloads(hashed_entries, false)
+    }
+
+    /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
+    ///
+    /// This function:
+    /// - Reads the existing entry associated with `old_key`.
+    /// - Writes the same data under `new_key`.
+    /// - Deletes the `old_key` by appending a tombstone entry.
+    ///
+    /// # Parameters:
+    /// - `old_key`: The **original key** of the entry to be renamed.
+    /// - `new_key`: The **new key** under which the entry will be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(new_offset)`: The file offset where the new entry was written.
+    /// - `Err(std::io::Error)`: If the old key is not found or if a write operation fails.
+    ///
+    /// # Notes:
+    /// - This operation **does not modify** the original entry but instead appends a new copy.
+    /// - The old key is **logically deleted** via an append-only tombstone.
+    /// - Attempting to rename a key to itself will return an error.
+    fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
+        if old_key == new_key {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Cannot rename a key to itself",
+            ));
+        }
+
+        let old_entry = self.read(old_key).ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
+        })?;
+
+        let mut old_entry_stream = EntryStream::from(old_entry);
+
+        self.write_stream(new_key, &mut old_entry_stream)?;
+
+        let new_offset = self.delete_entry(old_key)?;
+
+        Ok(new_offset)
+    }
+
+    /// Copies an entry to a **different storage container**.
+    ///
+    /// This function:
+    /// - Reads the entry associated with `key` in the current storage.
+    /// - Writes it to the `target` storage.
+    ///
+    /// # Parameters:
+    /// - `key`: The **key** of the entry to be copied.
+    /// - `target`: The **destination storage** where the entry should be copied.
+    ///
+    /// # Returns:
+    /// - `Ok(target_offset)`: The file offset where the copied entry was written in the target storage.
+    /// - `Err(std::io::Error)`: If the key is not found, if the write operation fails,  
+    ///   or if attempting to copy to the same storage.
+    ///
+    /// # Notes:
+    /// - Copying within the **same** storage is unnecessary; use `rename_entry` instead.
+    /// - This operation does **not** delete the original entry.
+    fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+        if self.path == target.path {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "Cannot copy entry to the same storage ({:?}). Use `rename_entry` instead.",
+                    self.path
+                ),
+            ));
+        }
+
+        let entry_handle = self.read(key).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Key not found: {:?}", key),
+            )
+        })?;
+
+        self.copy_entry_handle(&entry_handle, target)
+    }
+
+    /// Moves an entry from the current storage to a **different storage container**.
+    ///
+    /// This function:
+    /// - Copies the entry from the current storage to `target`.
+    /// - Marks the original entry as deleted.
+    ///
+    /// # Parameters:
+    /// - `key`: The **key** of the entry to be moved.
+    /// - `target`: The **destination storage** where the entry should be moved.
+    ///
+    /// # Returns:
+    /// - `Ok(target_offset)`: The file offset where the entry was written in the target storage.
+    /// - `Err(std::io::Error)`: If the key is not found, or if the copy/delete operation fails.
+    ///
+    /// # Notes:
+    /// - Moving an entry within the **same** storage is unnecessary; use `rename_entry` instead.
+    /// - The original entry is **logically deleted** by appending a tombstone, maintaining
+    ///   the append-only structure.
+    fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+        self.copy_entry(key, target)?;
+
+        self.delete_entry(key)
+    }
+
+    /// Deletes a key by appending a **null byte marker**.
+    ///
+    /// The storage engine is **append-only**, so keys cannot be removed directly.
+    /// Instead, a **null byte is appended** as a tombstone entry to mark the key as deleted.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** to mark as deleted.
+    ///
+    /// # Returns:
+    /// - The **new file offset** where the delete marker was appended.
+    fn delete_entry(&self, key: &[u8]) -> Result<u64> {
+        let key_hash = compute_hash(key);
+        self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
+    }
+}
+
+impl DataStoreReader for DataStore {
+    type EntryHandleType = EntryHandle;
+
+    /// Retrieves the most recent value associated with a given key.
+    ///
+    /// This method **efficiently looks up a key** using a fast in-memory index,
+    /// and returns the latest corresponding value if found.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** whose latest value is to be retrieved.
+    ///
+    /// # Returns:
+    /// - `Some(EntryHandle)`: A handle to the entry containing the data and metadata.
+    /// - `None`: If the key does not exist or is deleted.
+    ///
+    /// # Notes:
+    /// - The returned `EntryHandle` provides zero-copy access to the stored data.
+    fn read(&self, key: &[u8]) -> Option<EntryHandle> {
+        let key_hash = compute_hash(key);
+
+        let mmap_arc = self.get_mmap_arc();
+
+        // Re-check tail_offset, ensure the file is big enough
+        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
+        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
+            return None;
+        }
+
+        // Look up the offset in the in-memory key index
+        let offset = *self.key_indexer.read().ok()?.get(&key_hash)?;
+
+        // Grab the metadata from the mapped file
+        if offset as usize + METADATA_SIZE > mmap_arc.len() {
+            return None;
+        }
+        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
+        let metadata = EntryMetadata::deserialize(metadata_bytes);
+
+        // Extract the actual entry range
+        let entry_start = metadata.prev_offset as usize;
+        let entry_end = offset as usize;
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
+            return None;
+        }
+
+        // Check for tombstone (NULL_BYTE)
+        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+            return None;
+        }
+
+        // Return a handle that *owns* the Arc and the slice range
+        Some(EntryHandle {
+            mmap_arc,
+            range: entry_start..entry_end,
+            metadata,
+        })
+    }
+
+    /// Retrieves metadata for a given key.
+    ///
+    /// This method looks up a key in the storage and returns its associated metadata.
+    ///
+    /// # Parameters:
+    /// - `key`: The **binary key** whose metadata is to be retrieved.
+    ///
+    /// # Returns:
+    /// - `Some(&EntryMetadata)`: Metadata for the key if it exists.
+    /// - `None`: If the key does not exist in the storage.
+    fn read_metadata(&self, key: &[u8]) -> Option<EntryMetadata> {
+        self.read(key).map(|entry| entry.metadata().clone())
+    }
+
+    /// Counts the number of **active** entries in the storage.
+    ///
+    /// This method iterates through the storage file and counts **only the latest versions**
+    /// of keys, skipping deleted or outdated entries.
+    ///
+    /// # Returns:
+    /// - The **total count** of active key-value pairs in the database.
+    fn count(&self) -> usize {
+        self.iter_entries().count()
+    }
+
+    /// Retrieves the **total size** of the storage file.
+    ///
+    /// This method queries the **current file size** of the storage file on disk.
+    ///
+    /// # Returns:
+    /// - `Ok(file_size_in_bytes)` if successful.
+    /// - `Err(std::io::Error)` if the file cannot be accessed.
+    fn get_storage_size(&self) -> Result<u64> {
+        std::fs::metadata(&self.path).map(|meta| meta.len())
     }
 }
 
@@ -420,35 +716,6 @@ impl DataStore {
         Ok(final_len)
     }
 
-    /// Writes an entry using a streaming `Read` source (e.g., file, network).
-    ///
-    /// This method is designed for **large entries** that may exceed available RAM,
-    /// allowing them to be written in chunks without loading the full payload into memory.
-    ///
-    /// # Parameters:
-    /// - `key`: The **binary key** for the entry.
-    /// - `reader`: A **streaming reader** (`Read` trait) supplying the entry's content.
-    ///
-    /// # Returns:
-    /// - `Ok(offset)`: The file offset where the entry was written.
-    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
-    ///
-    /// # Notes:
-    /// - Internally, this method delegates to `write_stream_with_key_hash`, computing
-    ///   the key hash first.
-    /// - If the entry is **small enough to fit in memory**, consider using `write()`
-    ///   or `batch_write()` instead if you don't want to stream the data in.
-    ///
-    /// # Streaming Behavior:
-    /// - The `reader` is **read incrementally in 64KB chunks** (`WRITE_STREAM_BUFFER_SIZE`).
-    /// - Data is immediately **written to disk** as it is read.
-    /// - **A checksum is computed incrementally** during the write.
-    /// - Metadata is appended **after** the full entry is written.
-    pub fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64> {
-        let key_hash = compute_hash(key);
-        self.write_stream_with_key_hash(key_hash, reader)
-    }
-
     /// Writes an entry using a **precomputed key hash** and a streaming `Read` source.
     ///
     /// This is a **low-level** method that operates like `write_stream`, but requires
@@ -530,30 +797,6 @@ impl DataStore {
         Ok(tail_offset)
     }
 
-    /// Writes an entry with a given key and payload.
-    ///
-    /// This method computes the hash of the key and delegates to `write_with_key_hash()`.
-    /// It is a **high-level API** for adding new entries to the storage.
-    ///
-    /// # Parameters:
-    /// - `key`: The **binary key** associated with the entry.
-    /// - `payload`: The **data payload** to be stored.
-    ///
-    /// # Returns:
-    /// - `Ok(offset)`: The file offset where the entry was written.
-    /// - `Err(std::io::Error)`: If a write operation fails.
-    ///
-    /// # Notes:
-    /// - If you need streaming support, use `write_stream` instead.
-    /// - If multiple entries with the **same key** are written, the most recent
-    ///   entry will be retrieved when reading.
-    /// - This method **locks the file for writing** to ensure consistency.
-    /// - For writing **multiple entries at once**, use `batch_write()`.
-    pub fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
-        let key_hash = compute_hash(key);
-        self.write_with_key_hash(key_hash, payload)
-    }
-
     /// Writes an entry using a **precomputed key hash** and a payload.
     ///
     /// This method is a **low-level** alternative to `write()`, allowing direct
@@ -574,33 +817,6 @@ impl DataStore {
     /// - If writing **multiple entries**, consider using `batch_write_hashed_payloads()`.
     pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write_hashed_payloads(vec![(key_hash, payload)], false)
-    }
-
-    /// Writes multiple key-value pairs as a **single transaction**.
-    ///
-    /// This method computes the hashes of the provided keys and delegates to
-    /// `batch_write_hashed_payloads()`, ensuring all writes occur in a single
-    /// locked operation for efficiency.
-    ///
-    /// # Parameters:
-    /// - `entries`: A **slice of key-value pairs**, where:
-    ///   - `key`: The **binary key** for the entry.
-    ///   - `payload`: The **data payload** to be stored.
-    ///
-    /// # Returns:
-    /// - `Ok(final_offset)`: The file offset after all writes.
-    /// - `Err(std::io::Error)`: If a write operation fails.
-    ///
-    /// # Notes:
-    /// - This method improves efficiency by **minimizing file lock contention**.
-    /// - If a large number of entries are written, **batching reduces overhead**.
-    /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
-    pub fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
-        let hashed_entries: Vec<(u64, &[u8])> = entries
-            .iter()
-            .map(|(key, payload)| (compute_hash(key), *payload))
-            .collect();
-        self.batch_write_hashed_payloads(hashed_entries, false)
     }
 
     /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
@@ -737,154 +953,6 @@ impl DataStore {
         })
     }
 
-    /// Retrieves the most recent value associated with a given key.
-    ///
-    /// This method **efficiently looks up a key** using a fast in-memory index,
-    /// and returns the latest corresponding value if found.
-    ///
-    /// # Parameters:
-    /// - `key`: The **binary key** whose latest value is to be retrieved.
-    ///
-    /// # Returns:
-    /// - `Some(EntryHandle)`: A handle to the entry containing the data and metadata.
-    /// - `None`: If the key does not exist or is deleted.
-    ///
-    /// # Notes:
-    /// - The returned `EntryHandle` provides zero-copy access to the stored data.
-    pub fn read(&self, key: &[u8]) -> Option<EntryHandle> {
-        let key_hash = compute_hash(key);
-
-        let mmap_arc = self.get_mmap_arc();
-
-        // Re-check tail_offset, ensure the file is big enough
-        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
-        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
-            return None;
-        }
-
-        // Look up the offset in the in-memory key index
-        let offset = *self.key_indexer.read().ok()?.get(&key_hash)?;
-
-        // Grab the metadata from the mapped file
-        if offset as usize + METADATA_SIZE > mmap_arc.len() {
-            return None;
-        }
-        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
-        let metadata = EntryMetadata::deserialize(metadata_bytes);
-
-        // Extract the actual entry range
-        let entry_start = metadata.prev_offset as usize;
-        let entry_end = offset as usize;
-        if entry_start >= entry_end || entry_end > mmap_arc.len() {
-            return None;
-        }
-
-        // Check for tombstone (NULL_BYTE)
-        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
-            return None;
-        }
-
-        // Return a handle that *owns* the Arc and the slice range
-        Some(EntryHandle {
-            mmap_arc,
-            range: entry_start..entry_end,
-            metadata,
-        })
-    }
-
-    /// Retrieves metadata for a given key.
-    ///
-    /// This method looks up a key in the storage and returns its associated metadata.
-    ///
-    /// # Parameters:
-    /// - `key`: The **binary key** whose metadata is to be retrieved.
-    ///
-    /// # Returns:
-    /// - `Some(&EntryMetadata)`: Metadata for the key if it exists.
-    /// - `None`: If the key does not exist in the storage.
-    pub fn read_metadata(&self, key: &[u8]) -> Option<EntryMetadata> {
-        self.read(key).map(|entry| entry.metadata().clone())
-    }
-
-    /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
-    ///
-    /// This function:
-    /// - Reads the existing entry associated with `old_key`.
-    /// - Writes the same data under `new_key`.
-    /// - Deletes the `old_key` by appending a tombstone entry.
-    ///
-    /// # Parameters:
-    /// - `old_key`: The **original key** of the entry to be renamed.
-    /// - `new_key`: The **new key** under which the entry will be stored.
-    ///
-    /// # Returns:
-    /// - `Ok(new_offset)`: The file offset where the new entry was written.
-    /// - `Err(std::io::Error)`: If the old key is not found or if a write operation fails.
-    ///
-    /// # Notes:
-    /// - This operation **does not modify** the original entry but instead appends a new copy.
-    /// - The old key is **logically deleted** via an append-only tombstone.
-    /// - Attempting to rename a key to itself will return an error.
-    pub fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
-        if old_key == new_key {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Cannot rename a key to itself",
-            ));
-        }
-
-        let old_entry = self.read(old_key).ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
-        })?;
-
-        let mut old_entry_stream = EntryStream::from(old_entry);
-
-        self.write_stream(new_key, &mut old_entry_stream)?;
-
-        let new_offset = self.delete_entry(old_key)?;
-
-        Ok(new_offset)
-    }
-
-    /// Copies an entry to a **different storage container**.
-    ///
-    /// This function:
-    /// - Reads the entry associated with `key` in the current storage.
-    /// - Writes it to the `target` storage.
-    ///
-    /// # Parameters:
-    /// - `key`: The **key** of the entry to be copied.
-    /// - `target`: The **destination storage** where the entry should be copied.
-    ///
-    /// # Returns:
-    /// - `Ok(target_offset)`: The file offset where the copied entry was written in the target storage.
-    /// - `Err(std::io::Error)`: If the key is not found, if the write operation fails,  
-    ///   or if attempting to copy to the same storage.
-    ///
-    /// # Notes:
-    /// - Copying within the **same** storage is unnecessary; use `rename_entry` instead.
-    /// - This operation does **not** delete the original entry.
-    pub fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
-        if self.path == target.path {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!(
-                    "Cannot copy entry to the same storage ({:?}). Use `rename_entry` instead.",
-                    self.path
-                ),
-            ));
-        }
-
-        let entry_handle = self.read(key).ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Key not found: {:?}", key),
-            )
-        })?;
-
-        self.copy_entry_handle(&entry_handle, target)
-    }
-
     /// Copies an entry handle to a **different storage container**.
     ///
     /// This function:
@@ -911,45 +979,6 @@ impl DataStore {
             target.write_stream_with_key_hash(metadata.key_hash, &mut entry_stream)?;
 
         Ok(target_offset)
-    }
-
-    /// Moves an entry from the current storage to a **different storage container**.
-    ///
-    /// This function:
-    /// - Copies the entry from the current storage to `target`.
-    /// - Marks the original entry as deleted.
-    ///
-    /// # Parameters:
-    /// - `key`: The **key** of the entry to be moved.
-    /// - `target`: The **destination storage** where the entry should be moved.
-    ///
-    /// # Returns:
-    /// - `Ok(target_offset)`: The file offset where the entry was written in the target storage.
-    /// - `Err(std::io::Error)`: If the key is not found, or if the copy/delete operation fails.
-    ///
-    /// # Notes:
-    /// - Moving an entry within the **same** storage is unnecessary; use `rename_entry` instead.
-    /// - The original entry is **logically deleted** by appending a tombstone, maintaining
-    ///   the append-only structure.
-    pub fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
-        self.copy_entry(key, target)?;
-
-        self.delete_entry(key)
-    }
-
-    /// Deletes a key by appending a **null byte marker**.
-    ///
-    /// The storage engine is **append-only**, so keys cannot be removed directly.
-    /// Instead, a **null byte is appended** as a tombstone entry to mark the key as deleted.
-    ///
-    /// # Parameters:
-    /// - `key`: The **binary key** to mark as deleted.
-    ///
-    /// # Returns:
-    /// - The **new file offset** where the delete marker was appended.
-    pub fn delete_entry(&self, key: &[u8]) -> Result<u64> {
-        let key_hash = compute_hash(key);
-        self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
     }
 
     /// Compacts the storage by keeping only the latest version of each key.
@@ -1002,17 +1031,6 @@ impl DataStore {
         Ok(())
     }
 
-    /// Counts the number of **active** entries in the storage.
-    ///
-    /// This method iterates through the storage file and counts **only the latest versions**
-    /// of keys, skipping deleted or outdated entries.
-    ///
-    /// # Returns:
-    /// - The **total count** of active key-value pairs in the database.
-    pub fn count(&self) -> usize {
-        self.iter_entries().count()
-    }
-
     /// Estimates the potential space savings from compaction.
     ///
     /// This method scans the storage file and calculates the difference
@@ -1052,17 +1070,6 @@ impl DataStore {
 
         //  Return the difference between total size and the unique size
         total_size.saturating_sub(unique_entry_size)
-    }
-
-    /// Retrieves the **total size** of the storage file.
-    ///
-    /// This method queries the **current file size** of the storage file on disk.
-    ///
-    /// # Returns:
-    /// - `Ok(file_size_in_bytes)` if successful.
-    /// - `Err(std::io::Error)` if the file cannot be accessed.
-    pub fn get_storage_size(&self) -> Result<u64> {
-        std::fs::metadata(&self.path).map(|meta| meta.len())
     }
 
     /// Provides access to the shared memory-mapped file (`Arc<Mmap>`) for testing.

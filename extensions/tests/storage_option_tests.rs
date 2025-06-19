@@ -1,7 +1,11 @@
 #[cfg(test)]
 mod tests {
     use serde::{Deserialize, Serialize};
-    use simd_r_drive::{utils::NamespaceHasher, DataStore};
+    use simd_r_drive::{
+        DataStore,
+        traits::{DataStoreReader, DataStoreWriter},
+        utils::NamespaceHasher,
+    };
     use simd_r_drive_extensions::{
         StorageOptionExt, TEST_OPTION_PREFIX, TEST_OPTION_TOMBSTONE_MARKER,
     };

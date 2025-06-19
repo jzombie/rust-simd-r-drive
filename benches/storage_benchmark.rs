@@ -1,5 +1,8 @@
 use rand::Rng;
-use simd_r_drive::DataStore;
+use simd_r_drive::{
+    DataStore,
+    traits::{DataStoreReader, DataStoreWriter},
+};
 use std::fs::remove_file;
 use std::path::PathBuf;
 use std::time::Instant;

@@ -1,11 +1,14 @@
 use crate::EntryHandle;
 use crate::EntryStream;
+use pyo3::PyResult;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyAnyMethods;
 use pyo3::types::PyBytes;
-use pyo3::PyResult;
-use simd_r_drive::{DataStore as BaseDataStore, EntryStream as BaseEntryStream};
+use simd_r_drive::{
+    DataStore as BaseDataStore, EntryStream as BaseEntryStream,
+    traits::{DataStoreReader, DataStoreWriter},
+};
 use std::io::Read;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};

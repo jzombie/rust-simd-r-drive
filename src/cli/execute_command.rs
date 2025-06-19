@@ -1,5 +1,8 @@
 use crate::cli::{Cli, Commands};
-use crate::storage_engine::{DataStore, EntryStream};
+use crate::storage_engine::{
+    DataStore, EntryStream,
+    traits::{DataStoreReader, DataStoreWriter},
+};
 use crate::utils::{format_bytes, parse_buffer_size};
 use log::{error, info, warn};
 use std::io::{self, IsTerminal, Read, Write};

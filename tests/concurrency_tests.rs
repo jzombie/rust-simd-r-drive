@@ -1,5 +1,8 @@
 use serial_test::serial;
-use simd_r_drive::DataStore;
+use simd_r_drive::{
+    DataStore,
+    traits::{DataStoreReader, DataStoreWriter},
+};
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::sync::Arc;

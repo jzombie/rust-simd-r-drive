@@ -15,7 +15,7 @@ use std::io::{self, Read};
 ///
 /// # Example Usage
 /// ```rust
-/// use simd_r_drive::storage_engine::{DataStore, EntryHandle, EntryStream};
+/// use simd_r_drive::storage_engine::{DataStore, EntryHandle, EntryStream, traits::{DataStoreReader, DataStoreWriter}};
 /// use std::io::Read;
 /// use std::path::PathBuf;
 ///
