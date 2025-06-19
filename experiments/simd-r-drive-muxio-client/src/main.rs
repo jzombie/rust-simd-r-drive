@@ -10,7 +10,7 @@ use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() {
-    let addr = "127.0.0.1:42193";
+    let addr = "127.0.0.1:34129";
 
     // Use the actual bound address for the client
     let rpc_client = RpcClient::new(&format!("ws://{}/ws", addr)).await;

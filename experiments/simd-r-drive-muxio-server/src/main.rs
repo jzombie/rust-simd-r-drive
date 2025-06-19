@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 
 // TODO: Enable total number of threads to be configured
 #[tokio::main]
-async fn main() {
+async fn main() -> std::io::Result<()> {
     tracing_subscriber::fmt().with_env_filter("info").init();
 
     // TODO: Don't hardcode store path
@@ -77,5 +77,10 @@ async fn main() {
         }),
     );
 
-    Arc::new(rpc_server).serve_with_listener(listener).await;
+    Arc::new(rpc_server)
+        .serve_with_listener(listener)
+        .await
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
+    Ok(())
 }
