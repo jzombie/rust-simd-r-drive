@@ -22,9 +22,9 @@ publish.workspace = true # Inherit from workspace
 
 [workspace.dependencies]
 # Intra-workspace crates
-simd-r-drive = { path = ".", version = "0.6.0-alpha" }
-simd-r-drive-extensions = { path = "./extensions/simd-r-drive-extensions", version = "0.6.0-alpha" }
-simd-r-drive-py = { path = "./bindings/python", version = "0.6.0-alpha" }
+simd-r-drive = { path = ".", version = "0.6.1-alpha" }
+simd-r-drive-extensions = { path = "./extensions/simd-r-drive-extensions", version = "0.6.1-alpha" }
+simd-r-drive-py = { path = "./bindings/python", version = "0.6.1-alpha" }
 
 [dependencies]
 crc32fast = "1.4.2"
