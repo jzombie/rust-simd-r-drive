@@ -64,6 +64,7 @@ impl AsyncDataStoreWriter for NetClient {
 
 #[async_trait::async_trait]
 impl AsyncDataStoreReader for NetClient {
+    // TODO: This is a workaround until properly implementing a streamable handle
     type EntryHandleType = Vec<u8>;
 
     async fn read(&self, key: &[u8]) -> Option<Self::EntryHandleType> {
