@@ -17,6 +17,7 @@ pub trait DataStoreWriter {
     fn delete_entry(&self, key: &[u8]) -> Result<u64>;
 }
 
+#[async_trait::async_trait]
 pub trait AsyncDataStoreWriter {
     async fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64>;
 

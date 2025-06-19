@@ -1420,6 +1420,7 @@ dependencies = [
 name = "simd-r-drive"
 version = "0.7.0-alpha"
 dependencies = [
+ "async-trait",
  "bincode",
  "clap",
  "crc32fast",
@@ -1452,6 +1453,7 @@ dependencies = [
 name = "simd-r-drive-muxio-client"
 version = "0.7.0-alpha"
 dependencies = [
+ "async-trait",
  "muxio-rpc-service",
  "muxio-rpc-service-caller",
  "muxio-tokio-rpc-client",

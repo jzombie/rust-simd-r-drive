@@ -13,6 +13,7 @@ pub trait DataStoreReader {
     fn get_storage_size(&self) -> Result<u64>;
 }
 
+#[async_trait::async_trait]
 pub trait AsyncDataStoreReader {
     type EntryHandleType;
 

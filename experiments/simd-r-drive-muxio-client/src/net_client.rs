@@ -21,6 +21,7 @@ impl NetClient {
     }
 }
 
+#[async_trait::async_trait]
 impl AsyncDataStoreWriter for NetClient {
     async fn write_stream<R: std::io::Read>(&self, _key: &[u8], _reader: &mut R) -> Result<u64> {
         unimplemented!("`write_stream` is not currently implemented");
@@ -61,6 +62,7 @@ impl AsyncDataStoreWriter for NetClient {
     }
 }
 
+#[async_trait::async_trait]
 impl AsyncDataStoreReader for NetClient {
     type EntryHandleType = Vec<u8>;
 
