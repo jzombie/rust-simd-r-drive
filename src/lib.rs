@@ -18,9 +18,13 @@
 //! ```rust
 //! use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 //! use std::path::PathBuf;
+//! use tempfile::tempdir;
+//!
+//! let temp_dir = tempdir().expect("Failed to create temp dir");
+//! let temp_path = temp_dir.path().join("test_storage.bin");
 //!
 //! // Open or create a new storage file
-//! let mut storage = DataStore::open(&PathBuf::from("test_storage.bin")).unwrap();
+//! let mut storage = DataStore::open(&PathBuf::from(temp_path)).unwrap();
 //!
 //! // Append some key-value entries
 //! storage.write(b"key1", b"value1").unwrap();
@@ -62,9 +66,13 @@
 //! use std::fs::File;
 //! use std::io::{Cursor, Read, Write};
 //! use std::path::PathBuf;
+//! use tempfile::tempdir;
+//!
+//! let temp_dir = tempdir().expect("Failed to create temp dir");
+//! let temp_path = temp_dir.path().join("test_storage_stream.bin");
 //!
 //! // Open or create a new storage file
-//! let mut storage = DataStore::open(&PathBuf::from("test_storage_stream.bin")).unwrap();
+//! let mut storage = DataStore::open(&PathBuf::from(temp_path)).unwrap();
 //!
 //! // Example streaming data
 //! let stream_data = b"Streaming payload with large data";
