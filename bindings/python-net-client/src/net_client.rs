@@ -1,7 +1,7 @@
 use pyo3::exceptions::PyIOError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use pyo3_async_runtimes::tokio::future_into_py;
+// use pyo3_async_runtimes::tokio::future_into_py;  // No longer needed
 use simd_r_drive_muxio_client::{AsyncDataStoreReader, AsyncDataStoreWriter, NetClient};
 use std::sync::Arc;
 use tokio::runtime::{Builder, Runtime};
@@ -33,61 +33,30 @@ impl DataStoreNetClient {
         })
     }
 
-    // This function remains correct from the previous step
     #[pyo3(name = "write")]
-    fn py_write(&self, py: Python<'_>, key: Vec<u8>, payload: Vec<u8>) -> PyResult<PyObject> {
-        let client = self.client.clone();
-        let rt_handle = self.runtime.handle().clone();
-
-        future_into_py(py, async move {
-            let result = rt_handle
-                .spawn(async move {
-                    client
-                        .write(&key, &payload)
-                        .await
-                        .map_err(|e| PyIOError::new_err(e.to_string()))
-                })
-                .await;
-
-            match result {
-                Ok(inner_py_result) => inner_py_result,
-                Err(join_error) => Err(PyIOError::new_err(format!(
-                    "Write task panicked or cancelled: {}",
-                    join_error
-                ))),
-            }
+    fn py_write(&self, key: Vec<u8>, payload: Vec<u8>) -> PyResult<()> {
+        self.runtime.block_on(async {
+            self.client
+                .write(&key, &payload)
+                .await
+                .map_err(|e| PyIOError::new_err(e.to_string()))
+                // FIX: Add this map call to discard the u64 success value
+                // and return the unit type `()` instead.
+                .map(|_bytes_written| ())
         })
-        .map(|bound_coroutine| bound_coroutine.into())
     }
 
+    // The read function is correct from the previous step.
     #[pyo3(name = "read")]
-    fn py_read(&self, py: Python<'_>, key: Vec<u8>) -> PyResult<PyObject> {
-        let client = self.client.clone();
-        let rt_handle = self.runtime.handle().clone();
-
-        future_into_py(py, async move {
-            let result = rt_handle
-                .spawn(async move {
-                    match client.read(&key).await {
-                        Some(bytes) => Python::with_gil(|py| {
-                            // FIX: Create a variable with an explicit type annotation
-                            // to resolve the ambiguity of the `.into()` call.
-                            let py_object: PyObject = PyBytes::new(py, &bytes).into();
-                            Ok(Some(py_object))
-                        }),
-                        None => Ok(None),
-                    }
-                })
-                .await;
-
-            match result {
-                Ok(inner_py_result) => inner_py_result,
-                Err(join_error) => Err(PyIOError::new_err(format!(
-                    "Read task panicked or cancelled: {}",
-                    join_error
-                ))),
+    fn py_read(&self, key: Vec<u8>) -> PyResult<Option<PyObject>> {
+        self.runtime.block_on(async {
+            match self.client.read(&key).await {
+                Some(bytes) => Python::with_gil(|py| {
+                    let py_bytes = PyBytes::new(py, &bytes);
+                    Ok(Some(py_bytes.into()))
+                }),
+                None => Ok(None),
             }
         })
-        .map(|bound_coroutine| bound_coroutine.into())
     }
 }
