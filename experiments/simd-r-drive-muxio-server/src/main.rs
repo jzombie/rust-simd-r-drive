@@ -5,7 +5,7 @@ use simd_r_drive::{
     traits::{DataStoreReader, DataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    Write, WriteRequestParams, WriteResponseParams,
+    Read, ReadRequestParams, ReadResponseParams, Write, WriteRequestParams, WriteResponseParams,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -27,28 +27,55 @@ async fn main() {
 
     let rpc_server = RpcServer::new();
 
-    let _ = join!(rpc_server.register_prebuffered(Write::METHOD_ID, {
-        let store_mutex = Arc::clone(&store_mutex);
-        move |_, bytes| {
+    let _ = join!(
+        rpc_server.register_prebuffered(Write::METHOD_ID, {
             let store_mutex = Arc::clone(&store_mutex);
-            async move {
-                let req = Write::decode_request(&bytes)?;
+            move |_, bytes| {
+                let store_mutex = Arc::clone(&store_mutex);
+                async move {
+                    let req = Write::decode_request(&bytes)?;
 
-                let store = {
-                    let store_guard = store_mutex.lock().await;
-                    Arc::clone(&*store_guard)
-                };
+                    let store = {
+                        let store_guard = store_mutex.lock().await;
+                        Arc::clone(&*store_guard)
+                    };
 
-                let result = store.write(&req.key, &req.payload);
+                    let result = store.write(&req.key, &req.payload);
 
-                let resp = Write::encode_response(WriteResponseParams {
-                    result: result.ok(),
-                })?;
+                    let resp = Write::encode_response(WriteResponseParams {
+                        result: result.ok(),
+                    })?;
 
-                Ok(resp)
+                    Ok(resp)
+                }
             }
-        }
-    }));
+        }),
+        rpc_server.register_prebuffered(Read::METHOD_ID, {
+            let store_mutex = Arc::clone(&store_mutex);
+            move |_, bytes| {
+                let store_mutex = Arc::clone(&store_mutex);
+                async move {
+                    let req = Read::decode_request(&bytes)?;
+
+                    let store = {
+                        let store_guard = store_mutex.lock().await;
+                        Arc::clone(&*store_guard)
+                    };
+
+                    let result = store.read(&req.key);
+
+                    let resp = Read::encode_response(ReadResponseParams {
+                        result: match result {
+                            Some(entry_handle) => Some(entry_handle.as_slice().into()),
+                            None => None,
+                        },
+                    })?;
+
+                    Ok(resp)
+                }
+            }
+        }),
+    );
 
     Arc::new(rpc_server).serve_with_listener(listener).await;
 }
