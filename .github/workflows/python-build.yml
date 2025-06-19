@@ -32,6 +32,7 @@ jobs:
         with:
           python-version: "3.13"
 
+      # TODO: Install from `uv` instead
       - name: Install build tooling from requirements.txt
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |

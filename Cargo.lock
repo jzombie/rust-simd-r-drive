@@ -1490,6 +1490,8 @@ dependencies = [
  "memmap2",
  "pyo3",
  "simd-r-drive",
+ "simd-r-drive-muxio-client",
+ "tokio",
 ]
 
 [[package]]

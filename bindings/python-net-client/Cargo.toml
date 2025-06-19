@@ -12,4 +12,6 @@ crate-type = ["cdylib"]
 [dependencies]
 memmap2 = "0.9.5"
 pyo3 = { version = "0.25.0", features = ["extension-module"] }
-simd-r-drive = { workspace = true, features = ["expose-internal-api"] }
+simd-r-drive = { workspace = true }
+simd-r-drive-muxio-client = { workspace = true }
+tokio = "1.45.1"
