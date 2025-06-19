@@ -1,0 +1,18 @@
+[package]
+name = "simd-r-drive-muxio-client"
+authors.workspace = true # Inherit from workspace
+version.workspace = true # Inherit from workspace
+edition.workspace = true # Inherit from workspace
+repository.workspace = true # Inherit from workspace
+license.workspace = true # Inherit from workspace
+categories.workspace = true # Inherit from workspace
+keywords.workspace = true # Inherit from workspace
+publish.workspace = true # Inherit from workspace
+
+[dependencies]
+muxio-tokio-rpc-client = "0.4.0-alpha"
+muxio-rpc-service = "0.4.0-alpha"
+muxio-rpc-service-caller = "0.4.0-alpha"
+simd-r-drive-muxio-service-definition = { workspace = true }
+tokio = "1.45.1"
+tracing = "0.1.41"

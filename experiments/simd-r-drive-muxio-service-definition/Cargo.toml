@@ -1,0 +1,14 @@
+[package]
+name = "simd-r-drive-muxio-service-definition"
+authors.workspace = true # Inherit from workspace
+version.workspace = true # Inherit from workspace
+edition.workspace = true # Inherit from workspace
+repository.workspace = true # Inherit from workspace
+license.workspace = true # Inherit from workspace
+categories.workspace = true # Inherit from workspace
+keywords.workspace = true # Inherit from workspace
+publish.workspace = true # Inherit from workspace
+
+[dependencies]
+bitcode = "0.6.6"
+muxio-rpc-service = "0.4.0-alpha"
