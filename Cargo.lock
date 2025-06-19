@@ -1484,6 +1484,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "simd-r-drive-net-client-py"
+version = "0.0.0"
+dependencies = [
+ "memmap2",
+ "pyo3",
+ "simd-r-drive",
+]
+
+[[package]]
 name = "simd-r-drive-py"
 version = "0.0.0"
 dependencies = [
