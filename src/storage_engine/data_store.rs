@@ -1,5 +1,5 @@
 use crate::storage_engine::constants::*;
-use crate::storage_engine::digest::{compute_checksum, compute_hash, Xxh3BuildHasher};
+use crate::storage_engine::digest::{Xxh3BuildHasher, compute_checksum, compute_hash};
 use crate::storage_engine::simd_copy;
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
 use crate::utils::verify_file_existence;
@@ -82,6 +82,7 @@ impl DataStore {
 
         // TODO: Don't automatically do this; make it configurable with parameter
         if final_len < file_len {
+            // TODO: If open in read-only mode, reject the call
             warn!(
                 "Truncating corrupted data in {} from offset {} to {}.",
                 path.display(),
