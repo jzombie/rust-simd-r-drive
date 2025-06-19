@@ -5,7 +5,8 @@ use simd_r_drive::{
     traits::{DataStoreReader, DataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    Read, ReadRequestParams, ReadResponseParams, Write, WriteRequestParams, WriteResponseParams,
+    BatchWrite, BatchWriteRequestParams, BatchWriteResponseParams, Read, ReadRequestParams,
+    ReadResponseParams, Write, WriteRequestParams, WriteResponseParams,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -43,6 +44,34 @@ async fn main() -> std::io::Result<()> {
                     let result = store.write(&req.key, &req.payload);
 
                     let resp = Write::encode_response(WriteResponseParams {
+                        result: result.ok(),
+                    })?;
+
+                    Ok(resp)
+                }
+            }
+        }),
+        rpc_server.register_prebuffered(BatchWrite::METHOD_ID, {
+            let store_mutex = Arc::clone(&store_mutex);
+            move |_, bytes| {
+                let store_mutex = Arc::clone(&store_mutex);
+                async move {
+                    let req = BatchWrite::decode_request(&bytes)?;
+
+                    let store = {
+                        let store_guard = store_mutex.lock().await;
+                        Arc::clone(&*store_guard)
+                    };
+
+                    let borrowed_entries: Vec<(&[u8], &[u8])> = req
+                        .entries
+                        .iter()
+                        .map(|(k, v)| (k.as_slice(), v.as_slice()))
+                        .collect();
+
+                    let result = store.batch_write(&borrowed_entries);
+
+                    let resp = BatchWrite::encode_response(BatchWriteResponseParams {
                         result: result.ok(),
                     })?;
 

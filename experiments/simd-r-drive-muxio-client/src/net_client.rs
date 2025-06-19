@@ -5,7 +5,8 @@ use simd_r_drive::{
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    Read, ReadRequestParams, Write, WriteRequestParams,
+    BatchWrite, BatchWriteRequestParams, BatchWriteResponseParams, Read, ReadRequestParams, Write,
+    WriteRequestParams,
 };
 use std::io::{Error, ErrorKind, Result};
 
@@ -41,8 +42,20 @@ impl AsyncDataStoreWriter for NetClient {
             .ok_or_else(|| Error::new(ErrorKind::Other, "no offset returned"))
     }
 
-    async fn batch_write(&self, _entries: &[(&[u8], &[u8])]) -> Result<u64> {
-        unimplemented!("`batch_write` is not currently implemented");
+    async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
+        let resp = BatchWrite::call(
+            &self.rpc_client,
+            BatchWriteRequestParams {
+                entries: entries
+                    .iter()
+                    .map(|(k, v)| (k.to_vec(), v.to_vec()))
+                    .collect(),
+            },
+        )
+        .await?;
+
+        resp.result
+            .ok_or_else(|| Error::new(ErrorKind::Other, "no offset returned"))
     }
 
     async fn rename_entry(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {

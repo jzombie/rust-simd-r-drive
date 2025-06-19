@@ -46,6 +46,24 @@ impl DataStoreNetClient {
         })
     }
 
+    #[pyo3(name = "batch_write")]
+    fn py_batch_write(&self, entries: Vec<(Vec<u8>, Vec<u8>)>) -> PyResult<()> {
+        let converted: Vec<(&[u8], &[u8])> = entries
+            .iter()
+            .map(|(k, v)| (k.as_slice(), v.as_slice()))
+            .collect();
+
+        self.runtime.block_on(async {
+            self.client
+                .batch_write(&converted)
+                .await
+                .map_err(|e| PyIOError::new_err(e.to_string()))
+                // FIX: Add this map call to discard the u64 success value
+                // and return the unit type `()` instead.
+                .map(|_bytes_written| ())
+        })
+    }
+
     // The read function is correct from the previous step.
     #[pyo3(name = "read")]
     fn py_read(&self, key: Vec<u8>) -> PyResult<Option<PyObject>> {
