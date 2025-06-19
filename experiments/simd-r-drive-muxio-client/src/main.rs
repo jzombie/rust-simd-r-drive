@@ -7,26 +7,18 @@
 // use std::sync::Arc;
 // use tokio::join;
 // use tokio::net::TcpListener;
-use simd_r_drive_muxio_client::{AsyncDataStoreWriter, NetClient};
+use simd_r_drive_muxio_client::{AsyncDataStoreReader, AsyncDataStoreWriter, NetClient};
 
 #[tokio::main]
 async fn main() {
     let addr = "127.0.0.1:34129";
 
     // Use the actual bound address for the client
-    let rpc_client = NetClient::new(addr).await;
+    let net_client = NetClient::new(addr).await;
 
-    // let resp = Read::call(
-    //     &rpc_client,
-    //     ReadRequestParams {
-    //         key: b"testing".into(),
-    //     },
-    // )
-    // .await;
-
-    // println!("response: {:?}", resp);
-
-    rpc_client
-        .write(b"hello".as_slice(), b"world".as_slice())
+    net_client
+        .write(b"hello".as_slice(), b"123454321".as_slice())
         .await;
+
+    println!("Response: {:?}", net_client.read(b"hello".as_slice()).await);
 }

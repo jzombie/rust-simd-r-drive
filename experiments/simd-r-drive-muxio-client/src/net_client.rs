@@ -1,7 +1,7 @@
 use muxio_rpc_service_caller::prebuffered::RpcCallPrebuffered;
 use muxio_tokio_rpc_client::RpcClient;
 use simd_r_drive::{
-    DataStore,
+    DataStore, EntryMetadata,
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
@@ -58,5 +58,29 @@ impl AsyncDataStoreWriter for NetClient {
 
     async fn delete_entry(&self, key: &[u8]) -> Result<u64> {
         unimplemented!("`delete_entry` is not currently implemented");
+    }
+}
+
+impl AsyncDataStoreReader for NetClient {
+    type EntryHandleType = Vec<u8>;
+
+    async fn read(&self, key: &[u8]) -> Option<Self::EntryHandleType> {
+        let resp = Read::call(&self.rpc_client, ReadRequestParams { key: key.to_vec() })
+            .await
+            .ok()?;
+
+        resp.result
+    }
+
+    async fn read_metadata(&self, key: &[u8]) -> Option<EntryMetadata> {
+        unimplemented!("`read_metadata` is not currently implemented");
+    }
+
+    async fn count(&self) -> usize {
+        unimplemented!("`count` is not currently implemented");
+    }
+
+    async fn get_storage_size(&self) -> Result<u64> {
+        unimplemented!("`get_storage_size` is not currently implemented");
     }
 }
