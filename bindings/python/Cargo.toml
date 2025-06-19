@@ -1,7 +1,8 @@
 [package]
 # Refer to `[project]` section in `pyproject.toml` for build artifact details
 name = "simd-r-drive-py"
-edition = "2021"
+edition.version = true # Inherit from workspace
+edition.workspace = true # Inherit from workspace
 publish = false # Python bindings only — do not publish to crates.io
 
 [lib]
@@ -11,4 +12,4 @@ crate-type = ["cdylib"]
 [dependencies]
 memmap2 = "0.9.5"
 pyo3 = { version = "0.25.0", features = ["extension-module"] }
-simd-r-drive = { path = "../..", features = ["expose-internal-api"] }
+simd-r-drive = { workspace = true, features = ["expose-internal-api"] }

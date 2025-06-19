@@ -1,13 +1,30 @@
-[package]
-name = "simd-r-drive"
+[workspace.package]
 authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
-version = "0.6.0-alpha"
-edition = "2021"
-description = "SIMD-optimized append-only schema-less storage engine. Key-based binary storage in a single-file storage container."
+version = "0.6.1-alpha"
+edition = "2024"
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
 categories = ["database-implementations", "data-structures", "filesystem"]
 keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
+publish = true
+
+[package]
+name = "simd-r-drive"
+description = "SIMD-optimized append-only schema-less storage engine. Key-based binary storage in a single-file storage container."
+authors.workspace = true # Inherit from workspace
+edition.workspace = true # Inherit from workspace
+version.workspace = true  # Inherit from workspace
+repository.workspace = true # Inherit from workspace
+license.workspace = true # Inherit from workspace
+categories.workspace = true # Inherit from workspace
+keywords.workspace = true # Inherit from workspace
+publish.workspace = true # Inherit from workspace
+
+[workspace.dependencies]
+# Intra-workspace crates
+simd-r-drive = { path = ".", version = "0.6.1-alpha" }
+simd-r-drive-extensions = { path = "./extensions/simd-r-drive-extensions", version = "0.6.1-alpha" }
+simd-r-drive-py = { path = "./bindings/python", version = "0.6.1-alpha" }
 
 [dependencies]
 crc32fast = "1.4.2"
@@ -30,14 +47,8 @@ tempfile = "3.18.0"
 bincode = "1.3.3"
 serde_json = "1.0.140"
 serial_test = "3.2.0"
-
-[dev-dependencies.serde]
-version = "1.0.219"
-features = ["derive"]
-
-[dev-dependencies.tokio]
-version = "1.44.0"
-features = ["rt-multi-thread", "macros", "time", "sync"]
+serde = { version = "1.0.219", features = ["derive"] }
+tokio = { version = "1.44.0", features = ["rt-multi-thread", "macros", "time", "sync"] }
 
 [[bench]]
 name = "storage_benchmark"
