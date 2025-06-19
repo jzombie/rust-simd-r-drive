@@ -5,7 +5,7 @@ use simd_r_drive::{
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    Read, ReadRequestParams, ReadResponseParams, Write, WriteRequestParams, WriteResponseParams,
+    Read, ReadRequestParams, Write, WriteRequestParams,
 };
 use std::io::{Error, ErrorKind, Result};
 
@@ -22,7 +22,7 @@ impl NetClient {
 }
 
 impl AsyncDataStoreWriter for NetClient {
-    async fn write_stream<R: std::io::Read>(&self, key: &[u8], reader: &mut R) -> Result<u64> {
+    async fn write_stream<R: std::io::Read>(&self, _key: &[u8], _reader: &mut R) -> Result<u64> {
         unimplemented!("`write_stream` is not currently implemented");
     }
 
@@ -40,23 +40,23 @@ impl AsyncDataStoreWriter for NetClient {
             .ok_or_else(|| Error::new(ErrorKind::Other, "no offset returned"))
     }
 
-    async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
+    async fn batch_write(&self, _entries: &[(&[u8], &[u8])]) -> Result<u64> {
         unimplemented!("`batch_write` is not currently implemented");
     }
 
-    async fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
+    async fn rename_entry(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {
         unimplemented!("`rename_entry` is not currently implemented");
     }
 
-    async fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+    async fn copy_entry(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
         unimplemented!("`copy_entry` is not currently implemented");
     }
 
-    async fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+    async fn move_entry(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
         unimplemented!("`move_entry` is not currently implemented");
     }
 
-    async fn delete_entry(&self, key: &[u8]) -> Result<u64> {
+    async fn delete_entry(&self, _key: &[u8]) -> Result<u64> {
         unimplemented!("`delete_entry` is not currently implemented");
     }
 }
@@ -72,7 +72,7 @@ impl AsyncDataStoreReader for NetClient {
         resp.result
     }
 
-    async fn read_metadata(&self, key: &[u8]) -> Option<EntryMetadata> {
+    async fn read_metadata(&self, _key: &[u8]) -> Option<EntryMetadata> {
         unimplemented!("`read_metadata` is not currently implemented");
     }
 
