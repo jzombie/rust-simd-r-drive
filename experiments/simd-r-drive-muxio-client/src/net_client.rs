@@ -5,8 +5,7 @@ use simd_r_drive::{
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchWrite, BatchWriteRequestParams, BatchWriteResponseParams, Read, ReadRequestParams, Write,
-    WriteRequestParams,
+    BatchWrite, BatchWriteRequestParams, Read, ReadRequestParams, Write, WriteRequestParams,
 };
 use std::io::{Error, ErrorKind, Result};
 
