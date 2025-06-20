@@ -61,5 +61,5 @@ jobs:
       # The script handles starting the server, running tests, and cleanup.
       - name: Run Integration Test Script
         run: |
-          chmod +x experiments/bindings/python-ws-client/run_test.sh
-          ./experiments/bindings/python-ws-client/run_test.sh
+          chmod +x experiments/bindings/python-ws-client/integration_test.sh
+          ./experiments/bindings/python-ws-client/integration_test.sh
