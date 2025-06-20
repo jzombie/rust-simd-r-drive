@@ -1,12 +1,12 @@
 [workspace.package]
 authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
-version = "0.6.1-alpha"
+version = "0.7.0-alpha"
 edition = "2024"
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
 categories = ["database-implementations", "data-structures", "filesystem"]
 keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
-publish = true
+publish = false
 
 [package]
 name = "simd-r-drive"
@@ -22,11 +22,13 @@ publish.workspace = true # Inherit from workspace
 
 [workspace.dependencies]
 # Intra-workspace crates
-simd-r-drive = { path = ".", version = "0.6.1-alpha" }
-simd-r-drive-extensions = { path = "./extensions/simd-r-drive-extensions", version = "0.6.1-alpha" }
-simd-r-drive-py = { path = "./bindings/python", version = "0.6.1-alpha" }
+simd-r-drive = { path = ".", version = "0.7.0-alpha" }
+simd-r-drive-extensions = { path = "./extensions/simd-r-drive-extensions", version = "0.7.0-alpha" }
+simd-r-drive-muxio-client = { path = "./experiments/simd-r-drive-muxio-client", version = "0.7.0-alpha" }
+simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.7.0-alpha" }
 
 [dependencies]
+async-trait = "0.1.88"
 crc32fast = "1.4.2"
 env_logger = "0.11.7"
 indoc = "2.0.6"
@@ -62,6 +64,10 @@ expose-internal-api = []
 members = [
     ".",
     "extensions",
-    "bindings/python"
+    "bindings/python",
+    "bindings/python-net-client",
+    "experiments/simd-r-drive-muxio-server",
+    "experiments/simd-r-drive-muxio-client",
+    "experiments/simd-r-drive-muxio-service-definition"
 ]
 resolver = "2"
