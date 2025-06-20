@@ -1,12 +1,12 @@
 [package]
 # Refer to `[project]` section in `pyproject.toml` for build artifact details
-name = "simd-r-drive-net-client-py"
+name = "simd-r-drive-ws-client-py"
 edition.version = true # Inherit from workspace
 edition.workspace = true # Inherit from workspace
 publish = false # Python bindings only — do not publish to crates.io
 
 [lib]
-name = "simd_r_drive_net_client"
+name = "simd_r_drive_ws_client"
 crate-type = ["cdylib"]
 
 [dependencies]

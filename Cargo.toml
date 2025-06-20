@@ -65,7 +65,7 @@ members = [
     ".",
     "extensions",
     "experiments/bindings/python",
-    "experiments/bindings/python-net-client",
+    "experiments/bindings/python-ws-client",
     "experiments/simd-r-drive-ws-server",
     "experiments/simd-r-drive-ws-client",
     "experiments/simd-r-drive-muxio-service-definition"

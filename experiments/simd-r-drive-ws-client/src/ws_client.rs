@@ -9,11 +9,11 @@ use simd_r_drive_muxio_service_definition::prebuffered::{
 };
 use std::io::{Error, ErrorKind, Result};
 
-pub struct NetClient {
+pub struct WsClient {
     rpc_client: RpcClient,
 }
 
-impl NetClient {
+impl WsClient {
     pub async fn new(websocket_address: &str) -> Self {
         let rpc_client = RpcClient::new(&format!("ws://{}/ws", websocket_address)).await;
 
@@ -22,7 +22,7 @@ impl NetClient {
 }
 
 #[async_trait::async_trait]
-impl AsyncDataStoreWriter for NetClient {
+impl AsyncDataStoreWriter for WsClient {
     async fn write_stream<R: std::io::Read>(&self, _key: &[u8], _reader: &mut R) -> Result<u64> {
         unimplemented!("`write_stream` is not currently implemented");
     }
@@ -75,7 +75,7 @@ impl AsyncDataStoreWriter for NetClient {
 }
 
 #[async_trait::async_trait]
-impl AsyncDataStoreReader for NetClient {
+impl AsyncDataStoreReader for WsClient {
     // TODO: This is a workaround until properly implementing a streamable handle
     type EntryHandleType = Vec<u8>;
 
