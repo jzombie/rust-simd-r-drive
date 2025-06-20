@@ -28,7 +28,9 @@ async fn main() -> std::io::Result<()> {
         if e.kind() == ErrorKind::MissingRequiredArgument {
             let mut cmd = Cli::command();
             let full_help = crate::cli::HELP_TEMPLATE.replace("%BINARY_NAME%", cmd.get_name());
-            cmd = cmd.after_help(full_help);
+            cmd = cmd
+                .override_usage("<storage> [OPTIONS]")
+                .after_help(full_help);
             cmd.print_help().unwrap();
             println!();
             std::process::exit(1);
