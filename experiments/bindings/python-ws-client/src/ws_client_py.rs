@@ -7,7 +7,7 @@ use tokio::runtime::{Builder, Runtime};
 
 #[pyclass]
 pub struct DataStoreWsClient {
-    client: Arc<WsClient>,
+    ws_client: Arc<WsClient>,
     runtime: Arc<Runtime>,
 }
 
@@ -24,10 +24,10 @@ impl DataStoreWsClient {
                 })?,
         );
 
-        let client = runtime.block_on(async { WsClient::new(address).await });
+        let ws_client = runtime.block_on(async { WsClient::new(address).await });
 
         Ok(Self {
-            client: Arc::new(client),
+            ws_client: Arc::new(ws_client),
             runtime,
         })
     }
@@ -35,7 +35,7 @@ impl DataStoreWsClient {
     #[pyo3(name = "write")]
     fn py_write(&self, key: Vec<u8>, payload: Vec<u8>) -> PyResult<()> {
         self.runtime.block_on(async {
-            self.client
+            self.ws_client
                 .write(&key, &payload)
                 .await
                 .map_err(|e| PyIOError::new_err(e.to_string()))
@@ -53,7 +53,7 @@ impl DataStoreWsClient {
             .collect();
 
         self.runtime.block_on(async {
-            self.client
+            self.ws_client
                 .batch_write(&converted)
                 .await
                 .map_err(|e| PyIOError::new_err(e.to_string()))
@@ -66,7 +66,7 @@ impl DataStoreWsClient {
     #[pyo3(name = "read")]
     fn py_read(&self, key: Vec<u8>) -> PyResult<Option<PyObject>> {
         self.runtime.block_on(async {
-            match self.client.read(&key).await {
+            match self.ws_client.read(&key).await {
                 Some(bytes) => Python::with_gil(|py| {
                     let py_bytes = PyBytes::new(py, &bytes);
                     Ok(Some(py_bytes.into()))
