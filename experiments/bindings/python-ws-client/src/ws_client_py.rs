@@ -63,6 +63,10 @@ impl DataStoreWsClient {
         })
     }
 
+    // TODO: Consider exposing an alternate form of `EntryHandle` here, like the Rust side.
+    // The caveat is that this approach will still need to be fully read and not work with a streamer.
+    // pyo3-numpy = { version = "...", features = ["tokio"] }
+    // fn py_read_numpy<'py>(&self, py: Python<'py>, key: Vec<u8>) -> PyResult<Option<&'py PyArray<u8, numpy::Ix1>>> {
     #[pyo3(name = "read")]
     fn py_read(&self, key: Vec<u8>) -> PyResult<Option<PyObject>> {
         self.runtime.block_on(async {
