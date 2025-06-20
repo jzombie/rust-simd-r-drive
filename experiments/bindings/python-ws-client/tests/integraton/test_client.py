@@ -2,7 +2,6 @@ import pytest
 from simd_r_drive_ws_client import DataStoreWsClient
 import time
 import os
-import subprocess
 import threading
 import random
 import secrets
@@ -82,6 +81,45 @@ def test_batch_write_and_read(client):
 
     except Exception as e:
         pytest.fail(f"An exception occurred during the batch write test: {e}")
+
+
+def test_large_batch_write(client):
+    """Tests a batch write of four 256KB payloads."""
+    payload_size = 256 * 1024  # 256KB
+    num_payloads = 4
+
+    print(
+        f"\n--- Starting large batch write test with {num_payloads} payloads of size {payload_size} bytes ---"
+    )
+
+    entries = []
+    for i in range(num_payloads):
+        key = f"large-batch-key-{i}".encode("utf-8")
+        value = secrets.token_bytes(payload_size)
+        entries.append((key, value))
+
+    try:
+        print("Attempting to batch write large payloads...")
+        client.batch_write(entries)
+        print("Large batch write operation completed.")
+
+        print("Verifying large batch write by reading each key...")
+        for key, expected_value in entries:
+            read_value = client.read(key)
+            assert (
+                read_value is not None
+            ), f"FAIL: Read returned None for key {key.decode()}"
+            assert (
+                len(read_value) == payload_size
+            ), f"FAIL: Incorrect payload size for key {key.decode()}"
+            assert (
+                read_value == expected_value
+            ), f"FAIL: Data mismatch for key {key.decode()}"
+
+        print("SUCCESS: Large batch write test passed.")
+
+    except Exception as e:
+        pytest.fail(f"An exception occurred during the large batch write test: {e}")
 
 
 def test_concurrent_read_write_stress(client):
