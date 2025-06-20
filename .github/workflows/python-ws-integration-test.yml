@@ -1,0 +1,65 @@
+# This is a GitHub Actions workflow file.
+# It defines a set of automated jobs to run in response to events in your repository.
+# For more information, see: https://docs.github.com/en/actions
+
+name: Rust and Python Integration Test
+
+on:
+  # Triggers the workflow on push or pull request events for the "main" branch,
+  # but only when files in the specified paths have been modified.
+  push:
+    # branches: [main]
+    paths:
+      - "src/**"
+      - "experiments/simd-r-drive-ws-server/**"
+      - "experiments/bindings/python-ws-client/**"
+      - ".github/workflows/integration-test.yml"
+  pull_request:
+    # branches: [main]
+    paths:
+      - "src/**"
+      - "experiments/simd-r-drive-ws-server/**"
+      - "experiments/bindings/python-ws-client/**"
+      - ".github/workflows/integration-test.yml"
+
+jobs:
+  # The "test" job defines a sequence of steps to be executed
+  test:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository code
+      # This action checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up the Rust toolchain
+      # This action installs a specific version of the Rust toolchain.
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      # Step 3: Set up Python
+      # This action sets up a Python environment for use in actions.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Use a Python version compatible with your project
+          python-version: "3.12"
+
+      # Step 4: Install the 'uv' package manager
+      # 'uv' is used for fast Python package management in the test script.
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      # Step 5: Run the integration test script
+      # This step makes the script executable and then runs it.
+      # The script handles starting the server, running tests, and cleanup.
+      - name: Run Integration Test Script
+        run: |
+          chmod +x experiments/bindings/python-ws-client/run_test.sh
+          ./experiments/bindings/python-ws-client/run_test.sh
