@@ -28,7 +28,11 @@ async fn main() -> std::io::Result<()> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
 
-    // Initialize store inside Arc<RwLock> to allow concurrent readers
+    // Wrap the DataStore in a tokio::RwLock to support:
+    // - multiple concurrent readers
+    // - exclusive write access when needed
+    //
+    // This improves read throughput by allowing parallel read-only RPCs.
     let store = Arc::new(RwLock::new(DataStore::open(&store_path).map_err(|e| {
         std::io::Error::new(std::io::ErrorKind::Other, format!("store open failed: {e}"))
     })?));
@@ -48,6 +52,13 @@ async fn main() -> std::io::Result<()> {
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let req = Write::decode_request(&bytes)?;
+
+                        // Acquire exclusive write lock.
+                        //
+                        // This blocks all concurrent readers and writers
+                        // until the mutation is complete.
+                        //
+                        // Tokio's blocking_write ensures the thread isn't stalled.
                         let store = store_mutex.blocking_write();
                         let result = store.write(&req.key, &req.payload);
                         let resp = Write::encode_response(WriteResponseParams {
@@ -69,6 +80,11 @@ async fn main() -> std::io::Result<()> {
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let req = BatchWrite::decode_request(&bytes)?;
+
+                        // Acquire exclusive lock for batch write.
+                        //
+                        // Like Write, this prevents all concurrent access
+                        // while the batch mutation occurs.
                         let store = store_mutex.blocking_write();
                         let borrowed_entries: Vec<(&[u8], &[u8])> = req
                             .entries
@@ -95,6 +111,14 @@ async fn main() -> std::io::Result<()> {
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let req = Read::decode_request(&bytes)?;
+
+                        // Acquire shared read lock.
+                        //
+                        // This allows multiple concurrent readers to access
+                        // the store at the same time *as long as no writer holds the lock*.
+                        //
+                        // We extract the data into memory immediately,
+                        // and then drop the read lock to maximize concurrency.
                         let store = store_mutex.blocking_read();
                         let result_data = store
                             .read(&req.key)
