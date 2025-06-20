@@ -6,7 +6,6 @@ use tokio::sync::RwLock;
 use tokio::task;
 use tracing::info;
 
-use clap::Parser;
 use muxio_rpc_service::prebuffered::RpcMethodPrebuffered;
 use muxio_tokio_rpc_server::{RpcServer, RpcServiceEndpointInterface};
 use simd_r_drive::{
@@ -18,26 +17,10 @@ use simd_r_drive_muxio_service_definition::prebuffered::{
 };
 mod cli;
 use crate::cli::Cli;
-use clap::CommandFactory;
-use clap::error::ErrorKind;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let args = Cli::try_parse().unwrap_or_else(|e| {
-        // If it's a missing argument error, show full help instead of short usage
-        if e.kind() == ErrorKind::MissingRequiredArgument {
-            let mut cmd = Cli::command();
-            let full_help = crate::cli::HELP_TEMPLATE.replace("%BINARY_NAME%", cmd.get_name());
-            cmd = cmd
-                .override_usage("<storage> [OPTIONS]")
-                .after_help(full_help);
-            cmd.print_help().unwrap();
-            println!();
-            std::process::exit(1);
-        } else {
-            e.exit(); // All other errors remain unchanged
-        }
-    });
+    let args = Cli::parse_args();
 
     tracing_subscriber::fmt().with_env_filter("info").init();
 
