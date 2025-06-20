@@ -295,9 +295,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.32"
+version = "4.5.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6088f3ae8c3608d19260cd7445411865a485688711b78b5be70d78cd96136f83"
+checksum = "40b6887a1d8685cebccf115538db5c0efe625ccac9696ad45c409d96566e910f"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -305,9 +305,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.32"
+version = "4.5.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22a7ef7f676155edfb82daa97f99441f3ebf4a58d5e32f295a56259f1b6facc8"
+checksum = "e0c66c08ce9f0c698cbce5c0279d0bb6ac936d8674174fe48f736533b964f59e"
 dependencies = [
  "anstream",
  "anstyle",
@@ -317,9 +317,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.32"
+version = "4.5.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09176aae279615badda0765c0c0b3f6ed53f4709118af73cf4655d85d1530cd7"
+checksum = "d2c7947ae4cc3d851207c1adb5b5e260ff0cca11446b1d6d1423788e442257ce"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -859,8 +859,6 @@ dependencies = [
 [[package]]
 name = "muxio"
 version = "0.4.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c06186472bdf26f93eec615bdc90cd28c8704d92b410fb35f03bfcc92866ce87"
 dependencies = [
  "chrono",
  "once_cell",
@@ -870,8 +868,6 @@ dependencies = [
 [[package]]
 name = "muxio-rpc-service"
 version = "0.4.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "412d96476eebe338f3e6abf7a2c29251af87901c32aeab7da4b7f44b869695c6"
 dependencies = [
  "async-trait",
  "futures",
@@ -883,8 +879,6 @@ dependencies = [
 [[package]]
 name = "muxio-rpc-service-caller"
 version = "0.4.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b935fc1cf3a3bddd5521996154d0a7dc63db66d2b57c948280d934c99ab3f68"
 dependencies = [
  "async-trait",
  "futures",
@@ -896,8 +890,6 @@ dependencies = [
 [[package]]
 name = "muxio-rpc-service-endpoint"
 version = "0.4.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b31629b97adddfb5b922ffa338c09e2808e5c643778f17f8c3fc70267873ed1b"
 dependencies = [
  "async-trait",
  "futures",
@@ -911,8 +903,6 @@ dependencies = [
 [[package]]
 name = "muxio-tokio-rpc-client"
 version = "0.4.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b95728d66c75fa381c236bb4466fab3e51db221a782161c96d33552bec616b41"
 dependencies = [
  "async-trait",
  "bytes",
@@ -928,8 +918,6 @@ dependencies = [
 [[package]]
 name = "muxio-tokio-rpc-server"
 version = "0.4.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7a90009d5e2f5c53421d771ecc88ec30f86987f3ec02e35c4d2b3fd09aafe12"
 dependencies = [
  "async-trait",
  "axum",
@@ -1480,11 +1468,14 @@ dependencies = [
 name = "simd-r-drive-muxio-server"
 version = "0.7.0-alpha"
 dependencies = [
+ "clap",
+ "indoc",
  "muxio-rpc-service",
  "muxio-tokio-rpc-server",
  "simd-r-drive",
  "simd-r-drive-muxio-service-definition",
  "tokio",
+ "tracing",
  "tracing-subscriber",
 ]
 
