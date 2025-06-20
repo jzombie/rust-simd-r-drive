@@ -39,7 +39,7 @@ impl DataStoreWsClient {
                 .write(&key, &payload)
                 .await
                 .map_err(|e| PyIOError::new_err(e.to_string()))
-                // FIX: Add this map call to discard the u64 success value
+                // Add this map call to discard the u64 success value
                 // and return the unit type `()` instead.
                 .map(|_bytes_written| ())
         })
@@ -57,7 +57,7 @@ impl DataStoreWsClient {
                 .batch_write(&converted)
                 .await
                 .map_err(|e| PyIOError::new_err(e.to_string()))
-                // FIX: Add this map call to discard the u64 success value
+                // Add this map call to discard the u64 success value
                 // and return the unit type `()` instead.
                 .map(|_bytes_written| ())
         })
