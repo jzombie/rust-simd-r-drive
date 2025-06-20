@@ -64,8 +64,8 @@ expose-internal-api = []
 members = [
     ".",
     "extensions",
-    "bindings/python",
-    "bindings/python-net-client",
+    "experiments/bindings/python",
+    "experiments/bindings/python-net-client",
     "experiments/simd-r-drive-muxio-server",
     "experiments/simd-r-drive-muxio-client",
     "experiments/simd-r-drive-muxio-service-definition"
