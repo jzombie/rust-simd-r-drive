@@ -66,6 +66,6 @@ jobs:
       # We specify 'bash' as the shell to ensure compatibility on Windows.
       - name: Run Integration Test Script
         run: |
-          chmod +x experiments/bindings/python-ws-client/run_test.sh
-          ./experiments/bindings/python-ws-client/run_test.sh
+          chmod +x experiments/bindings/python-ws-client/integration_test.sh
+          ./experiments/bindings/python-ws-client/integration_test.sh
         shell: bash
