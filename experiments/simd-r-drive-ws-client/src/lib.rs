@@ -1,4 +1,4 @@
-mod net_client;
-pub use net_client::*;
+mod ws_client;
+pub use ws_client::*;
 
 pub use simd_r_drive::traits::{AsyncDataStoreReader, AsyncDataStoreWriter};

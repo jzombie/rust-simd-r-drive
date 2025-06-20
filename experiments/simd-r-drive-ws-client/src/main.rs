@@ -1,4 +1,4 @@
-use simd_r_drive_muxio_client::{AsyncDataStoreReader, AsyncDataStoreWriter, NetClient};
+use simd_r_drive_ws_client::{AsyncDataStoreReader, AsyncDataStoreWriter, WsClient};
 use std::io::{Error, ErrorKind};
 
 #[tokio::main]
@@ -6,14 +6,14 @@ async fn main() -> std::io::Result<()> {
     let addr = "127.0.0.1:34129";
 
     // Use the actual bound address for the client
-    let net_client = NetClient::new(addr).await;
+    let ws_client = WsClient::new(addr).await;
 
-    net_client
+    ws_client
         .write(b"hello", b"Hello world!")
         .await
         .map_err(|e| Error::new(ErrorKind::Other, e))?;
 
-    let read_result = net_client.read(b"hello").await;
+    let read_result = ws_client.read(b"hello").await;
 
     if let Some(bytes) = read_result {
         println!("Response: {:?}", std::str::from_utf8(&bytes));

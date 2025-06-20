@@ -283,7 +283,7 @@ wheels = [
 ]
 
 [[package]]
-name = "simd-r-drive-net-client-py"
+name = "simd-r-drive-ws-client-py"
 version = "0.7.0a0"
 source = { editable = "." }
 

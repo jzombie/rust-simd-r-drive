@@ -1463,7 +1463,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "simd-r-drive-muxio-client"
+name = "simd-r-drive-muxio-service-definition"
+version = "0.7.0-alpha"
+dependencies = [
+ "bitcode",
+ "muxio-rpc-service",
+]
+
+[[package]]
+name = "simd-r-drive-py"
+version = "0.0.0"
+dependencies = [
+ "memmap2",
+ "pyo3",
+ "simd-r-drive",
+]
+
+[[package]]
+name = "simd-r-drive-ws-client"
 version = "0.7.0-alpha"
 dependencies = [
  "async-trait",
@@ -1477,7 +1494,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "simd-r-drive-muxio-server"
+name = "simd-r-drive-ws-client-py"
+version = "0.0.0"
+dependencies = [
+ "memmap2",
+ "pyo3",
+ "pyo3-async-runtimes",
+ "simd-r-drive",
+ "simd-r-drive-ws-client",
+ "tokio",
+]
+
+[[package]]
+name = "simd-r-drive-ws-server"
 version = "0.7.0-alpha"
 dependencies = [
  "clap",
@@ -1489,35 +1518,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "simd-r-drive-muxio-service-definition"
-version = "0.7.0-alpha"
-dependencies = [
- "bitcode",
- "muxio-rpc-service",
-]
-
-[[package]]
-name = "simd-r-drive-net-client-py"
-version = "0.0.0"
-dependencies = [
- "memmap2",
- "pyo3",
- "pyo3-async-runtimes",
- "simd-r-drive",
- "simd-r-drive-muxio-client",
- "tokio",
-]
-
-[[package]]
-name = "simd-r-drive-py"
-version = "0.0.0"
-dependencies = [
- "memmap2",
- "pyo3",
- "simd-r-drive",
 ]
 
 [[package]]

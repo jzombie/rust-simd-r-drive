@@ -1,19 +1,18 @@
 use pyo3::exceptions::PyIOError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-// use pyo3_async_runtimes::tokio::future_into_py;  // No longer needed
-use simd_r_drive_muxio_client::{AsyncDataStoreReader, AsyncDataStoreWriter, NetClient};
+use simd_r_drive_ws_client::{AsyncDataStoreReader, AsyncDataStoreWriter, WsClient};
 use std::sync::Arc;
 use tokio::runtime::{Builder, Runtime};
 
 #[pyclass]
-pub struct DataStoreNetClient {
-    client: Arc<NetClient>,
+pub struct DataStoreWsClient {
+    client: Arc<WsClient>,
     runtime: Arc<Runtime>,
 }
 
 #[pymethods]
-impl DataStoreNetClient {
+impl DataStoreWsClient {
     #[new]
     fn new(_py: Python<'_>, address: &str) -> PyResult<Self> {
         let runtime = Arc::new(
@@ -25,7 +24,7 @@ impl DataStoreNetClient {
                 })?,
         );
 
-        let client = runtime.block_on(async { NetClient::new(address).await });
+        let client = runtime.block_on(async { WsClient::new(address).await });
 
         Ok(Self {
             client: Arc::new(client),

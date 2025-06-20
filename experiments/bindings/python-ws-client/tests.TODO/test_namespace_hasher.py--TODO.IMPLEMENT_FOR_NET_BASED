@@ -40,7 +40,9 @@ def test_namespace_hashing_consistency():
     namespaced1 = hasher.namespace(key)
     namespaced2 = hasher.namespace(key)
 
-    assert namespaced1 == namespaced2, "Same key and namespace must produce consistent result"
+    assert (
+        namespaced1 == namespaced2
+    ), "Same key and namespace must produce consistent result"
 
 
 def test_namespace_hashing_allows_collision_avoidance():
