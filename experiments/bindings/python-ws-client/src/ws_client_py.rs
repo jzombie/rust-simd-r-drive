@@ -63,7 +63,6 @@ impl DataStoreWsClient {
         })
     }
 
-    // The read function is correct from the previous step.
     #[pyo3(name = "read")]
     fn py_read(&self, key: Vec<u8>) -> PyResult<Option<PyObject>> {
         self.runtime.block_on(async {
