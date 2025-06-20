@@ -18,7 +18,7 @@ use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchWrite, BatchWriteResponseParams, Read, ReadResponseParams, Write, WriteResponseParams,
 };
 
-// TODO: Add ability to set write buffer and flush (should this go inside of SIMD R Drive directly?)
+// TODO: Add ability to set write buffer and flush (should this go inside of SIMD R Drive directly? Allow the buffer to be queryable?)
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     tracing_subscriber::fmt().with_env_filter("info").init();
