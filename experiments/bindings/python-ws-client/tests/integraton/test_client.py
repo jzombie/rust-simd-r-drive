@@ -2,6 +2,7 @@ import pytest
 from simd_r_drive_ws_client import DataStoreWsClient
 import time
 import os
+import subprocess
 import threading
 import random
 import secrets
@@ -86,6 +87,7 @@ def test_batch_write_and_read(client):
 def test_concurrent_read_write_stress(client):
     """
     Stress test with multiple threads performing concurrent reads and writes.
+    Each thread creates its own client connection.
     """
     NUM_THREADS = 8
     OPERATIONS_PER_THREAD = 50
@@ -100,7 +102,10 @@ def test_concurrent_read_write_stress(client):
 
     def worker(thread_id):
         """The function each thread will execute."""
+        # Each worker creates its own client connection to simulate concurrent users.
+        local_client = None
         try:
+            local_client = DataStoreWsClient(SERVER_ADDR)
             for i in range(OPERATIONS_PER_THREAD):
                 # Randomly choose between writing and reading
                 if (
@@ -110,8 +115,8 @@ def test_concurrent_read_write_stress(client):
                     key = f"{KEY_PREFIX}-thread{thread_id}-op{i}".encode("utf-8")
                     value = secrets.token_bytes(32)  # Generate 32 random bytes
 
-                    # Write to the server
-                    client.write(key, value)
+                    # Write to the server using the thread's local client
+                    local_client.write(key, value)
 
                     # Store the written key-value pair in the shared dictionary
                     with lock:
@@ -124,8 +129,8 @@ def test_concurrent_read_write_stress(client):
                             list(written_data.items())
                         )
 
-                    # Read from the server and verify
-                    read_value = client.read(random_key)
+                    # Read from the server and verify using the local client
+                    read_value = local_client.read(random_key)
 
                     assert (
                         read_value is not None
@@ -155,7 +160,7 @@ def test_concurrent_read_write_stress(client):
     if errors:
         pytest.fail(f"Test failed due to exceptions in worker threads: {errors}")
 
-    # Final verification: read all keys and check their values
+    # Final verification: read all keys using the main test client and check their values
     with lock:
         items_to_verify = list(written_data.items())
 
