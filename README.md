@@ -225,7 +225,7 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 ## Python Language Bindings
 
-[Experimental Python bindings](./bindings/python) are available for integrating with Python applications.
+[Experimental Python bindings](./experiments/bindings/python) are available for integrating with Python applications.
 
 These bindings expose high-performance, zero-copy access to `SIMD R Drive` from Python using [PyO3](https://github.com/PyO3/pyo3) and [maturin](https://github.com/PyO3/maturin).
 

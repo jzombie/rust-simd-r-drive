@@ -220,4 +220,4 @@ pip install dist/simd_r_drive_py-*.whl
 
 ## License
 
-Licensed under the [Apache-2.0 License](https://github.com/jzombie/rust-simd-r-drive/blob/main/bindings/python/LICENSE).
+Licensed under the [Apache-2.0 License](https://github.com/jzombie/rust-simd-r-drive/blob/main/experiments/bindings/python/LICENSE).
