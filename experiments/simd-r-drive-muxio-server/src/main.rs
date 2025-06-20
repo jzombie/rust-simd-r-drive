@@ -1,9 +1,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
-// Use a standard, blocking Mutex, as it will be used in blocking tasks.
-use std::sync::Mutex;
 use tokio::join;
 use tokio::net::TcpListener;
+use tokio::sync::RwLock;
 use tokio::task;
 use tracing::info;
 
@@ -18,24 +17,26 @@ use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchWrite, BatchWriteResponseParams, Read, ReadResponseParams, Write, WriteResponseParams,
 };
 
-// TODO: Add ability to set write buffer and flush (should this go inside of SIMD R Drive directly? Allow the buffer to be queryable?)
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     tracing_subscriber::fmt().with_env_filter("info").init();
 
     // TODO: Do not hardcode
-    // 1. Initialize the DataStore ONLY ONCE at startup.
     let store_path = PathBuf::from(
-        "/Users/jeremy/Projects/rust-sec-fetcher/python/narrative_stack/data/proto3.bin",
+        "/Users/jeremy/Projects/rust-sec-fetcher/python/narrative_stack/data/stable.proto3.bin",
     );
-    let store = Arc::new(Mutex::new(DataStore::open(&store_path).unwrap()));
-    info!("MAIN: DataStore opened and wrapped in Arc<Mutex>.");
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let addr = listener.local_addr()?;
+
+    // Initialize store inside Arc<RwLock> to allow concurrent readers
+    let store = Arc::new(RwLock::new(DataStore::open(&store_path).map_err(|e| {
+        std::io::Error::new(std::io::ErrorKind::Other, format!("store open failed: {e}"))
+    })?));
+    info!("MAIN: DataStore opened and wrapped in Arc<RwLock>.");
 
     let rpc_server = RpcServer::new();
     let endpoint = rpc_server.endpoint();
 
-    // 2. THE FIX: Clone the Arc for each handler BEFORE the `join!` macro.
-    // This gives each handler a shared pointer to the same store without moving ownership.
     let write_store = Arc::clone(&store);
     let batch_write_store = Arc::clone(&store);
     let read_store = Arc::clone(&store);
@@ -43,78 +44,76 @@ async fn main() -> std::io::Result<()> {
     let _ = join!(
         endpoint.register_prebuffered(Write::METHOD_ID, {
             move |_, bytes: Vec<u8>| {
-                // The moved `write_store` is cloned again for the async block.
                 let store_mutex = Arc::clone(&write_store);
                 async move {
-                    task::spawn_blocking(
-                        move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-                            let req = Write::decode_request(&bytes)?;
-                            let store = store_mutex.lock().unwrap();
-                            let result = store.write(&req.key, &req.payload);
-                            let resp = Write::encode_response(WriteResponseParams {
-                                result: result.ok(),
-                            })?;
-                            Ok(resp)
-                        },
-                    )
+                    let resp = task::spawn_blocking(move || {
+                        let req = Write::decode_request(&bytes)?;
+                        let store = store_mutex.blocking_write();
+                        let result = store.write(&req.key, &req.payload);
+                        let resp = Write::encode_response(WriteResponseParams {
+                            result: result.ok(),
+                        })?;
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
+                    })
                     .await
-                    .unwrap()
+                    .map_err(|e| {
+                        std::io::Error::new(std::io::ErrorKind::Other, format!("write task: {e}"))
+                    })??;
+                    Ok(resp)
                 }
             }
         }),
         endpoint.register_prebuffered(BatchWrite::METHOD_ID, {
             move |_, bytes: Vec<u8>| {
-                // The moved `batch_write_store` is cloned for the async block.
                 let store_mutex = Arc::clone(&batch_write_store);
                 async move {
-                    task::spawn_blocking(
-                        move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-                            let req = BatchWrite::decode_request(&bytes)?;
-                            let store = store_mutex.lock().unwrap();
-                            let borrowed_entries: Vec<(&[u8], &[u8])> = req
-                                .entries
-                                .iter()
-                                .map(|(k, v)| (k.as_slice(), v.as_slice()))
-                                .collect();
-                            let result = store.batch_write(&borrowed_entries);
-                            let resp = BatchWrite::encode_response(BatchWriteResponseParams {
-                                result: result.ok(),
-                            })?;
-                            Ok(resp)
-                        },
-                    )
+                    let resp = task::spawn_blocking(move || {
+                        let req = BatchWrite::decode_request(&bytes)?;
+                        let store = store_mutex.blocking_write();
+                        let borrowed_entries: Vec<(&[u8], &[u8])> = req
+                            .entries
+                            .iter()
+                            .map(|(k, v)| (k.as_slice(), v.as_slice()))
+                            .collect();
+                        let result = store.batch_write(&borrowed_entries);
+                        let resp = BatchWrite::encode_response(BatchWriteResponseParams {
+                            result: result.ok(),
+                        })?;
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
+                    })
                     .await
-                    .unwrap()
+                    .map_err(|e| {
+                        std::io::Error::new(std::io::ErrorKind::Other, format!("batch task: {e}"))
+                    })??;
+                    Ok(resp)
                 }
             }
         }),
         endpoint.register_prebuffered(Read::METHOD_ID, {
             move |_, bytes: Vec<u8>| {
-                // The moved `read_store` is cloned for the async block.
                 let store_mutex = Arc::clone(&read_store);
                 async move {
-                    task::spawn_blocking(
-                        move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-                            let req = Read::decode_request(&bytes)?;
-                            let store = store_mutex.lock().unwrap();
-                            let result_data = store
-                                .read(&req.key)
-                                .map(|handle| handle.as_slice().to_vec());
-                            let resp = Read::encode_response(ReadResponseParams {
-                                result: result_data,
-                            })?;
-                            Ok(resp)
-                        },
-                    )
+                    let resp = task::spawn_blocking(move || {
+                        let req = Read::decode_request(&bytes)?;
+                        let store = store_mutex.blocking_read();
+                        let result_data = store
+                            .read(&req.key)
+                            .map(|handle| handle.as_slice().to_vec());
+                        let resp = Read::encode_response(ReadResponseParams {
+                            result: result_data,
+                        })?;
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
+                    })
                     .await
-                    .unwrap()
+                    .map_err(|e| {
+                        std::io::Error::new(std::io::ErrorKind::Other, format!("read task: {e}"))
+                    })??;
+                    Ok(resp)
                 }
             }
         }),
     );
 
-    let listener = TcpListener::bind("127.0.0.1:0").await?;
-    let addr = listener.local_addr()?;
     info!(address = %addr, "MAIN: RPC Server listening.");
 
     Arc::new(rpc_server)
