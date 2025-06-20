@@ -24,7 +24,7 @@ publish.workspace = true # Inherit from workspace
 # Intra-workspace crates
 simd-r-drive = { path = ".", version = "0.7.0-alpha" }
 simd-r-drive-extensions = { path = "./extensions/simd-r-drive-extensions", version = "0.7.0-alpha" }
-simd-r-drive-muxio-client = { path = "./experiments/simd-r-drive-muxio-client", version = "0.7.0-alpha" }
+simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.7.0-alpha" }
 simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.7.0-alpha" }
 
 [dependencies]
@@ -66,8 +66,8 @@ members = [
     "extensions",
     "experiments/bindings/python",
     "experiments/bindings/python-net-client",
-    "experiments/simd-r-drive-muxio-server",
-    "experiments/simd-r-drive-muxio-client",
+    "experiments/simd-r-drive-ws-server",
+    "experiments/simd-r-drive-ws-client",
     "experiments/simd-r-drive-muxio-service-definition"
 ]
 resolver = "2"

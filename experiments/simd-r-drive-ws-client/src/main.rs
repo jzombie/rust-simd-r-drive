@@ -1,4 +1,4 @@
-use simd_r_drive_muxio_client::{AsyncDataStoreReader, AsyncDataStoreWriter, NetClient};
+use simd_r_drive_ws_client::{AsyncDataStoreReader, AsyncDataStoreWriter, NetClient};
 use std::io::{Error, ErrorKind};
 
 #[tokio::main]
