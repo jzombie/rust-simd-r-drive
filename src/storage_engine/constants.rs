@@ -15,7 +15,7 @@ pub const WRITE_STREAM_BUFFER_SIZE: usize = 64 * 1024; // 64 KB chunks
 //  ──────────────────────────────────────────────────────────────────────────
 //  Buffered-write soft-limit
 //
-//  The `WriteBuffer` keeps recent `buf_write()` payloads in RAM and ships them
+//  The `WriteBuffer` keeps recent `stage_write()` payloads in RAM and ships them
 //  to disk in one go once the *aggregate* size passes a threshold.  The
 //  `DEFAULT_WRITE_BUF_LIMIT`constant encodes that **soft limit**:
 //

@@ -5,7 +5,7 @@ use crate::storage_engine::digest::{
 use crate::storage_engine::simd_copy;
 use crate::storage_engine::write_buffer::{KeyHash, WriteBuffer};
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
-use crate::traits::{DataStoreBufWriter, DataStoreReader, DataStoreWriter};
+use crate::traits::{DataStoreReader, DataStoreStageWriter, DataStoreWriter};
 use crate::utils::verify_file_existence;
 use log::{debug, info, warn};
 use memmap2::Mmap;
@@ -60,30 +60,22 @@ impl From<PathBuf> for DataStore {
     }
 }
 
-impl DataStoreBufWriter for DataStore {
+impl DataStoreStageWriter for DataStore {
     // TODO: Document
-    fn buf_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
+    fn stage_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
         if payload.is_empty() {
             return Err(Error::new(ErrorKind::InvalidInput, "empty payload"));
         }
 
-        // 1. hash once – same as normal writes
         let hash = compute_hash(key);
 
-        // 2. copy payload into the buffer
         let should_flush = self.write_buffer.insert(hash, payload.to_vec());
 
-        // 3. auto-flush when soft limit reached
-        if should_flush {
-            self.buf_write_flush()?;
-            return Ok(true);
-        }
-
-        Ok(false)
+        Ok(should_flush)
     }
 
     // TODO: Document
-    fn buf_write_flush(&self) -> Result<u64> {
+    fn stage_write_flush(&self) -> Result<u64> {
         // Nothing to do?
         if self.write_buffer.is_empty() {
             return Ok(self.tail_offset.load(Ordering::Acquire));

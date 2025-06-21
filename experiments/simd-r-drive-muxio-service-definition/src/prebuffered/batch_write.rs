@@ -9,7 +9,7 @@ pub struct BatchWriteRequestParams {
 
 #[derive(Encode, Decode, PartialEq, Debug)]
 pub struct BatchWriteResponseParams {
-    pub result: Option<u64>,
+    pub result: Option<u64>, // TODO: Convert to u64 (w/o `Option` wrap)?
 }
 
 pub struct BatchWrite;
