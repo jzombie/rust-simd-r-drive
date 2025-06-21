@@ -23,7 +23,12 @@ use std::path::{Path, PathBuf};
 // - Lock contention has not yet been identified as a bottleneck, so there's no
 //   strong reason to introduce async synchronization primitives.
 // This decision may be revisited if future profiling shows tangible benefits.
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{
+    Arc,
+    Mutex,
+    // TODO: Investigate using `parking_lot::RwLock;`
+    RwLock,
+};
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
