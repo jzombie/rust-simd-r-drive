@@ -3,8 +3,9 @@ use crate::storage_engine::digest::{
     Xxh3BuildHasher, compute_checksum, compute_hash, compute_hash_batch,
 };
 use crate::storage_engine::simd_copy;
+use crate::storage_engine::stage_writer_buffer::{KeyHash, StageWriterBuffer};
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
-use crate::traits::{DataStoreReader, DataStoreWriter};
+use crate::traits::{DataStoreReader, DataStoreStageWriter, DataStoreWriter};
 use crate::utils::verify_file_existence;
 use log::{debug, info, warn};
 use memmap2::Mmap;
@@ -23,7 +24,12 @@ use std::path::{Path, PathBuf};
 // - Lock contention has not yet been identified as a bottleneck, so there's no
 //   strong reason to introduce async synchronization primitives.
 // This decision may be revisited if future profiling shows tangible benefits.
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{
+    Arc,
+    Mutex,
+    // TODO: Investigate using `parking_lot::RwLock;`
+    RwLock,
+};
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -34,6 +40,7 @@ pub struct DataStore {
     tail_offset: AtomicU64,
     key_indexer: Arc<RwLock<KeyIndexer>>,
     path: PathBuf,
+    write_buffer: Arc<StageWriterBuffer>,
 }
 
 impl IntoIterator for DataStore {
@@ -54,6 +61,38 @@ impl From<PathBuf> for DataStore {
     /// - If the file cannot be opened or mapped into memory.
     fn from(path: PathBuf) -> Self {
         DataStore::open(&path).expect("Failed to open storage file")
+    }
+}
+
+impl DataStoreStageWriter for DataStore {
+    // TODO: Document
+    fn stage_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
+        if payload.is_empty() {
+            return Err(Error::new(ErrorKind::InvalidInput, "empty payload"));
+        }
+
+        let hash = compute_hash(key);
+
+        let should_flush = self.write_buffer.insert(hash, payload.to_vec());
+
+        Ok(should_flush)
+    }
+
+    // TODO: Document
+    fn stage_write_flush(&self) -> Result<u64> {
+        // Nothing to do?
+        if self.write_buffer.is_empty() {
+            return Ok(self.tail_offset.load(Ordering::Acquire));
+        }
+
+        // Drain clones the Vec<u8>s out; we immediately reuse their slices.
+        let drained = self.write_buffer.drain();
+
+        let hashed: Vec<(KeyHash, &[u8])> =
+            drained.iter().map(|(h, v)| (*h, v.as_slice())).collect();
+
+        // Re-use the existing, crash-safe batch writer.
+        self.batch_write_hashed_payloads(hashed, false)
     }
 }
 
@@ -430,6 +469,7 @@ impl DataStore {
             tail_offset: final_len.into(),
             key_indexer: Arc::new(RwLock::new(key_indexer)),
             path: path.to_path_buf(),
+            write_buffer: StageWriterBuffer::new(DEFAULT_WRITE_BUF_LIMIT),
         })
     }
 

@@ -25,3 +25,6 @@ mod simd_copy;
 use simd_copy::*;
 
 pub mod traits;
+
+mod stage_writer_buffer;
+pub use stage_writer_buffer::*;

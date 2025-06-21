@@ -3,29 +3,29 @@ use muxio_rpc_service::{prebuffered::RpcMethodPrebuffered, rpc_method_id};
 use std::io;
 
 #[derive(Encode, Decode, PartialEq, Debug)]
-pub struct BatchWriteRequestParams {
-    pub entries: Vec<(Vec<u8>, Vec<u8>)>,
-}
+pub struct StageWriteFlushRequestParams {}
 
 #[derive(Encode, Decode, PartialEq, Debug)]
-pub struct BatchWriteResponseParams {
-    pub result: Option<u64>, // TODO: Convert to u64 (w/o `Option` wrap)?; TODO: Rename `result`
+pub struct StageWriteFlushResponseParams {
+    pub result: u64, // TODO: Rename `result`
 }
 
-pub struct BatchWrite;
+pub struct StageWriteFlush;
 
-impl RpcMethodPrebuffered for BatchWrite {
-    const METHOD_ID: u64 = rpc_method_id!("batch_write");
+impl RpcMethodPrebuffered for StageWriteFlush {
+    const METHOD_ID: u64 = rpc_method_id!("stage_write_flush");
 
-    type Input = BatchWriteRequestParams;
-    type Output = BatchWriteResponseParams;
+    type Input = StageWriteFlushRequestParams;
+    type Output = StageWriteFlushResponseParams;
 
-    fn encode_request(write_request_params: BatchWriteRequestParams) -> Result<Vec<u8>, io::Error> {
+    fn encode_request(
+        write_request_params: StageWriteFlushRequestParams,
+    ) -> Result<Vec<u8>, io::Error> {
         Ok(bitcode::encode(&write_request_params))
     }
 
     fn decode_request(bytes: &[u8]) -> Result<Self::Input, io::Error> {
-        let req_params = bitcode::decode::<BatchWriteRequestParams>(bytes)
+        let req_params = bitcode::decode::<StageWriteFlushRequestParams>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         Ok(req_params)
@@ -36,7 +36,7 @@ impl RpcMethodPrebuffered for BatchWrite {
     }
 
     fn decode_response(bytes: &[u8]) -> Result<Self::Output, io::Error> {
-        let resp_params = bitcode::decode::<BatchWriteResponseParams>(bytes)
+        let resp_params = bitcode::decode::<StageWriteFlushResponseParams>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         Ok(resp_params)

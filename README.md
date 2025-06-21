@@ -2,7 +2,7 @@
 
 **Work in progress.**
 
-`SIMD R Drive` is a high-performance storage engine using a single-file storage container optimized for zero-copy binary access.
+`SIMD R Drive` is a high-performance, thread-safe storage engine using a single-file storage container optimized for zero-copy binary access.
 
 Can be used as a command line interface (CLI) app, or as a library in another application. Continuously tested on Mac, Linux, and Windows.
 

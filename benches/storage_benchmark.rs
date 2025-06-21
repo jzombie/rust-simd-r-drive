@@ -1,16 +1,17 @@
 //! Single-process micro-benchmarks for the SIMD-R-Drive append-only
 //! engine.  It writes 1 M entries, then exercises sequential, random
-//! and *vectorised* (`batch_read`) lookup paths.
+//! and *vectorized* (`batch_read`) lookup paths.
 
 use rand::{Rng, rng}; // `rng()` & `random_range` are the new, non-deprecated names
 use simd_r_drive::{
     DataStore,
-    traits::{DataStoreReader, DataStoreWriter},
+    traits::{DataStoreReader, DataStoreStageWriter, DataStoreWriter},
 };
 use std::fs::remove_file;
 use std::path::PathBuf;
 use std::time::Instant;
 use tempfile::NamedTempFile;
+use thousands::Separable;
 
 // ---------------------------------------------------------------------------
 // Tunables
@@ -37,6 +38,7 @@ fn main() {
     benchmark_sequential_reads(&path);
     benchmark_random_reads(&path);
     benchmark_batch_reads(&path);
+    benchmark_buffered_writes(&path);
     println!("✅ Benchmarks completed.");
 
     // clean-up (NamedTempFile deletes on drop, but this keeps `cargo bench`
@@ -45,7 +47,7 @@ fn main() {
 }
 
 // ---------------------------------------------------------------------------
-// 1 ─ Write 1 M entries (batched)
+// Write 1 M entries (batched)
 // ---------------------------------------------------------------------------
 
 fn benchmark_append_entries(path: &PathBuf) {
@@ -74,9 +76,10 @@ fn benchmark_append_entries(path: &PathBuf) {
 
     let dt = start_time.elapsed();
     println!(
-        "Wrote {NUM_ENTRIES} entries of {ENTRY_SIZE} bytes in {:#.3}s ({:#.3} writes/s)",
+        "Wrote {} entries of {ENTRY_SIZE} bytes in {}s ({} writes/s)",
+        fmt_rate(NUM_ENTRIES as f64),
         dt.as_secs_f64(),
-        NUM_ENTRIES as f64 / dt.as_secs_f64()
+        fmt_rate(NUM_ENTRIES as f64 / dt.as_secs_f64())
     );
 }
 
@@ -90,7 +93,7 @@ fn flush_batch(storage: &DataStore, batch: &mut Vec<(Vec<u8>, Vec<u8>)>) {
 }
 
 // ---------------------------------------------------------------------------
-// 2 ─ Sequential iteration (zero-copy)
+// Sequential iteration (zero-copy)
 // ---------------------------------------------------------------------------
 
 fn benchmark_sequential_reads(path: &PathBuf) {
@@ -108,14 +111,15 @@ fn benchmark_sequential_reads(path: &PathBuf) {
 
     let dt = start_time.elapsed();
     println!(
-        "Sequentially read {count} entries in {:#.3}s ({:#.3} reads/s)",
+        "Sequentially read {} entries in {:#.3}s ({} reads/s)",
+        fmt_rate(count as f64),
         dt.as_secs_f64(),
-        count as f64 / dt.as_secs_f64()
+        fmt_rate(count as f64 / dt.as_secs_f64())
     );
 }
 
 // ---------------------------------------------------------------------------
-// 3 ─ Random single-key look-ups
+// Random single-key look-ups
 // ---------------------------------------------------------------------------
 
 fn benchmark_random_reads(path: &PathBuf) {
@@ -137,14 +141,15 @@ fn benchmark_random_reads(path: &PathBuf) {
 
     let dt = start_time.elapsed();
     println!(
-        "Randomly read {NUM_RANDOM_CHECKS} entries in {:#.3}s ({:#.3} reads/s)",
+        "Randomly read {} entries in {:#.3}s ({} reads/s)",
+        fmt_rate(NUM_RANDOM_CHECKS as f64),
         dt.as_secs_f64(),
-        NUM_RANDOM_CHECKS as f64 / dt.as_secs_f64()
+        fmt_rate(NUM_RANDOM_CHECKS as f64 / dt.as_secs_f64())
     );
 }
 
 // ---------------------------------------------------------------------------
-// 4 ─ Vectorised look-ups (batch_read)
+// Vectorized look-ups (batch_read)
 // ---------------------------------------------------------------------------
 
 fn benchmark_batch_reads(path: &PathBuf) {
@@ -168,9 +173,42 @@ fn benchmark_batch_reads(path: &PathBuf) {
 
     let dt = start_time.elapsed();
     println!(
-        "Batch-read verified {verified} entries in {:#.3}s ({:#.3} reads/s)",
+        "Batch-read verified {} entries in {:#.3}s ({} reads/s)",
+        fmt_rate(verified as f64),
         dt.as_secs_f64(),
-        verified as f64 / dt.as_secs_f64()
+        fmt_rate(verified as f64 / dt.as_secs_f64())
+    );
+}
+
+fn benchmark_buffered_writes(path: &PathBuf) {
+    let storage = DataStore::open(path).expect("open");
+
+    let start_time = Instant::now();
+    let mut auto_flushes = 0u32;
+
+    for i in 0..NUM_ENTRIES {
+        let key = format!("buf-key-{i}").into_bytes();
+
+        let mut val = vec![0u8; ENTRY_SIZE];
+        let bytes = i.to_le_bytes();
+        val[..bytes.len().min(ENTRY_SIZE)].copy_from_slice(&bytes[..bytes.len().min(ENTRY_SIZE)]);
+
+        // Each insert returns `true` *iff* the soft-limit was reached
+        // and the buffer has just been flushed to disk.
+        if storage.stage_write(&key, &val).expect("stage_write") {
+            auto_flushes += 1;
+        }
+    }
+
+    // Make sure the tail of the buffer (if any) hits the file.
+    storage.stage_write_flush().expect("final flush");
+
+    let dt = start_time.elapsed();
+    println!(
+        "Buffered-write: wrote {} entries in {:#.3}s ({} writes/s, {auto_flushes} auto-flushes)",
+        fmt_rate(NUM_ENTRIES as f64),
+        dt.as_secs_f64(),
+        fmt_rate(NUM_ENTRIES as f64 / dt.as_secs_f64()),
     );
 }
 
@@ -193,4 +231,35 @@ fn verify_batch(storage: &DataStore, keys_buf: &mut Vec<Vec<u8>>) -> usize {
     let n = keys_buf.len();
     keys_buf.clear();
     n
+}
+
+/// Format a positive rate (reads/s or writes/s) with
+///   * thousands-separated integral part
+///   * exactly three decimals
+///
+/// 4_741_483.464 → "4,741,483.464"
+///        987.0  → "987.000"
+/// Format a positive rate (reads/s or writes/s) with
+///   * thousands-separated integral part
+///   * exactly three decimals
+///
+/// 4_741_483.464 → "4,741,483.464"
+///        987.0  → "987.000"
+
+/// Pretty-print a positive rate with comma-separated thousands
+/// and **exactly three decimals**, e.g.  
+/// `4_741_483.464` → `"4,741,483.464"`
+fn fmt_rate(rate: f64) -> String {
+    let whole = rate.trunc() as u64;
+    let mut frac = (rate.fract() * 1_000.0).round() as u16;
+
+    // Carry if we rounded to 1000.000
+    let whole = if frac == 1_000 {
+        frac = 0;
+        whole + 1
+    } else {
+        whole
+    };
+
+    format!("{}.{:03}", whole.separate_with_commas(), frac)
 }
