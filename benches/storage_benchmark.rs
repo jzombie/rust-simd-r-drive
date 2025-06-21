@@ -11,6 +11,7 @@ use std::fs::remove_file;
 use std::path::PathBuf;
 use std::time::Instant;
 use tempfile::NamedTempFile;
+use thousands::Separable;
 
 // ---------------------------------------------------------------------------
 // Tunables
@@ -75,9 +76,10 @@ fn benchmark_append_entries(path: &PathBuf) {
 
     let dt = start_time.elapsed();
     println!(
-        "Wrote {NUM_ENTRIES} entries of {ENTRY_SIZE} bytes in {:#.3}s ({:#.3} writes/s)",
+        "Wrote {} entries of {ENTRY_SIZE} bytes in {}s ({} writes/s)",
+        fmt_rate(NUM_ENTRIES as f64),
         dt.as_secs_f64(),
-        NUM_ENTRIES as f64 / dt.as_secs_f64()
+        fmt_rate(NUM_ENTRIES as f64 / dt.as_secs_f64())
     );
 }
 
@@ -109,9 +111,10 @@ fn benchmark_sequential_reads(path: &PathBuf) {
 
     let dt = start_time.elapsed();
     println!(
-        "Sequentially read {count} entries in {:#.3}s ({:#.3} reads/s)",
+        "Sequentially read {} entries in {:#.3}s ({} reads/s)",
+        fmt_rate(count as f64),
         dt.as_secs_f64(),
-        count as f64 / dt.as_secs_f64()
+        fmt_rate(count as f64 / dt.as_secs_f64())
     );
 }
 
@@ -138,9 +141,10 @@ fn benchmark_random_reads(path: &PathBuf) {
 
     let dt = start_time.elapsed();
     println!(
-        "Randomly read {NUM_RANDOM_CHECKS} entries in {:#.3}s ({:#.3} reads/s)",
+        "Randomly read {} entries in {:#.3}s ({} reads/s)",
+        fmt_rate(NUM_RANDOM_CHECKS as f64),
         dt.as_secs_f64(),
-        NUM_RANDOM_CHECKS as f64 / dt.as_secs_f64()
+        fmt_rate(NUM_RANDOM_CHECKS as f64 / dt.as_secs_f64())
     );
 }
 
@@ -169,31 +173,11 @@ fn benchmark_batch_reads(path: &PathBuf) {
 
     let dt = start_time.elapsed();
     println!(
-        "Batch-read verified {verified} entries in {:#.3}s ({:#.3} reads/s)",
+        "Batch-read verified {} entries in {:#.3}s ({} reads/s)",
+        fmt_rate(verified as f64),
         dt.as_secs_f64(),
-        verified as f64 / dt.as_secs_f64()
+        fmt_rate(verified as f64 / dt.as_secs_f64())
     );
-}
-
-fn verify_batch(storage: &DataStore, keys_buf: &mut Vec<Vec<u8>>) -> usize {
-    let key_refs: Vec<&[u8]> = keys_buf.iter().map(|k| k.as_slice()).collect();
-    let handles = storage.batch_read(&key_refs).expect("batch_read failed"); // ← unwrap the Result
-
-    for (k_bytes, opt_handle) in keys_buf.iter().zip(handles.into_iter()) {
-        let handle = opt_handle.expect("Missing batch entry");
-        let stored = u64::from_le_bytes(handle.as_slice().try_into().unwrap());
-
-        // fast numeric suffix parse without heap allocation
-        let idx = {
-            let s = std::str::from_utf8(&k_bytes[b"bench-key-".len()..]).unwrap();
-            s.parse::<usize>().unwrap()
-        };
-        assert_eq!(stored, idx as u64, "Corrupt data for key {idx}");
-    }
-
-    let n = keys_buf.len();
-    keys_buf.clear();
-    n
 }
 
 fn benchmark_buffered_writes(path: &PathBuf) {
@@ -221,8 +205,61 @@ fn benchmark_buffered_writes(path: &PathBuf) {
 
     let dt = start_time.elapsed();
     println!(
-        "Buffered-write: wrote {NUM_ENTRIES} entries in {:#.3}s ({:#.3} writes/s, {auto_flushes} auto-flushes)",
+        "Buffered-write: wrote {} entries in {:#.3}s ({} writes/s, {auto_flushes} auto-flushes)",
+        fmt_rate(NUM_ENTRIES as f64),
         dt.as_secs_f64(),
-        NUM_ENTRIES as f64 / dt.as_secs_f64(),
+        fmt_rate(NUM_ENTRIES as f64 / dt.as_secs_f64()),
     );
+}
+
+fn verify_batch(storage: &DataStore, keys_buf: &mut Vec<Vec<u8>>) -> usize {
+    let key_refs: Vec<&[u8]> = keys_buf.iter().map(|k| k.as_slice()).collect();
+    let handles = storage.batch_read(&key_refs).expect("batch_read failed"); // ← unwrap the Result
+
+    for (k_bytes, opt_handle) in keys_buf.iter().zip(handles.into_iter()) {
+        let handle = opt_handle.expect("Missing batch entry");
+        let stored = u64::from_le_bytes(handle.as_slice().try_into().unwrap());
+
+        // fast numeric suffix parse without heap allocation
+        let idx = {
+            let s = std::str::from_utf8(&k_bytes[b"bench-key-".len()..]).unwrap();
+            s.parse::<usize>().unwrap()
+        };
+        assert_eq!(stored, idx as u64, "Corrupt data for key {idx}");
+    }
+
+    let n = keys_buf.len();
+    keys_buf.clear();
+    n
+}
+
+/// Format a positive rate (reads/s or writes/s) with
+///   * thousands-separated integral part
+///   * exactly three decimals
+///
+/// 4_741_483.464 → "4,741,483.464"
+///        987.0  → "987.000"
+/// Format a positive rate (reads/s or writes/s) with
+///   * thousands-separated integral part
+///   * exactly three decimals
+///
+/// 4_741_483.464 → "4,741,483.464"
+///        987.0  → "987.000"
+
+/// Pretty-print a positive rate with comma-separated thousands
+/// and **exactly three decimals**, e.g.  
+/// `4_741_483.464` → `"4,741,483.464"`
+fn fmt_rate(rate: f64) -> String {
+    let whole = rate.trunc() as u64;
+    let mut frac = (rate.fract() * 1_000.0).round() as u16;
+
+    // Carry if we rounded to 1000.000
+    let whole = if frac == 1_000 {
+        frac = 0;
+        whole + 1
+    } else {
+        whole
+    };
+
+    format!("{}.{:03}", whole.separate_with_commas(), frac)
 }
