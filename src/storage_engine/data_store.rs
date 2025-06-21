@@ -273,45 +273,23 @@ impl DataStoreReader for DataStore {
     /// # Notes:
     /// - The returned `EntryHandle` provides zero-copy access to the stored data.
     fn read(&self, key: &[u8]) -> Option<EntryHandle> {
-        let key_hash = compute_hash(key);
-
         let mmap_arc = self.get_mmap_arc();
 
-        // Re-check tail_offset, ensure the file is big enough
+        // Check tail_offset and mmap length
         let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
         if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
             return None;
         }
 
-        // Look up the offset in the in-memory key index
-        let offset = *self.key_indexer.read().ok()?.get(&key_hash)?;
+        let key_indexer_guard = self.key_indexer.read().ok()?;
 
-        // Grab the metadata from the mapped file
-        if offset as usize + METADATA_SIZE > mmap_arc.len() {
-            return None;
-        }
-        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
-        let metadata = EntryMetadata::deserialize(metadata_bytes);
-
-        // Extract the actual entry range
-        let entry_start = metadata.prev_offset as usize;
-        let entry_end = offset as usize;
-        if entry_start >= entry_end || entry_end > mmap_arc.len() {
-            return None;
-        }
-
-        // Check for tombstone (NULL_BYTE)
-        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
-            return None;
-        }
-
-        // Return a handle that *owns* the Arc and the slice range
-        Some(EntryHandle {
-            mmap_arc,
-            range: entry_start..entry_end,
-            metadata,
-        })
+        Self::read_with_ctx(key, &mmap_arc, &key_indexer_guard)
     }
+
+    // TODO: Implement
+    // fn batch_read(&self, keys: &[&[u8]]) -> Vec<Option<Self::EntryHandleType>> {
+    //     keys.into_iter().
+    // }
 
     /// Retrieves metadata for a given key.
     ///
@@ -948,6 +926,41 @@ impl DataStore {
         // 5) Create a handle that "owns" the Arc and the byte range
         Some(EntryHandle {
             mmap_arc,
+            range: entry_start..entry_end,
+            metadata,
+        })
+    }
+
+    // TODO: Document
+    #[inline]
+    pub fn read_with_ctx(
+        key: &[u8],
+        mmap_arc: &Arc<Mmap>,
+        key_indexer: &KeyIndexer, // already locked
+    ) -> Option<EntryHandle> {
+        let key_hash = compute_hash(key);
+        let offset = *key_indexer.get(&key_hash)?;
+
+        if offset as usize + METADATA_SIZE > mmap_arc.len() {
+            return None;
+        }
+
+        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
+        let metadata = EntryMetadata::deserialize(metadata_bytes);
+
+        let entry_start = metadata.prev_offset as usize;
+        let entry_end = offset as usize;
+
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
+            return None;
+        }
+
+        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+            return None;
+        }
+
+        Some(EntryHandle {
+            mmap_arc: mmap_arc.clone(),
             range: entry_start..entry_end,
             metadata,
         })
