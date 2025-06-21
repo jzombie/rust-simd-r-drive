@@ -12,10 +12,10 @@ use simd_r_drive::{
     DataStore,
     traits::{DataStoreBufWriter, DataStoreReader, DataStoreWriter},
 };
+// BufWriteFlush, BufWriteFlushRequestParams, BufWriteFlushResponseParams,
 use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, BufWrite,
-    BufWriteFlush, BufWriteFlushRequestParams, BufWriteFlushResponseParams, BufWriteResponseParams,
-    Read, ReadResponseParams, Write, WriteResponseParams,
+    BufWriteResponseParams, Read, ReadResponseParams, Write, WriteResponseParams,
 };
 mod cli;
 use crate::cli::Cli;
@@ -111,7 +111,8 @@ async fn main() -> std::io::Result<()> {
         //         let store_mutex = Arc::clone(&buf_write_flush_store);
         //         async move {
         //             let resp = task::spawn_blocking(move || {
-        //                 let req = BufWriteFlush::decode_request(&bytes)?;
+        //                 // There are no request params here
+        //                 // let req = BufWriteFlush::decode_request(&bytes)?;
 
         //                 // Acquire exclusive write lock.
         //                 //
@@ -120,7 +121,7 @@ async fn main() -> std::io::Result<()> {
         //                 //
         //                 // Tokio's blocking_write ensures the thread isn't stalled.
         //                 let store = store_mutex.blocking_write();
-        //                 let result = store.buf_write_flush(req);
+        //                 let result = store.buf_write_flush();
         //                 let resp = BufWriteFlush::encode_response(BufWriteResponseParams {
         //                     result: result.ok(),
         //                 })?;
