@@ -17,19 +17,15 @@ use std::path::{Path, PathBuf};
 
 // Experimented with using a feature flag to enable `tokio::sync::Mutex`
 // and `tokio::sync::RwLock` for async compatibility but decided to hold off for now.
-// The current implementation remains on `std::sync::{Mutex, RwLock}` because:
+// The current implementation remains on `parking_lot::{Mutex, RwLock}` because:
 // - The existing code is **blocking**, and there is no immediate need for async locks.
 // - Switching to `tokio::sync` would require `.await` at locking points, leading
 //   to refactoring without clear performance benefits at this stage.
 // - Lock contention has not yet been identified as a bottleneck, so there's no
 //   strong reason to introduce async synchronization primitives.
 // This decision may be revisited if future profiling shows tangible benefits.
-use std::sync::{
-    Arc,
-    Mutex,
-    // TODO: Investigate using `parking_lot::RwLock;`
-    RwLock,
-};
+use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
+use std::sync::Arc;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -331,7 +327,7 @@ impl DataStoreReader for DataStore {
     /// - The returned `EntryHandle` provides zero-copy access to the stored data.
     fn read(&self, key: &[u8]) -> Option<EntryHandle> {
         let mmap_arc = self.get_mmap_arc();
-        let key_indexer_guard = self.key_indexer.read().ok()?;
+        let key_indexer_guard = self.key_indexer.read();
 
         let key_hash = compute_hash(key);
         Self::read_hashed_with_ctx(key_hash, &mmap_arc, &key_indexer_guard)
@@ -364,12 +360,7 @@ impl DataStoreReader for DataStore {
         let mmap_arc = self.get_mmap_arc();
 
         // 2. Read-lock the index.  On poisoning → bubble up an error.
-        let key_indexer_guard = self.key_indexer.read().map_err(|_| {
-            Error::new(
-                ErrorKind::Other,
-                "Key-index lock poisoned during batch_read",
-            )
-        })?;
+        let key_indexer_guard = self.key_indexer.read();
 
         // 3. Hash all keys outside the critical section ---------------------------
         let hashes = compute_hash_batch(keys);
@@ -583,7 +574,7 @@ impl DataStore {
     #[inline]
     fn get_mmap_arc(&self) -> Arc<Mmap> {
         // Briefly acquire the guard and release so that others can proceed
-        let guard = self.mmap.lock().unwrap();
+        let guard = self.mmap.lock();
         let mmap_clone = guard.clone();
         drop(guard);
 
@@ -629,7 +620,7 @@ impl DataStore {
     /// - `key_indexer` (`RwLock<HashMap<u64, u64>>`) is locked to modify key mappings.
     fn reindex(
         &self,
-        write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
+        write_guard: &RwLockWriteGuard<'_, BufWriter<File>>,
         key_hash_offsets: &[(u64, u64)],
         tail_offset: u64,
     ) -> std::io::Result<()> {
@@ -637,10 +628,8 @@ impl DataStore {
         let new_mmap = Self::init_mmap(write_guard)?;
 
         // Obtain the lock guards
-        let mut mmap_guard = self.mmap.lock().unwrap();
-        let mut key_indexer_guard = self.key_indexer.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
-        })?;
+        let mut mmap_guard = self.mmap.lock();
+        let mut key_indexer_guard = self.key_indexer.write();
 
         // Update tail_offset (or any other fields)
         let new_offset = write_guard.get_ref().metadata()?.len();
@@ -805,9 +794,7 @@ impl DataStore {
         key_hash: u64,
         reader: &mut R,
     ) -> Result<u64> {
-        let mut file = self.file.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
-        })?;
+        let mut file = self.file.write();
 
         let prev_offset = self.tail_offset.load(Ordering::Acquire);
 
@@ -921,9 +908,7 @@ impl DataStore {
         hashed_payloads: Vec<(u64, &[u8])>,
         allow_null_bytes: bool,
     ) -> Result<u64> {
-        let mut file = self.file.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
-        })?; // Lock only the file, not the whole struct
+        let mut file = self.file.write();
 
         let mut buffer = Vec::new();
         let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
@@ -1143,9 +1128,7 @@ impl DataStore {
 
         // Flush the compacted file
         {
-            let mut file_guard = compacted_storage.file.write().map_err(|e| {
-                std::io::Error::new(std::io::ErrorKind::Other, format!("Lock poisoned: {}", e))
-            })?;
+            let mut file_guard = compacted_storage.file.write();
             file_guard.flush()?;
         }
 
