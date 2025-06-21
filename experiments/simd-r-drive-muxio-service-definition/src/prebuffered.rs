@@ -1,3 +1,6 @@
+mod batch_read;
+pub use batch_read::*;
+
 mod read;
 pub use read::*;
 

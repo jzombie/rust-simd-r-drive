@@ -20,8 +20,8 @@ impl RpcMethodPrebuffered for Read {
     type Input = ReadRequestParams;
     type Output = ReadResponseParams;
 
-    fn encode_request(read_request_paarms: ReadRequestParams) -> Result<Vec<u8>, io::Error> {
-        Ok(bitcode::encode(&read_request_paarms))
+    fn encode_request(read_request_params: ReadRequestParams) -> Result<Vec<u8>, io::Error> {
+        Ok(bitcode::encode(&read_request_params))
     }
 
     fn decode_request(bytes: &[u8]) -> Result<Self::Input, io::Error> {

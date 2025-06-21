@@ -3,29 +3,29 @@ use muxio_rpc_service::{prebuffered::RpcMethodPrebuffered, rpc_method_id};
 use std::io;
 
 #[derive(Encode, Decode, PartialEq, Debug)]
-pub struct BatchWriteRequestParams {
-    pub entries: Vec<(Vec<u8>, Vec<u8>)>,
+pub struct BatchReadRequestParams {
+    pub keys: Vec<Vec<u8>>,
 }
 
 #[derive(Encode, Decode, PartialEq, Debug)]
-pub struct BatchWriteResponseParams {
-    pub result: Option<u64>,
+pub struct BatchReadResponseParams {
+    pub results: Vec<Option<Vec<u8>>>,
 }
 
-pub struct BatchWrite;
+pub struct BatchRead;
 
-impl RpcMethodPrebuffered for BatchWrite {
-    const METHOD_ID: u64 = rpc_method_id!("batch_write");
+impl RpcMethodPrebuffered for BatchRead {
+    const METHOD_ID: u64 = rpc_method_id!("batch_read");
 
-    type Input = BatchWriteRequestParams;
-    type Output = BatchWriteResponseParams;
+    type Input = BatchReadRequestParams;
+    type Output = BatchReadResponseParams;
 
-    fn encode_request(write_request_params: BatchWriteRequestParams) -> Result<Vec<u8>, io::Error> {
-        Ok(bitcode::encode(&write_request_params))
+    fn encode_request(read_request_params: BatchReadRequestParams) -> Result<Vec<u8>, io::Error> {
+        Ok(bitcode::encode(&read_request_params))
     }
 
     fn decode_request(bytes: &[u8]) -> Result<Self::Input, io::Error> {
-        let req_params = bitcode::decode::<BatchWriteRequestParams>(bytes)
+        let req_params = bitcode::decode::<BatchReadRequestParams>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         Ok(req_params)
@@ -36,7 +36,7 @@ impl RpcMethodPrebuffered for BatchWrite {
     }
 
     fn decode_response(bytes: &[u8]) -> Result<Self::Output, io::Error> {
-        let resp_params = bitcode::decode::<BatchWriteResponseParams>(bytes)
+        let resp_params = bitcode::decode::<BatchReadResponseParams>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         Ok(resp_params)

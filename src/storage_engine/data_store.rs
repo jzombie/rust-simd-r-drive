@@ -1,5 +1,7 @@
 use crate::storage_engine::constants::*;
-use crate::storage_engine::digest::{Xxh3BuildHasher, compute_checksum, compute_hash};
+use crate::storage_engine::digest::{
+    Xxh3BuildHasher, compute_checksum, compute_hash, compute_hash_batch,
+};
 use crate::storage_engine::simd_copy;
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
 use crate::traits::{DataStoreReader, DataStoreWriter};
@@ -9,7 +11,7 @@ use memmap2::Mmap;
 use std::collections::HashSet;
 use std::convert::From;
 use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Read, Result, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 // Experimented with using a feature flag to enable `tokio::sync::Mutex`
@@ -129,10 +131,18 @@ impl DataStoreWriter for DataStore {
     /// - If a large number of entries are written, **batching reduces overhead**.
     /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
     fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
-        let hashed_entries: Vec<(u64, &[u8])> = entries
-            .iter()
-            .map(|(key, payload)| (compute_hash(key), *payload))
-            .collect();
+        // 1.  Split keys & payloads so we can hash the keys in one go.
+        let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
+
+        // 2.  One call → many hashes (stays outside the write-lock).
+        let hashes = compute_hash_batch(&keys);
+
+        // 3.  Zip hashes back with payloads and hand off to the low-level routine.
+        let hashed_entries = hashes
+            .into_iter()
+            .zip(payloads.into_iter())
+            .collect::<Vec<_>>();
+
         self.batch_write_hashed_payloads(hashed_entries, false)
     }
 
@@ -273,44 +283,57 @@ impl DataStoreReader for DataStore {
     /// # Notes:
     /// - The returned `EntryHandle` provides zero-copy access to the stored data.
     fn read(&self, key: &[u8]) -> Option<EntryHandle> {
-        let key_hash = compute_hash(key);
+        let mmap_arc = self.get_mmap_arc();
+        let key_indexer_guard = self.key_indexer.read().ok()?;
 
+        let key_hash = compute_hash(key);
+        Self::read_hashed_with_ctx(key_hash, &mmap_arc, &key_indexer_guard)
+    }
+
+    /// Reads many keys in one shot.
+    ///
+    /// This is the **vectorized** counterpart to [`read`].  
+    /// It takes a slice of raw-byte keys and returns a `Vec` whose *i-th* element
+    /// is the result of looking up the *i-th* key.
+    ///
+    /// *   **Zero-copy** – each `Some(EntryHandle)` points directly into the
+    ///     shared `Arc<Mmap>`; no payload is copied.
+    /// *   **Constant-time per key** – the in-memory [`KeyIndexer`] map is used
+    ///     for each lookup, so the complexity is *O(n)* where *n* is
+    ///     `keys.len()`.
+    /// *   **Thread-safe** – a read lock on the index is taken once for the whole
+    ///     batch, so concurrent writers are still blocked only for the same short
+    ///     critical section that a single `read` would need.
+    ///
+    /// #### Error handling
+    /// *If* the index lock is poisoned the function falls back to “best-effort”
+    /// semantics and returns a vector of `None`s (one per requested key).  
+    /// This keeps the signature simple (`Vec<Option<…>>`) while still signalling
+    /// that the read failed.
+    fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
+        use crate::storage_engine::digest::compute_hash_batch;
+
+        // 1. Grab the mmap once ----------------------------------------------------
         let mmap_arc = self.get_mmap_arc();
 
-        // Re-check tail_offset, ensure the file is big enough
-        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
-        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
-            return None;
-        }
+        // 2. Read-lock the index.  On poisoning → bubble up an error.
+        let key_indexer_guard = self.key_indexer.read().map_err(|_| {
+            Error::new(
+                ErrorKind::Other,
+                "Key-index lock poisoned during batch_read",
+            )
+        })?;
 
-        // Look up the offset in the in-memory key index
-        let offset = *self.key_indexer.read().ok()?.get(&key_hash)?;
+        // 3. Hash all keys outside the critical section ---------------------------
+        let hashes = compute_hash_batch(keys);
 
-        // Grab the metadata from the mapped file
-        if offset as usize + METADATA_SIZE > mmap_arc.len() {
-            return None;
-        }
-        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
-        let metadata = EntryMetadata::deserialize(metadata_bytes);
+        // 4. Probe the index -------------------------------------------------------
+        let results = hashes
+            .into_iter()
+            .map(|h| Self::read_hashed_with_ctx(h, &mmap_arc, &key_indexer_guard))
+            .collect();
 
-        // Extract the actual entry range
-        let entry_start = metadata.prev_offset as usize;
-        let entry_end = offset as usize;
-        if entry_start >= entry_end || entry_end > mmap_arc.len() {
-            return None;
-        }
-
-        // Check for tombstone (NULL_BYTE)
-        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
-            return None;
-        }
-
-        // Return a handle that *owns* the Arc and the slice range
-        Some(EntryHandle {
-            mmap_arc,
-            range: entry_start..entry_end,
-            metadata,
-        })
+        Ok(results)
     }
 
     /// Retrieves metadata for a given key.
@@ -323,8 +346,8 @@ impl DataStoreReader for DataStore {
     /// # Returns:
     /// - `Some(&EntryMetadata)`: Metadata for the key if it exists.
     /// - `None`: If the key does not exist in the storage.
-    fn read_metadata(&self, key: &[u8]) -> Option<EntryMetadata> {
-        self.read(key).map(|entry| entry.metadata().clone())
+    fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>> {
+        Ok(self.read(key).map(|entry| entry.metadata().clone()))
     }
 
     /// Counts the number of **active** entries in the storage.
@@ -334,8 +357,8 @@ impl DataStoreReader for DataStore {
     ///
     /// # Returns:
     /// - The **total count** of active key-value pairs in the database.
-    fn count(&self) -> usize {
-        self.iter_entries().count()
+    fn count(&self) -> Result<usize> {
+        Ok(self.iter_entries().count())
     }
 
     /// Retrieves the **total size** of the storage file.
@@ -948,6 +971,61 @@ impl DataStore {
         // 5) Create a handle that "owns" the Arc and the byte range
         Some(EntryHandle {
             mmap_arc,
+            range: entry_start..entry_end,
+            metadata,
+        })
+    }
+
+    /// Internal helper that does the real work for `read`/`batch_read`.
+    ///
+    /// *   `key` – raw-byte key we are searching for.  
+    /// *   `mmap_arc` – the current shared memory-map.  
+    /// *   `key_indexer` – **already locked** read-only view of the index.  
+    ///
+    /// The function:
+    /// 1.  Hashes `key` with XXH3 (same as writers do).
+    /// 2.  Looks the hash up in the index; bails out early if absent.
+    /// 3.  Validates that the stored offset and metadata still fit inside the
+    ///     current `mmap` (guards against truncated / corrupted files).
+    /// 4.  Creates and returns an `EntryHandle` that spans the payload slice in
+    ///     the `mmap`.
+    ///
+    /// It deliberately **does not** take any locks itself – that must be done by
+    /// the caller so that `batch_read` can reuse the same lock for many lookups.
+    ///
+    /// `None` is returned when:
+    /// * the key is unknown,
+    /// * the mapped file looks inconsistent (bounds checks fail), or
+    /// * the latest record for the key is a tomb-stone (one-byte NULL payload).
+    #[inline]
+    pub fn read_hashed_with_ctx(
+        key_hash: u64,
+        mmap_arc: &Arc<Mmap>,
+        key_indexer: &KeyIndexer, // already locked
+    ) -> Option<EntryHandle> {
+        let offset = *key_indexer.get(&key_hash)?;
+
+        if offset as usize + METADATA_SIZE > mmap_arc.len() {
+            return None;
+        }
+
+        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
+        let metadata = EntryMetadata::deserialize(metadata_bytes);
+
+        let entry_start = metadata.prev_offset as usize;
+        let entry_end = offset as usize;
+
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
+            return None;
+        }
+
+        // Tomb-stone?  → treat as deleted.
+        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+            return None;
+        }
+
+        Some(EntryHandle {
+            mmap_arc: mmap_arc.clone(),
             range: entry_start..entry_end,
             metadata,
         })

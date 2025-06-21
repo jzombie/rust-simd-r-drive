@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 /// Zero-copy owner of a sub-slice in an `Arc<Mmap>`.
 /// Provides access to the bytes of an entry as long as this struct is alive.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EntryHandle {
     /// The underlying memory map.
     pub(in crate::storage_engine) mmap_arc: Arc<Mmap>,

@@ -1,3 +1,6 @@
+// TODO: Include examples for streamable read
+// TODO: Integrate examples in main README
+
 //! # SIMD R Drive Storage Engine
 //!
 //! This crate provides an append-only, pinned storage engine optimized for

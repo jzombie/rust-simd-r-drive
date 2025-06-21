@@ -63,20 +63,37 @@ impl DataStoreWsClient {
         })
     }
 
+    // TODO: I am *considering* renaming this to `read_prebuffered` since its operation differs from the underlying storage engine
     // TODO: Consider exposing an alternate form of `EntryHandle` here, like the Rust side.
     // The caveat is that this approach will still need to be fully read and not work with a streamer.
     // pyo3-numpy = { version = "...", features = ["tokio"] }
     // fn py_read_numpy<'py>(&self, py: Python<'py>, key: Vec<u8>) -> PyResult<Option<&'py PyArray<u8, numpy::Ix1>>> {
     #[pyo3(name = "read")]
     fn py_read(&self, key: Vec<u8>) -> PyResult<Option<PyObject>> {
-        self.runtime.block_on(async {
-            match self.ws_client.read(&key).await {
-                Some(bytes) => Python::with_gil(|py| {
-                    let py_bytes = PyBytes::new(py, &bytes);
-                    Ok(Some(py_bytes.into()))
-                }),
-                None => Ok(None),
-            }
+        let maybe_bytes = self
+            .runtime
+            .block_on(async { self.ws_client.read(&key).await })
+            .map_err(|e| PyIOError::new_err(e.to_string()))?;
+
+        Python::with_gil(|py| Ok(maybe_bytes.map(|bytes| PyBytes::new(py, &bytes).into())))
+    }
+
+    #[pyo3(name = "batch_read")]
+    fn py_batch_read(&self, keys: Vec<Vec<u8>>) -> PyResult<Vec<Option<PyObject>>> {
+        // Keep the buffers alive for the async call.
+        let key_bufs = keys;
+        let key_slices: Vec<&[u8]> = key_bufs.iter().map(|k| k.as_slice()).collect();
+
+        let results = self
+            .runtime
+            .block_on(async { self.ws_client.batch_read(&key_slices).await })
+            .map_err(|e| PyIOError::new_err(e.to_string()))?;
+
+        Python::with_gil(|py| {
+            Ok(results
+                .into_iter()
+                .map(|opt| opt.map(|bytes| PyBytes::new(py, &bytes).into()))
+                .collect())
         })
     }
 }

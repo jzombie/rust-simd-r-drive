@@ -5,7 +5,8 @@ use simd_r_drive::{
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchWrite, BatchWriteRequestParams, Read, ReadRequestParams, Write, WriteRequestParams,
+    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Read,
+    ReadRequestParams, Write, WriteRequestParams,
 };
 use std::io::{Error, ErrorKind, Result};
 
@@ -76,22 +77,32 @@ impl AsyncDataStoreWriter for WsClient {
 
 #[async_trait::async_trait]
 impl AsyncDataStoreReader for WsClient {
-    // TODO: This is a workaround until properly implementing a streamable handle
+    // TODO: This is a workaround until properly implementing a stream-able handle
     type EntryHandleType = Vec<u8>;
 
-    async fn read(&self, key: &[u8]) -> Option<Self::EntryHandleType> {
-        let resp = Read::call(&self.rpc_client, ReadRequestParams { key: key.to_vec() })
-            .await
-            .ok()?;
+    async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>> {
+        let resp = Read::call(&self.rpc_client, ReadRequestParams { key: key.to_vec() }).await?;
 
-        resp.result
+        Ok(resp.result)
     }
 
-    async fn read_metadata(&self, _key: &[u8]) -> Option<EntryMetadata> {
+    async fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>> {
+        let batch_read_result = BatchRead::call(
+            &self.rpc_client,
+            BatchReadRequestParams {
+                keys: keys.into_iter().map(|key| key.to_vec()).collect(),
+            },
+        )
+        .await?;
+
+        Ok(batch_read_result.results)
+    }
+
+    async fn read_metadata(&self, _key: &[u8]) -> Result<Option<EntryMetadata>> {
         unimplemented!("`read_metadata` is not currently implemented");
     }
 
-    async fn count(&self) -> usize {
+    async fn count(&self) -> Result<usize> {
         unimplemented!("`count` is not currently implemented");
     }
 

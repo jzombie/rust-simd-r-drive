@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(storage.read(key1).as_deref(), Some(updated_payload1));
         assert_eq!(storage.read(key2).as_deref(), Some(updated_payload2));
 
-        let count_before_delete = storage.count();
+        let count_before_delete = storage.count().unwrap();
 
         assert_eq!(count_before_delete, 2);
 
@@ -191,7 +191,7 @@ mod tests {
         storage.delete_entry(key1).expect("Failed to delete entry");
 
         // Verify count is reduced
-        let count_after_delete = storage.count();
+        let count_after_delete = storage.count().unwrap();
         assert_eq!(
             count_after_delete,
             count_before_delete - 1,

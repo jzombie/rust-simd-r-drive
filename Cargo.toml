@@ -30,9 +30,12 @@ simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-mux
 [dependencies]
 async-trait = "0.1.88"
 crc32fast = "1.4.2"
+##
+# TODO: Replace these with `tracing` crate
+log = "0.4.26" 
 env_logger = "0.11.7"
+##
 indoc = "2.0.6"
-log = "0.4.26"
 memmap2 = "0.9.5"
 
 [dependencies.clap]
@@ -40,7 +43,7 @@ version = "4.5.32"
 features = ["derive"]
 
 [dependencies.xxhash-rust]
-version = "0.8.12"
+version = "0.8.15"
 features = ["xxh3", "const_xxh3"]
 
 [dev-dependencies]

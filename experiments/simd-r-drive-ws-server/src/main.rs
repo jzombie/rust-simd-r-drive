@@ -13,12 +13,12 @@ use simd_r_drive::{
     traits::{DataStoreReader, DataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchWrite, BatchWriteResponseParams, Read, ReadResponseParams, Write, WriteResponseParams,
+    BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, Read,
+    ReadResponseParams, Write, WriteResponseParams,
 };
 mod cli;
 use crate::cli::Cli;
 
-// TODO: Implement batch_read
 // TODO: Implement API-controlled write buffering
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -46,6 +46,7 @@ async fn main() -> std::io::Result<()> {
     let write_store = Arc::clone(&store);
     let batch_write_store = Arc::clone(&store);
     let read_store = Arc::clone(&store);
+    let batch_read_store = Arc::clone(&store);
 
     let _ = join!(
         endpoint.register_prebuffered(Write::METHOD_ID, {
@@ -134,6 +135,56 @@ async fn main() -> std::io::Result<()> {
                     .map_err(|e| {
                         std::io::Error::new(std::io::ErrorKind::Other, format!("read task: {e}"))
                     })??;
+                    Ok(resp)
+                }
+            }
+        }),
+        endpoint.register_prebuffered(BatchRead::METHOD_ID, {
+            move |_, bytes: Vec<u8>| {
+                let store_mutex = Arc::clone(&batch_read_store);
+                async move {
+                    let resp = task::spawn_blocking(move || {
+                        // ── 1. Decode the RPC frame ──────────────────────────────────────
+                        let req = BatchRead::decode_request(&bytes)?;
+
+                        // ── 2. Pull a shared read-lock on the store ─────────────────────
+                        //
+                        //    • Many BatchReads can run in parallel because this is a
+                        //      `blocking_read()`.
+                        //    • The lock is held only long enough to obtain the
+                        //      zero-copy EntryHandles; we drop it immediately after.
+                        //
+                        let store_guard = store_mutex.blocking_read();
+
+                        //     Convert Vec<Vec<u8>> → Vec<&[u8]>  (what `batch_read` wants)
+                        let key_refs: Vec<&[u8]> = req.keys.iter().map(|k| k.as_slice()).collect();
+
+                        let handles = store_guard.batch_read(&key_refs)?;
+
+                        drop(store_guard); // free the lock ASAP
+
+                        // ── 3. Copy the payloads out (still zero-copy *inside* the guard) ─
+                        //
+                        //    Each handle is turned into Option<Vec<u8>> so the resulting
+                        //    response owns its bytes and is independent of the mmap.
+                        //
+                        let results: Vec<Option<Vec<u8>>> = handles
+                            .into_iter()
+                            .map(|opt| opt.map(|h| h.as_slice().to_vec()))
+                            .collect();
+
+                        // ── 4. Marshal the response frame ───────────────────────────────
+                        let resp = BatchRead::encode_response(BatchReadResponseParams { results })?;
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
+                    })
+                    .await
+                    .map_err(|e| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("batch read task: {e}"),
+                        )
+                    })??;
+
                     Ok(resp)
                 }
             }
