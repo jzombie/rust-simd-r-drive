@@ -62,8 +62,14 @@ pub fn compute_hash(key: &[u8]) -> u64 {
 /// ```
 #[inline]
 pub fn compute_hash_batch(keys: &[&[u8]]) -> Vec<u64> {
-    // If you build xxhash-rust with the `xxh3-bulk` feature you can replace the
-    // simple `.map()` below with `xxh3::hash64_batch(keys)` for an extra
-    // 10-15 % on very large batches.  The API shape is the same.
-    keys.iter().map(|k| xxh3_64(k)).collect()
+    // TODO: Look into more efficient approaches that can work on a matrix of
+    // keys without iterating over them.
+
+    // A plain loop beats an iterator here; it lets LLVM unroll/vectorise freely.
+    let mut out = Vec::with_capacity(keys.len());
+    for k in keys {
+        // xxh3_64 already uses SIMD internally where available.
+        out.push(xxh3_64(k));
+    }
+    out
 }
