@@ -41,8 +41,7 @@ impl AsyncDataStoreStageWriter for WsClient {
     async fn stage_write_flush(&self) -> Result<u64> {
         let resp = StageWriteFlush::call(&self.rpc_client, StageWriteFlushRequestParams {}).await?;
 
-        resp.result
-            .ok_or_else(|| Error::new(ErrorKind::Other, "no offset returned"))
+        Ok(resp.result)
     }
 }
 

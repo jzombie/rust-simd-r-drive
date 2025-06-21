@@ -7,7 +7,7 @@ pub struct StageWriteFlushRequestParams {}
 
 #[derive(Encode, Decode, PartialEq, Debug)]
 pub struct StageWriteFlushResponseParams {
-    pub result: Option<u64>, // TODO: Rename `result`
+    pub result: u64, // TODO: Rename `result`
 }
 
 pub struct StageWriteFlush;

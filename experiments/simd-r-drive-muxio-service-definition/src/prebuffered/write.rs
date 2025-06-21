@@ -10,7 +10,7 @@ pub struct WriteRequestParams {
 
 #[derive(Encode, Decode, PartialEq, Debug)]
 pub struct WriteResponseParams {
-    pub result: Option<u64>, // TODO: Rename `result`
+    pub result: Option<u64>, // TODO: Rename `result`; TODO: Remove `Option` wrap
 }
 
 pub struct Write;
