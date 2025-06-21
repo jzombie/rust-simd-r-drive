@@ -9,7 +9,7 @@ pub struct ReadRequestParams {
 
 #[derive(Encode, Decode, PartialEq, Debug)]
 pub struct ReadResponseParams {
-    pub result: Option<Vec<u8>>,
+    pub result: Option<Vec<u8>>, // TODO: Rename `result`
 }
 
 pub struct Read;

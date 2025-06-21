@@ -7,7 +7,7 @@ pub struct BufWriteFlushRequestParams {}
 
 #[derive(Encode, Decode, PartialEq, Debug)]
 pub struct BufWriteFlushResponseParams {
-    pub result: Option<u64>,
+    pub result: Option<u64>, // TODO: Rename `result`
 }
 
 pub struct BufWriteFlush;

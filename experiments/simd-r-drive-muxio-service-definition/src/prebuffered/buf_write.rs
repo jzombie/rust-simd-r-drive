@@ -10,7 +10,7 @@ pub struct BufWriteRequestParams {
 
 #[derive(Encode, Decode, PartialEq, Debug)]
 pub struct BufWriteResponseParams {
-    pub result: Option<u64>,
+    pub needs_flush: bool,
 }
 
 pub struct BufWrite;
