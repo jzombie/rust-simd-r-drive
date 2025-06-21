@@ -63,6 +63,7 @@ impl DataStoreWsClient {
         })
     }
 
+    // TODO: I am *considering* renaming this to `read_prebuffered` since its operation differs from the underlying storage engine
     // TODO: Consider exposing an alternate form of `EntryHandle` here, like the Rust side.
     // The caveat is that this approach will still need to be fully read and not work with a streamer.
     // pyo3-numpy = { version = "...", features = ["tokio"] }
