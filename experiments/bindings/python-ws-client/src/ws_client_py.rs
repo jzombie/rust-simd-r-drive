@@ -41,9 +41,7 @@ impl DataStoreWsClient {
                 .write(&key, &payload)
                 .await
                 .map_err(|e| PyIOError::new_err(e.to_string()))
-                // Add this map call to discard the u64 success value
-                // and return the unit type `()` instead.
-                .map(|_bytes_written| ())
+                .map(|_tail_offset| ())
         })
     }
 
@@ -54,9 +52,6 @@ impl DataStoreWsClient {
                 .stage_write(&key, &payload)
                 .await
                 .map_err(|e| PyIOError::new_err(e.to_string()))
-                // Add this map call to discard the u64 success value
-                // and return the unit type `()` instead.
-                .map(|needs_flush| needs_flush)
         })
     }
 
@@ -67,9 +62,7 @@ impl DataStoreWsClient {
                 .stage_write_flush()
                 .await
                 .map_err(|e| PyIOError::new_err(e.to_string()))
-                // Add this map call to discard the u64 success value
-                // and return the unit type `()` instead.
-                .map(|_bytes_written| ())
+                .map(|_tail_offset| ())
         })
     }
 
@@ -85,9 +78,7 @@ impl DataStoreWsClient {
                 .batch_write(&converted)
                 .await
                 .map_err(|e| PyIOError::new_err(e.to_string()))
-                // Add this map call to discard the u64 success value
-                // and return the unit type `()` instead.
-                .map(|_bytes_written| ())
+                .map(|_tail_offset| ())
         })
     }
 
