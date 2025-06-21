@@ -1,6 +1,6 @@
 //! tests/buffered_write.rs
 //! -----------------------
-//! Unit-tests for DataStore::stage_write / stage_write_flush and WriteBuffer.
+//! Unit-tests for DataStore::stage_write / stage_write_flush and StageWriterBuffer.
 
 use simd_r_drive::{
     DataStore,

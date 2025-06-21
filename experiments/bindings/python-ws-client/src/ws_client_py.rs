@@ -1,7 +1,9 @@
 use pyo3::exceptions::PyIOError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use simd_r_drive_ws_client::{AsyncDataStoreReader, AsyncDataStoreWriter, WsClient};
+use simd_r_drive_ws_client::{
+    AsyncDataStoreReader, AsyncDataStoreStageWriter, AsyncDataStoreWriter, WsClient,
+};
 use std::sync::Arc;
 use tokio::runtime::{Builder, Runtime};
 
@@ -39,9 +41,28 @@ impl DataStoreWsClient {
                 .write(&key, &payload)
                 .await
                 .map_err(|e| PyIOError::new_err(e.to_string()))
-                // Add this map call to discard the u64 success value
-                // and return the unit type `()` instead.
-                .map(|_bytes_written| ())
+                .map(|_tail_offset| ())
+        })
+    }
+
+    #[pyo3(name = "stage_write")]
+    fn py_stage_write(&self, key: Vec<u8>, payload: Vec<u8>) -> PyResult<bool> {
+        self.runtime.block_on(async {
+            self.ws_client
+                .stage_write(&key, &payload)
+                .await
+                .map_err(|e| PyIOError::new_err(e.to_string()))
+        })
+    }
+
+    #[pyo3(name = "stage_write_flush")]
+    fn py_stage_write_flush(&self) -> PyResult<()> {
+        self.runtime.block_on(async {
+            self.ws_client
+                .stage_write_flush()
+                .await
+                .map_err(|e| PyIOError::new_err(e.to_string()))
+                .map(|_tail_offset| ())
         })
     }
 
@@ -57,9 +78,7 @@ impl DataStoreWsClient {
                 .batch_write(&converted)
                 .await
                 .map_err(|e| PyIOError::new_err(e.to_string()))
-                // Add this map call to discard the u64 success value
-                // and return the unit type `()` instead.
-                .map(|_bytes_written| ())
+                .map(|_tail_offset| ())
         })
     }
 

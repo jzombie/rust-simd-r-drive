@@ -11,7 +11,7 @@ pub type KeyHash = u64;
 /// memory and survives past the caller’s stack frame.
 type Payload = Vec<u8>;
 
-/// **WriteBuffer**  
+/// **StageWriterBuffer**  
 ///
 /// A tiny, thread-safe staging area that sits in front of the on-disk
 /// [`DataStore`].  Writers call `insert()` **instead of** hitting the
@@ -39,7 +39,7 @@ type Payload = Vec<u8>;
 ///   `DashMap`).  
 /// * A flush is expected to happen under an *external* lock in
 ///   `DataStore::stage_write_flush()`, so clearing the map is safe.
-pub struct WriteBuffer {
+pub struct StageWriterBuffer {
     /// Latest payload for every hashed key.
     map: DashMap<KeyHash, Payload>,
 
@@ -52,8 +52,8 @@ pub struct WriteBuffer {
     soft_limit: usize,
 }
 
-impl WriteBuffer {
-    /// Construct a new `WriteBuffer` wrapped in an `Arc` so the same
+impl StageWriterBuffer {
+    /// Construct a new `StageWriterBuffer` wrapped in an `Arc` so the same
     /// instance can be shared between `DataStore` clones.
     ///
     /// * `soft_limit` – Flush threshold in **bytes** (not records).
