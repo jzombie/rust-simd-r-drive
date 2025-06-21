@@ -45,7 +45,7 @@ async fn main() -> std::io::Result<()> {
 
     let write_store = Arc::clone(&store);
     let buf_write_store = Arc::clone(&store);
-    let buf_write_flush_store = Arc::clone(&store);
+    // let buf_write_flush_store = Arc::clone(&store);
     let batch_write_store = Arc::clone(&store);
     let read_store = Arc::clone(&store);
     let batch_read_store = Arc::clone(&store);
