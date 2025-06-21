@@ -286,10 +286,19 @@ impl DataStoreReader for DataStore {
         Self::read_with_ctx(key, &mmap_arc, &key_indexer_guard)
     }
 
-    // TODO: Implement
-    // fn batch_read(&self, keys: &[&[u8]]) -> Vec<Option<Self::EntryHandleType>> {
-    //     keys.into_iter().
-    // }
+    // TODO: Document
+    fn batch_read(&self, keys: &[&[u8]]) -> Vec<Option<Self::EntryHandleType>> {
+        let mmap_arc = self.get_mmap_arc();
+
+        let key_indexer_guard = match self.key_indexer.read() {
+            Ok(guard) => guard,
+            Err(_) => return keys.iter().map(|_| None).collect(),
+        };
+
+        keys.iter()
+            .map(|&key| Self::read_with_ctx(key, &mmap_arc, &key_indexer_guard))
+            .collect()
+    }
 
     /// Retrieves metadata for a given key.
     ///
