@@ -1,5 +1,7 @@
 use crate::storage_engine::constants::*;
-use crate::storage_engine::digest::{Xxh3BuildHasher, compute_checksum, compute_hash};
+use crate::storage_engine::digest::{
+    Xxh3BuildHasher, compute_checksum, compute_hash, compute_hash_batch,
+};
 use crate::storage_engine::simd_copy;
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
 use crate::traits::{DataStoreReader, DataStoreWriter};
@@ -129,10 +131,18 @@ impl DataStoreWriter for DataStore {
     /// - If a large number of entries are written, **batching reduces overhead**.
     /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
     fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
-        let hashed_entries: Vec<(u64, &[u8])> = entries
-            .iter()
-            .map(|(key, payload)| (compute_hash(key), *payload))
-            .collect();
+        // 1.  Split keys & payloads so we can hash the keys in one go.
+        let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
+
+        // 2.  One call → many hashes (stays outside the write-lock).
+        let hashes = compute_hash_batch(&keys);
+
+        // 3.  Zip hashes back with payloads and hand off to the low-level routine.
+        let hashed_entries = hashes
+            .into_iter()
+            .zip(payloads.into_iter())
+            .collect::<Vec<_>>();
+
         self.batch_write_hashed_payloads(hashed_entries, false)
     }
 
@@ -274,16 +284,10 @@ impl DataStoreReader for DataStore {
     /// - The returned `EntryHandle` provides zero-copy access to the stored data.
     fn read(&self, key: &[u8]) -> Option<EntryHandle> {
         let mmap_arc = self.get_mmap_arc();
-
-        // Check tail_offset and mmap length
-        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
-        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
-            return None;
-        }
-
         let key_indexer_guard = self.key_indexer.read().ok()?;
 
-        Self::read_with_ctx(key, &mmap_arc, &key_indexer_guard)
+        let key_hash = compute_hash(key);
+        Self::read_hashed_with_ctx(key_hash, &mmap_arc, &key_indexer_guard)
     }
 
     /// Reads many keys in one shot.
@@ -306,16 +310,23 @@ impl DataStoreReader for DataStore {
     /// semantics and returns a vector of `None`s (one per requested key).  
     /// This keeps the signature simple (`Vec<Option<…>>`) while still signalling
     /// that the read failed.
-    fn batch_read(&self, keys: &[&[u8]]) -> Vec<Option<Self::EntryHandleType>> {
-        let mmap_arc = self.get_mmap_arc();
+    fn batch_read(&self, keys: &[&[u8]]) -> Vec<Option<EntryHandle>> {
+        use crate::storage_engine::digest::compute_hash_batch;
 
+        // 1.  One mmap + one index lock for the whole batch ----------------------
+        let mmap_arc = self.get_mmap_arc();
         let key_indexer_guard = match self.key_indexer.read() {
-            Ok(guard) => guard,
+            Ok(g) => g,
             Err(_) => return keys.iter().map(|_| None).collect(),
         };
 
-        keys.iter()
-            .map(|&key| Self::read_with_ctx(key, &mmap_arc, &key_indexer_guard))
+        // 2.  Hash all keys outside the critical section -------------------------
+        let hashes = compute_hash_batch(keys);
+
+        // 3.  Probe the index -----------------------------------------------------
+        hashes
+            .into_iter()
+            .map(|h| Self::read_hashed_with_ctx(h, &mmap_arc, &key_indexer_guard))
             .collect()
     }
 
@@ -981,12 +992,11 @@ impl DataStore {
     /// * the mapped file looks inconsistent (bounds checks fail), or
     /// * the latest record for the key is a tomb-stone (one-byte NULL payload).
     #[inline]
-    pub fn read_with_ctx(
-        key: &[u8],
+    pub fn read_hashed_with_ctx(
+        key_hash: u64,
         mmap_arc: &Arc<Mmap>,
         key_indexer: &KeyIndexer, // already locked
     ) -> Option<EntryHandle> {
-        let key_hash = compute_hash(key);
         let offset = *key_indexer.get(&key_hash)?;
 
         if offset as usize + METADATA_SIZE > mmap_arc.len() {
@@ -1003,6 +1013,7 @@ impl DataStore {
             return None;
         }
 
+        // Tomb-stone?  → treat as deleted.
         if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
             return None;
         }
