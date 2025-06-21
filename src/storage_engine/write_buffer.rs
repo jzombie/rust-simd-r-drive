@@ -5,6 +5,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub type KeyHash = u64;
 type Payload = Vec<u8>;
 
+// TODO: Document that this should not be confused with normal `write_stream`, `write`, and `batch_write` operations.
+
 /// Simple, thread-safe write buffer (append-only semantics: newest wins).
 pub struct WriteBuffer {
     map: DashMap<KeyHash, Payload>,
