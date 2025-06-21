@@ -11,7 +11,7 @@ use memmap2::Mmap;
 use std::collections::HashSet;
 use std::convert::From;
 use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Read, Result, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 // Experimented with using a feature flag to enable `tokio::sync::Mutex`
@@ -310,24 +310,30 @@ impl DataStoreReader for DataStore {
     /// semantics and returns a vector of `None`s (one per requested key).  
     /// This keeps the signature simple (`Vec<Option<…>>`) while still signalling
     /// that the read failed.
-    fn batch_read(&self, keys: &[&[u8]]) -> Vec<Option<EntryHandle>> {
+    fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
         use crate::storage_engine::digest::compute_hash_batch;
 
-        // 1.  One mmap + one index lock for the whole batch ----------------------
+        // 1. Grab the mmap once ----------------------------------------------------
         let mmap_arc = self.get_mmap_arc();
-        let key_indexer_guard = match self.key_indexer.read() {
-            Ok(g) => g,
-            Err(_) => return keys.iter().map(|_| None).collect(),
-        };
 
-        // 2.  Hash all keys outside the critical section -------------------------
+        // 2. Read-lock the index.  On poisoning → bubble up an error.
+        let key_indexer_guard = self.key_indexer.read().map_err(|_| {
+            Error::new(
+                ErrorKind::Other,
+                "Key-index lock poisoned during batch_read",
+            )
+        })?;
+
+        // 3. Hash all keys outside the critical section ---------------------------
         let hashes = compute_hash_batch(keys);
 
-        // 3.  Probe the index -----------------------------------------------------
-        hashes
+        // 4. Probe the index -------------------------------------------------------
+        let results = hashes
             .into_iter()
             .map(|h| Self::read_hashed_with_ctx(h, &mmap_arc, &key_indexer_guard))
-            .collect()
+            .collect();
+
+        Ok(results)
     }
 
     /// Retrieves metadata for a given key.
@@ -340,8 +346,8 @@ impl DataStoreReader for DataStore {
     /// # Returns:
     /// - `Some(&EntryMetadata)`: Metadata for the key if it exists.
     /// - `None`: If the key does not exist in the storage.
-    fn read_metadata(&self, key: &[u8]) -> Option<EntryMetadata> {
-        self.read(key).map(|entry| entry.metadata().clone())
+    fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>> {
+        Ok(self.read(key).map(|entry| entry.metadata().clone()))
     }
 
     /// Counts the number of **active** entries in the storage.
@@ -351,8 +357,8 @@ impl DataStoreReader for DataStore {
     ///
     /// # Returns:
     /// - The **total count** of active key-value pairs in the database.
-    fn count(&self) -> usize {
-        self.iter_entries().count()
+    fn count(&self) -> Result<usize> {
+        Ok(self.iter_entries().count())
     }
 
     /// Retrieves the **total size** of the storage file.

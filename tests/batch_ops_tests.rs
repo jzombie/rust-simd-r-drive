@@ -54,7 +54,7 @@ fn test_batch_write_and_batch_read() {
 
     // Pull them back in one call – **note** order must be preserved.
     let keys: Vec<&[u8]> = entries.iter().map(|(k, _)| *k).collect();
-    let results = storage.batch_read(&keys);
+    let results = storage.batch_read(&keys).unwrap();
 
     assert_eq!(results.len(), keys.len(), "result length mismatch");
 
@@ -117,7 +117,11 @@ fn test_batch_write_rejects_empty_payload_among_many() {
     // Ensure *nothing* was persisted
     assert!(storage.read(b"k1").is_none());
     assert!(storage.read(b"k2").is_none());
-    assert_eq!(storage.count(), 0, "no entries should have been written");
+    assert_eq!(
+        storage.count().unwrap(),
+        0,
+        "no entries should have been written"
+    );
 }
 
 /// `batch_read` should return `None` for keys that are not present while still
@@ -140,7 +144,7 @@ fn test_batch_read_with_missing_key() {
         b"exists_2".as_slice(),
     ];
 
-    let results = storage.batch_read(&keys);
+    let results = storage.batch_read(&keys).unwrap();
     assert_eq!(results.len(), keys.len());
 
     // Check returned Options in the same order

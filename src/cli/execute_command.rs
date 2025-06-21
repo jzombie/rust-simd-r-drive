@@ -239,7 +239,7 @@ pub fn execute_command(cli: &Cli) {
             println!("{:-<50}", ""); // Separator
 
             println!("{:<25} {}", "TOTAL SIZE:", format_bytes(storage_size));
-            println!("{:<25} {}", "ACTIVE ENTRIES:", entry_count);
+            println!("{:<25} {}", "ACTIVE ENTRIES:", entry_count.unwrap());
             println!(
                 "{:<25} {}",
                 "COMPACTION SAVINGS:",

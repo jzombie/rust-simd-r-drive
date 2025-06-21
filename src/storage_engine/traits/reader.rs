@@ -6,11 +6,11 @@ pub trait DataStoreReader {
 
     fn read(&self, key: &[u8]) -> Option<Self::EntryHandleType>;
 
-    fn batch_read(&self, keys: &[&[u8]]) -> Vec<Option<Self::EntryHandleType>>;
+    fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>>;
 
-    fn read_metadata(&self, key: &[u8]) -> Option<EntryMetadata>;
+    fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>>;
 
-    fn count(&self) -> usize;
+    fn count(&self) -> Result<usize>;
 
     fn get_storage_size(&self) -> Result<u64>;
 }
@@ -19,13 +19,13 @@ pub trait DataStoreReader {
 pub trait AsyncDataStoreReader {
     type EntryHandleType;
 
-    async fn read(&self, key: &[u8]) -> Option<Self::EntryHandleType>;
+    async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>>;
 
-    async fn batch_read(&self, keys: &[&[u8]]) -> Vec<Option<Self::EntryHandleType>>;
+    async fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>>;
 
-    async fn read_metadata(&self, key: &[u8]) -> Option<EntryMetadata>;
+    async fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>>;
 
-    async fn count(&self) -> usize;
+    async fn count(&self) -> Result<usize>;
 
     async fn get_storage_size(&self) -> Result<u64>;
 }
