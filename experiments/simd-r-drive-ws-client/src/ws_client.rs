@@ -77,7 +77,7 @@ impl AsyncDataStoreWriter for WsClient {
 
 #[async_trait::async_trait]
 impl AsyncDataStoreReader for WsClient {
-    // TODO: This is a workaround until properly implementing a streamable handle
+    // TODO: This is a workaround until properly implementing a stream-able handle
     type EntryHandleType = Vec<u8>;
 
     async fn read(&self, key: &[u8]) -> Option<Self::EntryHandleType> {
