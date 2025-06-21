@@ -15,9 +15,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
-// TODO: Refactor and rename to `DEFAULT_WRITE_BUF_LIMIT`
-const DEFAULT_BUF_LIMIT: usize = 4 * 1024 * 1024; // 4 MiB
-
 // Experimented with using a feature flag to enable `tokio::sync::Mutex`
 // and `tokio::sync::RwLock` for async compatibility but decided to hold off for now.
 // The current implementation remains on `std::sync::{Mutex, RwLock}` because:
@@ -480,7 +477,7 @@ impl DataStore {
             tail_offset: final_len.into(),
             key_indexer: Arc::new(RwLock::new(key_indexer)),
             path: path.to_path_buf(),
-            write_buffer: WriteBuffer::new(DEFAULT_BUF_LIMIT),
+            write_buffer: WriteBuffer::new(DEFAULT_WRITE_BUF_LIMIT),
         })
     }
 

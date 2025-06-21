@@ -11,3 +11,10 @@ pub const NULL_BYTE: [u8; 1] = [0];
 pub const CHECKSUM_LEN: usize = CHECKSUM_RANGE.end - CHECKSUM_RANGE.start;
 
 pub const WRITE_STREAM_BUFFER_SIZE: usize = 64 * 1024; // 64 KB chunks
+
+#[cfg(test)]
+pub(crate) const DEFAULT_WRITE_BUF_LIMIT: usize = 4 * 1024 * 1024; // 4 MiB
+
+// Note: This is for suggestive purposes only and will vary across real-world scenarios
+#[cfg(not(test))]
+pub(crate) const DEFAULT_WRITE_BUF_LIMIT: usize = 64 * 1024 * 1024; // 64 MiB
