@@ -64,7 +64,7 @@ fn buf_write_auto_flush() {
                 written >= target,
                 "auto-flush happened before soft limit was crossed"
             );
-            return; // success
+            break; // success
         }
     }
 }
