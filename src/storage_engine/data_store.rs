@@ -5,7 +5,7 @@ use crate::storage_engine::digest::{
 use crate::storage_engine::simd_copy;
 use crate::storage_engine::write_buffer::{KeyHash, WriteBuffer};
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
-use crate::traits::{DataStoreReader, DataStoreWriter};
+use crate::traits::{DataStoreBufWriter, DataStoreReader, DataStoreWriter};
 use crate::utils::verify_file_existence;
 use log::{debug, info, warn};
 use memmap2::Mmap;
@@ -67,6 +67,46 @@ impl From<PathBuf> for DataStore {
     }
 }
 
+impl DataStoreBufWriter for DataStore {
+    // TODO: Document
+    fn buf_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
+        if payload.is_empty() {
+            return Err(Error::new(ErrorKind::InvalidInput, "empty payload"));
+        }
+
+        // 1. hash once – same as normal writes
+        let hash = compute_hash(key);
+
+        // 2. copy payload into the buffer
+        let should_flush = self.write_buffer.insert(hash, payload.to_vec());
+
+        // 3. auto-flush when soft limit reached
+        if should_flush {
+            self.buf_write_flush()?;
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    // TODO: Document
+    fn buf_write_flush(&self) -> Result<u64> {
+        // Nothing to do?
+        if self.write_buffer.is_empty() {
+            return Ok(self.tail_offset.load(Ordering::Acquire));
+        }
+
+        // Drain clones the Vec<u8>s out; we immediately reuse their slices.
+        let drained = self.write_buffer.drain();
+
+        let hashed: Vec<(KeyHash, &[u8])> =
+            drained.iter().map(|(h, v)| (*h, v.as_slice())).collect();
+
+        // Re-use the existing, crash-safe batch writer.
+        self.batch_write_hashed_payloads(hashed, false)
+    }
+}
+
 impl DataStoreWriter for DataStore {
     /// Writes an entry using a streaming `Read` source (e.g., file, network).
     ///
@@ -119,44 +159,6 @@ impl DataStoreWriter for DataStore {
     fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.write_with_key_hash(key_hash, payload)
-    }
-
-    // TODO: Document
-    fn buf_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
-        if payload.is_empty() {
-            return Err(Error::new(ErrorKind::InvalidInput, "empty payload"));
-        }
-
-        // 1. hash once – same as normal writes
-        let hash = compute_hash(key);
-
-        // 2. copy payload into the buffer
-        let should_flush = self.write_buffer.insert(hash, payload.to_vec());
-
-        // 3. auto-flush when soft limit reached
-        if should_flush {
-            self.buf_write_flush()?;
-            return Ok(true);
-        }
-
-        Ok(false)
-    }
-
-    // TODO: Document
-    fn buf_write_flush(&self) -> Result<u64> {
-        // Nothing to do?
-        if self.write_buffer.is_empty() {
-            return Ok(self.tail_offset.load(Ordering::Acquire));
-        }
-
-        // Drain clones the Vec<u8>s out; we immediately reuse their slices.
-        let drained = self.write_buffer.drain();
-
-        let hashed: Vec<(KeyHash, &[u8])> =
-            drained.iter().map(|(h, v)| (*h, v.as_slice())).collect();
-
-        // Re-use the existing, crash-safe batch writer.
-        self.batch_write_hashed_payloads(hashed, false)
     }
 
     /// Writes multiple key-value pairs as a **single transaction**.
