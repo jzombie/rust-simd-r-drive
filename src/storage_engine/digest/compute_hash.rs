@@ -65,7 +65,7 @@ pub fn compute_hash_batch(keys: &[&[u8]]) -> Vec<u64> {
     // TODO: Look into more efficient approaches that can work on a matrix of
     // keys without iterating over them.
 
-    // A plain loop beats an iterator here; it lets LLVM unroll/vectorise freely.
+    // A plain loop beats an iterator here; it lets LLVM unroll/vectorize freely.
     let mut out = Vec::with_capacity(keys.len());
     for k in keys {
         // xxh3_64 already uses SIMD internally where available.
