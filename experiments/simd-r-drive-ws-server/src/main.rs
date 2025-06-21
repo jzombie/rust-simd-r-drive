@@ -159,7 +159,7 @@ async fn main() -> std::io::Result<()> {
                         //     Convert Vec<Vec<u8>> → Vec<&[u8]>  (what `batch_read` wants)
                         let key_refs: Vec<&[u8]> = req.keys.iter().map(|k| k.as_slice()).collect();
 
-                        let handles = store_guard.batch_read(&key_refs);
+                        let handles = store_guard.batch_read(&key_refs)?;
 
                         drop(store_guard); // free the lock ASAP
 
