@@ -14,6 +14,8 @@ const WRITE_BATCH_SIZE: usize = 1024;
 const NUM_ENTRIES: usize = 1_000_000;
 const NUM_RANDOM_CHECKS: usize = 1_000_000;
 
+// TODO: Bench batch read
+
 fn main() {
     let temp_file = NamedTempFile::new().expect("Failed to create temp file");
     let path = temp_file.path().to_path_buf();
