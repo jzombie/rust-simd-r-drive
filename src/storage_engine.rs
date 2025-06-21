@@ -25,3 +25,6 @@ mod simd_copy;
 use simd_copy::*;
 
 pub mod traits;
+
+mod write_buffer;
+pub use write_buffer::*;
