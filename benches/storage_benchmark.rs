@@ -5,7 +5,7 @@
 use rand::{Rng, rng}; // `rng()` & `random_range` are the new, non-deprecated names
 use simd_r_drive::{
     DataStore,
-    traits::{DataStoreReader, DataStoreWriter},
+    traits::{DataStoreBufWriter, DataStoreReader, DataStoreWriter},
 };
 use std::fs::remove_file;
 use std::path::PathBuf;
@@ -37,6 +37,7 @@ fn main() {
     benchmark_sequential_reads(&path);
     benchmark_random_reads(&path);
     benchmark_batch_reads(&path);
+    benchmark_buffered_writes(&path);
     println!("✅ Benchmarks completed.");
 
     // clean-up (NamedTempFile deletes on drop, but this keeps `cargo bench`
@@ -45,7 +46,7 @@ fn main() {
 }
 
 // ---------------------------------------------------------------------------
-// 1 ─ Write 1 M entries (batched)
+// Write 1 M entries (batched)
 // ---------------------------------------------------------------------------
 
 fn benchmark_append_entries(path: &PathBuf) {
@@ -90,7 +91,7 @@ fn flush_batch(storage: &DataStore, batch: &mut Vec<(Vec<u8>, Vec<u8>)>) {
 }
 
 // ---------------------------------------------------------------------------
-// 2 ─ Sequential iteration (zero-copy)
+// Sequential iteration (zero-copy)
 // ---------------------------------------------------------------------------
 
 fn benchmark_sequential_reads(path: &PathBuf) {
@@ -115,7 +116,7 @@ fn benchmark_sequential_reads(path: &PathBuf) {
 }
 
 // ---------------------------------------------------------------------------
-// 3 ─ Random single-key look-ups
+// Random single-key look-ups
 // ---------------------------------------------------------------------------
 
 fn benchmark_random_reads(path: &PathBuf) {
@@ -144,7 +145,7 @@ fn benchmark_random_reads(path: &PathBuf) {
 }
 
 // ---------------------------------------------------------------------------
-// 4 ─ Vectorized look-ups (batch_read)
+// Vectorized look-ups (batch_read)
 // ---------------------------------------------------------------------------
 
 fn benchmark_batch_reads(path: &PathBuf) {
@@ -193,4 +194,35 @@ fn verify_batch(storage: &DataStore, keys_buf: &mut Vec<Vec<u8>>) -> usize {
     let n = keys_buf.len();
     keys_buf.clear();
     n
+}
+
+fn benchmark_buffered_writes(path: &PathBuf) {
+    let storage = DataStore::open(path).expect("open");
+
+    let start_time = Instant::now();
+    let mut auto_flushes = 0u32;
+
+    for i in 0..NUM_ENTRIES {
+        let key = format!("buf-key-{i}").into_bytes();
+
+        let mut val = vec![0u8; ENTRY_SIZE];
+        let bytes = i.to_le_bytes();
+        val[..bytes.len().min(ENTRY_SIZE)].copy_from_slice(&bytes[..bytes.len().min(ENTRY_SIZE)]);
+
+        // Each insert returns `true` *iff* the soft-limit was reached
+        // and the buffer has just been flushed to disk.
+        if storage.buf_write(&key, &val).expect("buf_write") {
+            auto_flushes += 1;
+        }
+    }
+
+    // Make sure the tail of the buffer (if any) hits the file.
+    storage.buf_write_flush().expect("final flush");
+
+    let dt = start_time.elapsed();
+    println!(
+        "Buffered-write: wrote {NUM_ENTRIES} entries in {:#.3}s ({:#.3} writes/s, {auto_flushes} auto-flushes)",
+        dt.as_secs_f64(),
+        NUM_ENTRIES as f64 / dt.as_secs_f64(),
+    );
 }
