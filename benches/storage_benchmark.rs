@@ -5,7 +5,7 @@
 use rand::{Rng, rng}; // `rng()` & `random_range` are the new, non-deprecated names
 use simd_r_drive::{
     DataStore,
-    traits::{DataStoreBufWriter, DataStoreReader, DataStoreWriter},
+    traits::{DataStoreReader, DataStoreStageWriter, DataStoreWriter},
 };
 use std::fs::remove_file;
 use std::path::PathBuf;
@@ -195,13 +195,13 @@ fn benchmark_buffered_writes(path: &PathBuf) {
 
         // Each insert returns `true` *iff* the soft-limit was reached
         // and the buffer has just been flushed to disk.
-        if storage.buf_write(&key, &val).expect("buf_write") {
+        if storage.stage_write(&key, &val).expect("stage_write") {
             auto_flushes += 1;
         }
     }
 
     // Make sure the tail of the buffer (if any) hits the file.
-    storage.buf_write_flush().expect("final flush");
+    storage.stage_write_flush().expect("final flush");
 
     let dt = start_time.elapsed();
     println!(

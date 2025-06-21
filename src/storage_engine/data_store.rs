@@ -5,7 +5,7 @@ use crate::storage_engine::digest::{
 use crate::storage_engine::simd_copy;
 use crate::storage_engine::write_buffer::{KeyHash, WriteBuffer};
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
-use crate::traits::{DataStoreBufWriter, DataStoreReader, DataStoreWriter};
+use crate::traits::{DataStoreReader, DataStoreStageWriter, DataStoreWriter};
 use crate::utils::verify_file_existence;
 use log::{debug, info, warn};
 use memmap2::Mmap;
@@ -64,9 +64,9 @@ impl From<PathBuf> for DataStore {
     }
 }
 
-impl DataStoreBufWriter for DataStore {
+impl DataStoreStageWriter for DataStore {
     // TODO: Document
-    fn buf_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
+    fn stage_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
         if payload.is_empty() {
             return Err(Error::new(ErrorKind::InvalidInput, "empty payload"));
         }
@@ -79,7 +79,7 @@ impl DataStoreBufWriter for DataStore {
     }
 
     // TODO: Document
-    fn buf_write_flush(&self) -> Result<u64> {
+    fn stage_write_flush(&self) -> Result<u64> {
         // Nothing to do?
         if self.write_buffer.is_empty() {
             return Ok(self.tail_offset.load(Ordering::Acquire));

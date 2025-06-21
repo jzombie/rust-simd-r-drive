@@ -10,8 +10,8 @@ pub use batch_write::*;
 mod write;
 pub use write::*;
 
-mod buf_write;
-pub use buf_write::*;
+mod stage_write;
+pub use stage_write::*;
 
-mod buf_write_flush;
-pub use buf_write_flush::*;
+mod stage_write_flush;
+pub use stage_write_flush::*;

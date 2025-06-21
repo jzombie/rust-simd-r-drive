@@ -10,12 +10,12 @@ use muxio_rpc_service::prebuffered::RpcMethodPrebuffered;
 use muxio_tokio_rpc_server::{RpcServer, RpcServiceEndpointInterface};
 use simd_r_drive::{
     DataStore,
-    traits::{DataStoreBufWriter, DataStoreReader, DataStoreWriter},
+    traits::{DataStoreReader, DataStoreStageWriter, DataStoreWriter},
 };
-// BufWriteFlush, BufWriteFlushRequestParams, BufWriteFlushResponseParams,
+// StageWriteFlush, StageWriteFlushRequestParams, StageWriteFlushResponseParams,
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, BufWrite,
-    BufWriteResponseParams, Read, ReadResponseParams, Write, WriteResponseParams,
+    BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, Read,
+    ReadResponseParams, StageWrite, StageWriteResponseParams, Write, WriteResponseParams,
 };
 mod cli;
 use crate::cli::Cli;
@@ -44,8 +44,8 @@ async fn main() -> std::io::Result<()> {
     let endpoint = rpc_server.endpoint();
 
     let write_store = Arc::clone(&store);
-    let buf_write_store = Arc::clone(&store);
-    // let buf_write_flush_store = Arc::clone(&store);
+    let stage_write_store = Arc::clone(&store);
+    // let stage_write_flush_store = Arc::clone(&store);
     let batch_write_store = Arc::clone(&store);
     let read_store = Arc::clone(&store);
     let batch_read_store = Arc::clone(&store);
@@ -79,12 +79,12 @@ async fn main() -> std::io::Result<()> {
                 }
             }
         }),
-        endpoint.register_prebuffered(BufWrite::METHOD_ID, {
+        endpoint.register_prebuffered(StageWrite::METHOD_ID, {
             move |_, bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&buf_write_store);
+                let store_mutex = Arc::clone(&stage_write_store);
                 async move {
                     let resp = task::spawn_blocking(move || {
-                        let req = BufWrite::decode_request(&bytes)?;
+                        let req = StageWrite::decode_request(&bytes)?;
 
                         // Acquire exclusive write lock.
                         //
@@ -93,9 +93,9 @@ async fn main() -> std::io::Result<()> {
                         //
                         // Tokio's blocking_write ensures the thread isn't stalled.
                         let store = store_mutex.blocking_write();
-                        let needs_flush = store.buf_write(&req.key, &req.payload)?;
+                        let needs_flush = store.stage_write(&req.key, &req.payload)?;
                         let resp =
-                            BufWrite::encode_response(BufWriteResponseParams { needs_flush })?;
+                            StageWrite::encode_response(StageWriteResponseParams { needs_flush })?;
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await
@@ -106,13 +106,13 @@ async fn main() -> std::io::Result<()> {
                 }
             }
         }),
-        // endpoint.register_prebuffered(BufWriteFlush::METHOD_ID, {
+        // endpoint.register_prebuffered(StageWriteFlush::METHOD_ID, {
         //     move |_, bytes: Vec<u8>| {
-        //         let store_mutex = Arc::clone(&buf_write_flush_store);
+        //         let store_mutex = Arc::clone(&stage_write_flush_store);
         //         async move {
         //             let resp = task::spawn_blocking(move || {
         //                 // There are no request params here
-        //                 // let req = BufWriteFlush::decode_request(&bytes)?;
+        //                 // let req = StageWriteFlush::decode_request(&bytes)?;
 
         //                 // Acquire exclusive write lock.
         //                 //
@@ -121,8 +121,8 @@ async fn main() -> std::io::Result<()> {
         //                 //
         //                 // Tokio's blocking_write ensures the thread isn't stalled.
         //                 let store = store_mutex.blocking_write();
-        //                 let result = store.buf_write_flush();
-        //                 let resp = BufWriteFlush::encode_response(BufWriteResponseParams {
+        //                 let result = store.stage_write_flush();
+        //                 let resp = StageWriteFlush::encode_response(StageWriteResponseParams {
         //                     result: result.ok(),
         //                 })?;
         //                 Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)

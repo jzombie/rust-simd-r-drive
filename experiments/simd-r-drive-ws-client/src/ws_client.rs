@@ -2,12 +2,12 @@ use muxio_rpc_service_caller::prebuffered::RpcCallPrebuffered;
 use muxio_tokio_rpc_client::RpcClient;
 use simd_r_drive::{
     DataStore, EntryMetadata,
-    traits::{AsyncDataStoreBufWriter, AsyncDataStoreReader, AsyncDataStoreWriter},
+    traits::{AsyncDataStoreReader, AsyncDataStoreStageWriter, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, BufWrite,
-    BufWriteFlush, BufWriteFlushRequestParams, BufWriteRequestParams, Read, ReadRequestParams,
-    Write, WriteRequestParams,
+    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Read,
+    ReadRequestParams, StageWrite, StageWriteFlush, StageWriteFlushRequestParams,
+    StageWriteRequestParams, Write, WriteRequestParams,
 };
 use std::io::{Error, ErrorKind, Result};
 
@@ -24,11 +24,11 @@ impl WsClient {
 }
 
 #[async_trait::async_trait]
-impl AsyncDataStoreBufWriter for WsClient {
-    async fn buf_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
-        let resp = BufWrite::call(
+impl AsyncDataStoreStageWriter for WsClient {
+    async fn stage_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
+        let resp = StageWrite::call(
             &self.rpc_client,
-            BufWriteRequestParams {
+            StageWriteRequestParams {
                 key: key.to_vec(),
                 payload: payload.to_vec(),
             },
@@ -38,8 +38,8 @@ impl AsyncDataStoreBufWriter for WsClient {
         Ok(resp.needs_flush)
     }
 
-    async fn buf_write_flush(&self) -> Result<u64> {
-        let resp = BufWriteFlush::call(&self.rpc_client, BufWriteFlushRequestParams {}).await?;
+    async fn stage_write_flush(&self) -> Result<u64> {
+        let resp = StageWriteFlush::call(&self.rpc_client, StageWriteFlushRequestParams {}).await?;
 
         resp.result
             .ok_or_else(|| Error::new(ErrorKind::Other, "no offset returned"))

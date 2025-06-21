@@ -3,29 +3,30 @@ use muxio_rpc_service::{prebuffered::RpcMethodPrebuffered, rpc_method_id};
 use std::io;
 
 #[derive(Encode, Decode, PartialEq, Debug)]
-pub struct BufWriteFlushRequestParams {}
-
-#[derive(Encode, Decode, PartialEq, Debug)]
-pub struct BufWriteFlushResponseParams {
-    pub result: Option<u64>, // TODO: Rename `result`
+pub struct StageWriteRequestParams {
+    pub key: Vec<u8>,
+    pub payload: Vec<u8>,
 }
 
-pub struct BufWriteFlush;
+#[derive(Encode, Decode, PartialEq, Debug)]
+pub struct StageWriteResponseParams {
+    pub needs_flush: bool,
+}
 
-impl RpcMethodPrebuffered for BufWriteFlush {
-    const METHOD_ID: u64 = rpc_method_id!("buf_write_flush");
+pub struct StageWrite;
 
-    type Input = BufWriteFlushRequestParams;
-    type Output = BufWriteFlushResponseParams;
+impl RpcMethodPrebuffered for StageWrite {
+    const METHOD_ID: u64 = rpc_method_id!("stage_write");
 
-    fn encode_request(
-        write_request_params: BufWriteFlushRequestParams,
-    ) -> Result<Vec<u8>, io::Error> {
+    type Input = StageWriteRequestParams;
+    type Output = StageWriteResponseParams;
+
+    fn encode_request(write_request_params: StageWriteRequestParams) -> Result<Vec<u8>, io::Error> {
         Ok(bitcode::encode(&write_request_params))
     }
 
     fn decode_request(bytes: &[u8]) -> Result<Self::Input, io::Error> {
-        let req_params = bitcode::decode::<BufWriteFlushRequestParams>(bytes)
+        let req_params = bitcode::decode::<StageWriteRequestParams>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         Ok(req_params)
@@ -36,7 +37,7 @@ impl RpcMethodPrebuffered for BufWriteFlush {
     }
 
     fn decode_response(bytes: &[u8]) -> Result<Self::Output, io::Error> {
-        let resp_params = bitcode::decode::<BufWriteFlushResponseParams>(bytes)
+        let resp_params = bitcode::decode::<StageWriteResponseParams>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         Ok(resp_params)

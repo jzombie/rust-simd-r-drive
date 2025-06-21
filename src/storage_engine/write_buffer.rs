@@ -38,7 +38,7 @@ type Payload = Vec<u8>;
 /// * Reads & writes to the buffer are lock-free (courtesy of
 ///   `DashMap`).  
 /// * A flush is expected to happen under an *external* lock in
-///   `DataStore::buf_write_flush()`, so clearing the map is safe.
+///   `DataStore::stage_write_flush()`, so clearing the map is safe.
 pub struct WriteBuffer {
     /// Latest payload for every hashed key.
     map: DashMap<KeyHash, Payload>,
