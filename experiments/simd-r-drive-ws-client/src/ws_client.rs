@@ -2,11 +2,12 @@ use muxio_rpc_service_caller::prebuffered::RpcCallPrebuffered;
 use muxio_tokio_rpc_client::RpcClient;
 use simd_r_drive::{
     DataStore, EntryMetadata,
-    traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
+    traits::{AsyncDataStoreBufWriter, AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Read,
-    ReadRequestParams, Write, WriteRequestParams,
+    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, BufWrite,
+    BufWriteFlush, BufWriteFlushRequestParams, BufWriteRequestParams, Read, ReadRequestParams,
+    Write, WriteRequestParams,
 };
 use std::io::{Error, ErrorKind, Result};
 
@@ -19,6 +20,29 @@ impl WsClient {
         let rpc_client = RpcClient::new(&format!("ws://{}/ws", websocket_address)).await;
 
         Self { rpc_client }
+    }
+}
+
+#[async_trait::async_trait]
+impl AsyncDataStoreBufWriter for WsClient {
+    async fn buf_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
+        let resp = BufWrite::call(
+            &self.rpc_client,
+            BufWriteRequestParams {
+                key: key.to_vec(),
+                payload: payload.to_vec(),
+            },
+        )
+        .await?;
+
+        Ok(resp.needs_flush)
+    }
+
+    async fn buf_write_flush(&self) -> Result<u64> {
+        let resp = BufWriteFlush::call(&self.rpc_client, BufWriteFlushRequestParams {}).await?;
+
+        resp.result
+            .ok_or_else(|| Error::new(ErrorKind::Other, "no offset returned"))
     }
 }
 
