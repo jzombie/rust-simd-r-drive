@@ -40,7 +40,7 @@ version = "4.5.32"
 features = ["derive"]
 
 [dependencies.xxhash-rust]
-version = "0.8.12"
+version = "0.8.15"
 features = ["xxh3", "const_xxh3"]
 
 [dev-dependencies]
