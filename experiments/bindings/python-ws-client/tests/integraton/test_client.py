@@ -214,3 +214,43 @@ def test_concurrent_read_write_stress(client):
     print(
         f"--- SUCCESS: Concurrent stress test passed. Verified {len(items_to_verify)} entries. ---"
     )
+
+
+def test_batch_read_with_missing_key(client):
+    """
+    Verifies that batch_read:
+    – returns payloads for existing keys,
+    – returns None for keys that are absent,
+    – preserves order (results[i] matches keys[i]).
+    """
+    # --- Arrange ----------------------------------------------------------
+    entries = [
+        (b"br-key-1", b"br-val-alpha"),
+        (b"br-key-2", b"br-val-beta"),
+        (b"br-key-3", b"br-val-gamma"),
+    ]
+    client.batch_write(entries)
+
+    # Keys to fetch (include one that does not exist)
+    keys_to_fetch = [k for k, _ in entries] + [b"br-key-missing"]
+
+    # --- Act --------------------------------------------------------------
+    results = client.batch_read(keys_to_fetch)
+
+    # --- Assert -----------------------------------------------------------
+    assert len(results) == len(
+        keys_to_fetch
+    ), "Result vector length mismatch with query keys"
+
+    for idx, (key, expected_payload) in enumerate(
+        entries + [(b"br-key-missing", None)]
+    ):
+        result = results[idx]
+        if expected_payload is None:
+            assert (
+                result is None
+            ), f"Expected None for absent key {key.decode()}, got {result!r}"
+        else:
+            assert (
+                result == expected_payload
+            ), f"Payload mismatch for key {key.decode()}"

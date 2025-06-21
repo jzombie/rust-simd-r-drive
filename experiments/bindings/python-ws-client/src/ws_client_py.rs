@@ -80,4 +80,32 @@ impl DataStoreWsClient {
             }
         })
     }
+
+    #[pyo3(name = "batch_read")]
+    fn py_batch_read(&self, keys: Vec<Vec<u8>>) -> PyResult<Vec<Option<PyObject>>> {
+        // We must keep the key buffers alive for the duration of the async
+        // call, so first park them in their own Vec.
+        let key_bufs: Vec<Vec<u8>> = keys;
+
+        // Borrow each buffer as &[u8] – this is what the WsClient expects.
+        let key_slices: Vec<&[u8]> = key_bufs.iter().map(|k| k.as_slice()).collect();
+
+        // Run the async RPC inside the Tokio runtime.
+        //
+        // The call is *infallible* (it returns the data directly), so we
+        // don’t need `map_err` here – if the transport layer could fail,
+        // the API would return a Result like the write paths.
+        let results: Vec<Option<Vec<u8>>> = self
+            .runtime
+            .block_on(async { self.ws_client.batch_read(&key_slices).await });
+
+        // Convert Vec<Option<Vec<u8>>> → Vec<Option<PyBytes>>
+        Python::with_gil(|py| {
+            let py_results: Vec<Option<PyObject>> = results
+                .into_iter()
+                .map(|opt| opt.map(|bytes| PyBytes::new(py, &bytes).into()))
+                .collect();
+            Ok(py_results)
+        })
+    }
 }

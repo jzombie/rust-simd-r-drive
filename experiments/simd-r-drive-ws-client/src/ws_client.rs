@@ -5,7 +5,8 @@ use simd_r_drive::{
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchWrite, BatchWriteRequestParams, Read, ReadRequestParams, Write, WriteRequestParams,
+    BatchRead, BatchReadRequestParams, BatchReadResponseParams, BatchWrite,
+    BatchWriteRequestParams, Read, ReadRequestParams, Write, WriteRequestParams,
 };
 use std::io::{Error, ErrorKind, Result};
 
@@ -85,6 +86,21 @@ impl AsyncDataStoreReader for WsClient {
             .ok()?;
 
         resp.result
+    }
+
+    async fn batch_read(&self, keys: &[&[u8]]) -> Vec<Option<Self::EntryHandleType>> {
+        match BatchRead::call(
+            &self.rpc_client,
+            BatchReadRequestParams {
+                keys: keys.into_iter().map(|key| key.to_vec()).collect(),
+            },
+        )
+        .await
+        .ok()
+        {
+            Some(response_params) => response_params.results,
+            None => vec![],
+        }
     }
 
     async fn read_metadata(&self, _key: &[u8]) -> Option<EntryMetadata> {

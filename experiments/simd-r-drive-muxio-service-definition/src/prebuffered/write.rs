@@ -21,8 +21,8 @@ impl RpcMethodPrebuffered for Write {
     type Input = WriteRequestParams;
     type Output = WriteResponseParams;
 
-    fn encode_request(write_request_paarms: WriteRequestParams) -> Result<Vec<u8>, io::Error> {
-        Ok(bitcode::encode(&write_request_paarms))
+    fn encode_request(write_request_params: WriteRequestParams) -> Result<Vec<u8>, io::Error> {
+        Ok(bitcode::encode(&write_request_params))
     }
 
     fn decode_request(bytes: &[u8]) -> Result<Self::Input, io::Error> {
