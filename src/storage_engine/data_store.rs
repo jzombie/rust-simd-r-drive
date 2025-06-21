@@ -286,7 +286,26 @@ impl DataStoreReader for DataStore {
         Self::read_with_ctx(key, &mmap_arc, &key_indexer_guard)
     }
 
-    // TODO: Document
+    /// Reads many keys in one shot.
+    ///
+    /// This is the **vectorized** counterpart to [`read`].  
+    /// It takes a slice of raw-byte keys and returns a `Vec` whose *i-th* element
+    /// is the result of looking up the *i-th* key.
+    ///
+    /// *   **Zero-copy** – each `Some(EntryHandle)` points directly into the
+    ///     shared `Arc<Mmap>`; no payload is copied.
+    /// *   **Constant-time per key** – the in-memory [`KeyIndexer`] map is used
+    ///     for each lookup, so the complexity is *O(n)* where *n* is
+    ///     `keys.len()`.
+    /// *   **Thread-safe** – a read lock on the index is taken once for the whole
+    ///     batch, so concurrent writers are still blocked only for the same short
+    ///     critical section that a single `read` would need.
+    ///
+    /// #### Error handling
+    /// *If* the index lock is poisoned the function falls back to “best-effort”
+    /// semantics and returns a vector of `None`s (one per requested key).  
+    /// This keeps the signature simple (`Vec<Option<…>>`) while still signalling
+    /// that the read failed.
     fn batch_read(&self, keys: &[&[u8]]) -> Vec<Option<Self::EntryHandleType>> {
         let mmap_arc = self.get_mmap_arc();
 
@@ -940,7 +959,27 @@ impl DataStore {
         })
     }
 
-    // TODO: Document
+    /// Internal helper that does the real work for `read`/`batch_read`.
+    ///
+    /// *   `key` – raw-byte key we are searching for.  
+    /// *   `mmap_arc` – the current shared memory-map.  
+    /// *   `key_indexer` – **already locked** read-only view of the index.  
+    ///
+    /// The function:
+    /// 1.  Hashes `key` with XXH3 (same as writers do).
+    /// 2.  Looks the hash up in the index; bails out early if absent.
+    /// 3.  Validates that the stored offset and metadata still fit inside the
+    ///     current `mmap` (guards against truncated / corrupted files).
+    /// 4.  Creates and returns an `EntryHandle` that spans the payload slice in
+    ///     the `mmap`.
+    ///
+    /// It deliberately **does not** take any locks itself – that must be done by
+    /// the caller so that `batch_read` can reuse the same lock for many lookups.
+    ///
+    /// `None` is returned when:
+    /// * the key is unknown,
+    /// * the mapped file looks inconsistent (bounds checks fail), or
+    /// * the latest record for the key is a tomb-stone (one-byte NULL payload).
     #[inline]
     pub fn read_with_ctx(
         key: &[u8],
