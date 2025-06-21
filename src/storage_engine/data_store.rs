@@ -71,19 +71,11 @@ impl DataStoreBufWriter for DataStore {
             return Err(Error::new(ErrorKind::InvalidInput, "empty payload"));
         }
 
-        // 1. hash once – same as normal writes
         let hash = compute_hash(key);
 
-        // 2. copy payload into the buffer
         let should_flush = self.write_buffer.insert(hash, payload.to_vec());
 
-        // 3. auto-flush when soft limit reached
-        if should_flush {
-            self.buf_write_flush()?;
-            return Ok(true);
-        }
-
-        Ok(false)
+        Ok(should_flush)
     }
 
     // TODO: Document
