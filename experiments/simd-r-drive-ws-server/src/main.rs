@@ -19,7 +19,6 @@ use simd_r_drive_muxio_service_definition::prebuffered::{
 mod cli;
 use crate::cli::Cli;
 
-// TODO: Implement batch_read
 // TODO: Implement API-controlled write buffering
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
