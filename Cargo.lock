@@ -1070,6 +1070,7 @@ dependencies = [
  "muxio-rpc-service-caller",
  "tokio",
  "tokio-tungstenite",
+ "tracing",
 ]
 
 [[package]]

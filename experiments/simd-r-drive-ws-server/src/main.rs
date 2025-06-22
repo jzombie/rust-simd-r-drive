@@ -174,6 +174,7 @@ async fn main() -> std::io::Result<()> {
 
                         // ── 4. Marshal the response frame ───────────────────────────────
                         let resp = BatchRead::encode_response(BatchReadResponseParams { results })?;
+
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await

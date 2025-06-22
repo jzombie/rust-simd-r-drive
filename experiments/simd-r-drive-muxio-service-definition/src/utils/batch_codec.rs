@@ -232,4 +232,12 @@ mod tests {
         buf.push(42); // invalid tag
         assert!(BatchCodec::decode_optional_payloads(&buf).is_err());
     }
+
+    #[test]
+    fn roundtrip_optional_all_some() {
+        let vals = vec![Some(b"a".to_vec()), Some(b"b".to_vec())]; // all present
+        let enc = BatchCodec::encode_optional_payloads(&vals);
+        let dec = BatchCodec::decode_optional_payloads(&enc).unwrap();
+        assert_eq!(dec, vals);
+    }
 }
