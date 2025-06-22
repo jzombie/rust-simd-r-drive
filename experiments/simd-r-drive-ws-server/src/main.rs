@@ -10,7 +10,7 @@ use muxio_rpc_service::prebuffered::RpcMethodPrebuffered;
 use muxio_tokio_rpc_server::{RpcServer, RpcServiceEndpointInterface};
 use simd_r_drive::{
     DataStore,
-    traits::{DataStoreReader, DataStoreStageWriter, DataStoreWriter},
+    traits::{DataStoreReader, DataStoreWriter},
 };
 
 use simd_r_drive_muxio_service_definition::prebuffered::{
@@ -70,60 +70,6 @@ async fn main() -> std::io::Result<()> {
                         let resp = Write::encode_response(WriteResponseParams {
                             result: result.ok(),
                         })?;
-                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
-                    })
-                    .await
-                    .map_err(|e| {
-                        std::io::Error::new(std::io::ErrorKind::Other, format!("write task: {e}"))
-                    })??;
-                    Ok(resp)
-                }
-            }
-        }),
-        endpoint.register_prebuffered(StageWrite::METHOD_ID, {
-            move |_, bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&stage_write_store);
-                async move {
-                    let resp = task::spawn_blocking(move || {
-                        let req = StageWrite::decode_request(&bytes)?;
-
-                        // Acquire exclusive write lock.
-                        //
-                        // This blocks all concurrent readers and writers
-                        // until the mutation is complete.
-                        //
-                        // Tokio's blocking_write ensures the thread isn't stalled.
-                        let store = store_mutex.blocking_write();
-                        let needs_flush = store.stage_write(&req.key, &req.payload)?;
-                        let resp =
-                            StageWrite::encode_response(StageWriteResponseParams { needs_flush })?;
-                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
-                    })
-                    .await
-                    .map_err(|e| {
-                        std::io::Error::new(std::io::ErrorKind::Other, format!("write task: {e}"))
-                    })??;
-                    Ok(resp)
-                }
-            }
-        }),
-        endpoint.register_prebuffered(StageWriteFlush::METHOD_ID, {
-            move |_, _bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&stage_write_flush_store);
-                async move {
-                    let resp = task::spawn_blocking(move || {
-                        // Acquire exclusive write lock.
-                        //
-                        // This blocks all concurrent readers and writers
-                        // until the mutation is complete.
-                        //
-                        // Tokio's blocking_write ensures the thread isn't stalled.
-                        let store = store_mutex.blocking_write();
-                        let result = store.stage_write_flush()?;
-                        let resp =
-                            StageWriteFlush::encode_response(StageWriteFlushResponseParams {
-                                result,
-                            })?;
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await

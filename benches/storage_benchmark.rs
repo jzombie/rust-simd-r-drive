@@ -5,7 +5,7 @@
 use rand::{Rng, rng}; // `rng()` & `random_range` are the new, non-deprecated names
 use simd_r_drive::{
     DataStore,
-    traits::{DataStoreReader, DataStoreStageWriter, DataStoreWriter},
+    traits::{DataStoreReader, DataStoreWriter},
 };
 use std::fs::remove_file;
 use std::path::PathBuf;
@@ -38,7 +38,6 @@ fn main() {
     benchmark_sequential_reads(&path);
     benchmark_random_reads(&path);
     benchmark_batch_reads(&path);
-    benchmark_buffered_writes(&path);
     println!("✅ Benchmarks completed.");
 
     // clean-up (NamedTempFile deletes on drop, but this keeps `cargo bench`
@@ -177,38 +176,6 @@ fn benchmark_batch_reads(path: &PathBuf) {
         fmt_rate(verified as f64),
         dt.as_secs_f64(),
         fmt_rate(verified as f64 / dt.as_secs_f64())
-    );
-}
-
-fn benchmark_buffered_writes(path: &PathBuf) {
-    let storage = DataStore::open(path).expect("open");
-
-    let start_time = Instant::now();
-    let mut auto_flushes = 0u32;
-
-    for i in 0..NUM_ENTRIES {
-        let key = format!("buf-key-{i}").into_bytes();
-
-        let mut val = vec![0u8; ENTRY_SIZE];
-        let bytes = i.to_le_bytes();
-        val[..bytes.len().min(ENTRY_SIZE)].copy_from_slice(&bytes[..bytes.len().min(ENTRY_SIZE)]);
-
-        // Each insert returns `true` *iff* the soft-limit was reached
-        // and the buffer has just been flushed to disk.
-        if storage.stage_write(&key, &val).expect("stage_write") {
-            auto_flushes += 1;
-        }
-    }
-
-    // Make sure the tail of the buffer (if any) hits the file.
-    storage.stage_write_flush().expect("final flush");
-
-    let dt = start_time.elapsed();
-    println!(
-        "Buffered-write: wrote {} entries in {:#.3}s ({} writes/s, {auto_flushes} auto-flushes)",
-        fmt_rate(NUM_ENTRIES as f64),
-        dt.as_secs_f64(),
-        fmt_rate(NUM_ENTRIES as f64 / dt.as_secs_f64()),
     );
 }
 

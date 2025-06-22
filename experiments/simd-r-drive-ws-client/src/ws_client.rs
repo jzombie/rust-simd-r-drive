@@ -2,7 +2,7 @@ use muxio_rpc_service_caller::prebuffered::RpcCallPrebuffered;
 use muxio_tokio_rpc_client::RpcClient;
 use simd_r_drive::{
     DataStore, EntryMetadata,
-    traits::{AsyncDataStoreReader, AsyncDataStoreStageWriter, AsyncDataStoreWriter},
+    traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Read,
@@ -20,28 +20,6 @@ impl WsClient {
         let rpc_client = RpcClient::new(&format!("ws://{}/ws", websocket_address)).await;
 
         Self { rpc_client }
-    }
-}
-
-#[async_trait::async_trait]
-impl AsyncDataStoreStageWriter for WsClient {
-    async fn stage_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
-        let resp = StageWrite::call(
-            &self.rpc_client,
-            StageWriteRequestParams {
-                key: key.to_vec(),
-                payload: payload.to_vec(),
-            },
-        )
-        .await?;
-
-        Ok(resp.needs_flush)
-    }
-
-    async fn stage_write_flush(&self) -> Result<u64> {
-        let resp = StageWriteFlush::call(&self.rpc_client, StageWriteFlushRequestParams {}).await?;
-
-        Ok(resp.result)
     }
 }
 

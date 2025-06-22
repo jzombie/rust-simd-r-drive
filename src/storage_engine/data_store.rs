@@ -5,7 +5,7 @@ use crate::storage_engine::digest::{
 use crate::storage_engine::simd_copy;
 use crate::storage_engine::stage_writer_buffer::{KeyHash, StageWriterBuffer};
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
-use crate::traits::{DataStoreReader, DataStoreStageWriter, DataStoreWriter};
+use crate::traits::{DataStoreReader, DataStoreWriter};
 use crate::utils::verify_file_existence;
 use log::{debug, info, warn};
 use memmap2::Mmap;
@@ -61,38 +61,6 @@ impl From<PathBuf> for DataStore {
     /// - If the file cannot be opened or mapped into memory.
     fn from(path: PathBuf) -> Self {
         DataStore::open(&path).expect("Failed to open storage file")
-    }
-}
-
-impl DataStoreStageWriter for DataStore {
-    // TODO: Document
-    fn stage_write(&self, key: &[u8], payload: &[u8]) -> Result<bool> {
-        if payload.is_empty() {
-            return Err(Error::new(ErrorKind::InvalidInput, "empty payload"));
-        }
-
-        let hash = compute_hash(key);
-
-        let should_flush = self.write_buffer.insert(hash, payload.to_vec());
-
-        Ok(should_flush)
-    }
-
-    // TODO: Document
-    fn stage_write_flush(&self) -> Result<u64> {
-        // Nothing to do?
-        if self.write_buffer.is_empty() {
-            return Ok(self.tail_offset.load(Ordering::Acquire));
-        }
-
-        // Drain clones the Vec<u8>s out; we immediately reuse their slices.
-        let drained = self.write_buffer.drain();
-
-        let hashed: Vec<(KeyHash, &[u8])> =
-            drained.iter().map(|(h, v)| (*h, v.as_slice())).collect();
-
-        // Re-use the existing, crash-safe batch writer.
-        self.batch_write_hashed_payloads(hashed, false)
     }
 }
 
