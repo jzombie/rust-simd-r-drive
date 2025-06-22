@@ -182,9 +182,54 @@ mod tests {
 
     #[test]
     fn roundtrip_optional_payloads() {
-        let values = vec![Some(b"foo".to_vec()), None, Some(b"barbaz".to_vec()), None];
-        let enc = BatchCodec::encode_optional_payloads(&values);
+        let vals = vec![Some(b"foo".to_vec()), None, Some(b"barbaz".to_vec()), None];
+        let enc = BatchCodec::encode_optional_payloads(&vals);
         let dec = BatchCodec::decode_optional_payloads(&enc).unwrap();
-        assert_eq!(dec, values);
+        assert_eq!(dec, vals);
+    }
+
+    #[test]
+    fn roundtrip_payloads() {
+        let vals = vec![b"one".to_vec(), b"two".to_vec(), b"three".to_vec()];
+        let enc = BatchCodec::encode_payloads(&vals);
+        let dec = BatchCodec::decode_payloads(&enc).unwrap();
+        assert_eq!(dec, vals);
+    }
+
+    /* -----------------------------------------------------------
+     *  Helper sanity checks
+     * -------------------------------------------------------- */
+
+    #[test]
+    fn encoded_keys_len_matches_actual_bytes() {
+        let keys = vec![b"foo".to_vec(), b"bar".to_vec(), b"baz".to_vec()];
+        let enc = BatchCodec::encode_keys(&keys);
+        assert_eq!(enc.len(), BatchCodec::encoded_keys_len(&keys));
+    }
+
+    /* -----------------------------------------------------------
+     *  Error paths
+     * -------------------------------------------------------- */
+
+    #[test]
+    fn decode_keys_rejects_truncated_buffer() {
+        // Count says 2 but only one key present
+        let bogus = {
+            let k = b"k".to_vec();
+            let mut v = Vec::new();
+            v.extend_from_slice(&(2u32.to_le_bytes())); // count = 2
+            v.extend_from_slice(&(k.len() as u32).to_le_bytes()); // first key len
+            v.extend_from_slice(&k); // first key bytes
+            v // **second key missing**
+        };
+        assert!(BatchCodec::decode_keys(&bogus).is_err());
+    }
+
+    #[test]
+    fn decode_optional_payloads_rejects_bad_tag() {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&(1u32.to_le_bytes())); // count = 1
+        buf.push(42); // invalid tag
+        assert!(BatchCodec::decode_optional_payloads(&buf).is_err());
     }
 }
