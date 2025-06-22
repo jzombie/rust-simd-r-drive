@@ -9,7 +9,7 @@ use tracing_subscriber::fmt::writer::MakeWriter;
 
 // Your module declarations
 mod ws_client_py;
-use ws_client_py::DataStoreWsClient;
+use ws_client_py::BaseDataStoreWsClient;
 mod namespace_hasher_py;
 use namespace_hasher_py::NamespaceHasher;
 
@@ -103,7 +103,7 @@ fn test_rust_logging() {
 fn simd_r_drive_ws_client(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(setup_logging, m)?)?;
     m.add_function(wrap_pyfunction!(test_rust_logging, m)?)?; // Add the test function
-    m.add_class::<DataStoreWsClient>()?;
+    m.add_class::<BaseDataStoreWsClient>()?;
     m.add_class::<NamespaceHasher>()?;
     Ok(())
 }

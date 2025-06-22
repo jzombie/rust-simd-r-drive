@@ -5,16 +5,16 @@ use simd_r_drive_ws_client::{AsyncDataStoreReader, AsyncDataStoreWriter, WsClien
 use std::sync::Arc;
 use tokio::runtime::{Builder, Runtime};
 
-#[pyclass]
-pub struct DataStoreWsClient {
+#[pyclass(subclass)]
+pub struct BaseDataStoreWsClient {
     ws_client: Arc<WsClient>,
     runtime: Arc<Runtime>,
 }
 
 #[pymethods]
-impl DataStoreWsClient {
+impl BaseDataStoreWsClient {
     #[new]
-    fn new(_py: Python<'_>, address: &str) -> PyResult<Self> {
+    fn new(_py: Python<'_>, ws_address: &str) -> PyResult<Self> {
         let runtime = Arc::new(
             Builder::new_multi_thread()
                 .enable_all()
@@ -24,7 +24,7 @@ impl DataStoreWsClient {
                 })?,
         );
 
-        let ws_client = runtime.block_on(async { WsClient::new(address).await });
+        let ws_client = runtime.block_on(async { WsClient::new(ws_address).await });
 
         Ok(Self {
             ws_client: Arc::new(ws_client),
