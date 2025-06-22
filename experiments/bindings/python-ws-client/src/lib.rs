@@ -43,7 +43,6 @@ impl io::Write for PythonLogger {
     }
 }
 
-// ... (The MakePythonWriter struct is unchanged)
 struct MakePythonWriter {
     log_callback: PyObject,
 }
@@ -59,7 +58,6 @@ impl<'a> MakeWriter<'a> for MakePythonWriter {
 /// Sets up the logging system to forward logs to the provided Python callback.
 #[pyfunction]
 fn setup_logging(callback: PyObject) -> PyResult<()> {
-    // ... (This function is unchanged)
     Python::with_gil(|py| {
         if !callback.bind(py).is_callable() {
             return Err(pyo3::exceptions::PyTypeError::new_err(
@@ -87,7 +85,7 @@ fn setup_logging(callback: PyObject) -> PyResult<()> {
     Ok(())
 }
 
-// --- TEST FUNCTION ADDED ---
+// TODO: Continue to debug; `eprintln!` works, though
 /// Generates one INFO and one WARN log message for testing purposes.
 #[pyfunction]
 fn test_rust_logging() {
