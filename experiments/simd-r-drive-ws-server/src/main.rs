@@ -10,13 +10,12 @@ use muxio_rpc_service::prebuffered::RpcMethodPrebuffered;
 use muxio_tokio_rpc_server::{RpcServer, RpcServiceEndpointInterface};
 use simd_r_drive::{
     DataStore,
-    traits::{DataStoreReader, DataStoreStageWriter, DataStoreWriter},
+    traits::{DataStoreReader, DataStoreWriter},
 };
 
 use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, Read,
-    ReadResponseParams, StageWrite, StageWriteFlush, StageWriteFlushResponseParams,
-    StageWriteResponseParams, Write, WriteResponseParams,
+    ReadResponseParams, Write, WriteResponseParams,
 };
 mod cli;
 use crate::cli::Cli;
@@ -45,8 +44,6 @@ async fn main() -> std::io::Result<()> {
     let endpoint = rpc_server.endpoint();
 
     let write_store = Arc::clone(&store);
-    let stage_write_store = Arc::clone(&store);
-    let stage_write_flush_store = Arc::clone(&store);
     let batch_write_store = Arc::clone(&store);
     let read_store = Arc::clone(&store);
     let batch_read_store = Arc::clone(&store);
@@ -80,60 +77,6 @@ async fn main() -> std::io::Result<()> {
                 }
             }
         }),
-        endpoint.register_prebuffered(StageWrite::METHOD_ID, {
-            move |_, bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&stage_write_store);
-                async move {
-                    let resp = task::spawn_blocking(move || {
-                        let req = StageWrite::decode_request(&bytes)?;
-
-                        // Acquire exclusive write lock.
-                        //
-                        // This blocks all concurrent readers and writers
-                        // until the mutation is complete.
-                        //
-                        // Tokio's blocking_write ensures the thread isn't stalled.
-                        let store = store_mutex.blocking_write();
-                        let needs_flush = store.stage_write(&req.key, &req.payload)?;
-                        let resp =
-                            StageWrite::encode_response(StageWriteResponseParams { needs_flush })?;
-                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
-                    })
-                    .await
-                    .map_err(|e| {
-                        std::io::Error::new(std::io::ErrorKind::Other, format!("write task: {e}"))
-                    })??;
-                    Ok(resp)
-                }
-            }
-        }),
-        endpoint.register_prebuffered(StageWriteFlush::METHOD_ID, {
-            move |_, _bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&stage_write_flush_store);
-                async move {
-                    let resp = task::spawn_blocking(move || {
-                        // Acquire exclusive write lock.
-                        //
-                        // This blocks all concurrent readers and writers
-                        // until the mutation is complete.
-                        //
-                        // Tokio's blocking_write ensures the thread isn't stalled.
-                        let store = store_mutex.blocking_write();
-                        let result = store.stage_write_flush()?;
-                        let resp =
-                            StageWriteFlush::encode_response(StageWriteFlushResponseParams {
-                                result,
-                            })?;
-                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
-                    })
-                    .await
-                    .map_err(|e| {
-                        std::io::Error::new(std::io::ErrorKind::Other, format!("write task: {e}"))
-                    })??;
-                    Ok(resp)
-                }
-            }
-        }),
         endpoint.register_prebuffered(BatchWrite::METHOD_ID, {
             move |_, bytes: Vec<u8>| {
                 let store_mutex = Arc::clone(&batch_write_store);
@@ -151,10 +94,9 @@ async fn main() -> std::io::Result<()> {
                             .iter()
                             .map(|(k, v)| (k.as_slice(), v.as_slice()))
                             .collect();
-                        let result = store.batch_write(&borrowed_entries); // TODO: Apply error handling
-                        let resp = BatchWrite::encode_response(BatchWriteResponseParams {
-                            result: result.ok(),
-                        })?;
+                        let result = store.batch_write(&borrowed_entries)?;
+                        let resp =
+                            BatchWrite::encode_response(BatchWriteResponseParams { result })?;
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await
@@ -232,6 +174,7 @@ async fn main() -> std::io::Result<()> {
 
                         // ── 4. Marshal the response frame ───────────────────────────────
                         let resp = BatchRead::encode_response(BatchReadResponseParams { results })?;
+
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await

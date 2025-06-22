@@ -1,3 +1,14 @@
-from .simd_r_drive_ws_client import DataStoreWsClient, NamespaceHasher
+from .simd_r_drive_ws_client import (
+    NamespaceHasher,
+    setup_logging,
+    test_rust_logging,
+)
 
-__all__ = ["DataStoreWsClient", "NamespaceHasher"]
+from .data_store_ws_client import DataStoreWsClient
+
+__all__ = [
+    "DataStoreWsClient",
+    "NamespaceHasher",
+    "setup_logging",
+    "test_rust_logging",
+]

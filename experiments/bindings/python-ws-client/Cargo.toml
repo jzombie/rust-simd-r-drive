@@ -16,3 +16,5 @@ pyo3-async-runtimes = { version = "0.25.0", features = ["tokio-runtime"] }
 simd-r-drive = { workspace = true }
 simd-r-drive-ws-client = { workspace = true }
 tokio = "1.45.1"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
