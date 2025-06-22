@@ -8,8 +8,8 @@ use tracing_subscriber::fmt::SubscriberBuilder;
 use tracing_subscriber::fmt::writer::MakeWriter;
 
 // Your module declarations
-mod ws_client_py;
-use ws_client_py::BaseDataStoreWsClient;
+mod base_ws_client_py;
+use base_ws_client_py::BaseDataStoreWsClient;
 mod namespace_hasher_py;
 use namespace_hasher_py::NamespaceHasher;
 
