@@ -6,8 +6,7 @@ use simd_r_drive::{
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Read,
-    ReadRequestParams, StageWrite, StageWriteFlush, StageWriteFlushRequestParams,
-    StageWriteRequestParams, Write, WriteRequestParams,
+    ReadRequestParams, Write, WriteRequestParams,
 };
 use std::io::{Error, ErrorKind, Result};
 

@@ -15,8 +15,7 @@ use simd_r_drive::{
 
 use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, Read,
-    ReadResponseParams, StageWrite, StageWriteFlush, StageWriteFlushResponseParams,
-    StageWriteResponseParams, Write, WriteResponseParams,
+    ReadResponseParams, Write, WriteResponseParams,
 };
 mod cli;
 use crate::cli::Cli;
@@ -45,8 +44,6 @@ async fn main() -> std::io::Result<()> {
     let endpoint = rpc_server.endpoint();
 
     let write_store = Arc::clone(&store);
-    let stage_write_store = Arc::clone(&store);
-    let stage_write_flush_store = Arc::clone(&store);
     let batch_write_store = Arc::clone(&store);
     let read_store = Arc::clone(&store);
     let batch_read_store = Arc::clone(&store);
