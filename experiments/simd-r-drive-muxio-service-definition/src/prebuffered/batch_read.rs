@@ -1,3 +1,5 @@
+// TODO: Switch back to `bitcode` implementation?
+
 use crate::utils::batch_codec::BatchCodec;
 use muxio_rpc_service::{prebuffered::RpcMethodPrebuffered, rpc_method_id};
 use std::io;

@@ -1,5 +1,4 @@
-//! src/rpc/batch_write.rs
-//! ----------------------
+// TODO: Switch back to `bitcode` implementation?
 
 use crate::utils::BatchCodec;
 use muxio_rpc_service::{prebuffered::RpcMethodPrebuffered, rpc_method_id};
