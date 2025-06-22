@@ -1,4 +1,3 @@
-// TODO: Include examples for streamable read
 // TODO: Integrate examples in main README
 
 //! # SIMD R Drive Storage Engine
