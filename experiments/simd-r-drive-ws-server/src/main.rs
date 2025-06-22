@@ -94,10 +94,9 @@ async fn main() -> std::io::Result<()> {
                             .iter()
                             .map(|(k, v)| (k.as_slice(), v.as_slice()))
                             .collect();
-                        let result = store.batch_write(&borrowed_entries); // TODO: Apply error handling
-                        let resp = BatchWrite::encode_response(BatchWriteResponseParams {
-                            result: result.ok(),
-                        })?;
+                        let result = store.batch_write(&borrowed_entries)?;
+                        let resp =
+                            BatchWrite::encode_response(BatchWriteResponseParams { result })?;
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await

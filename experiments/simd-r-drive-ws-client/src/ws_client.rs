@@ -54,8 +54,7 @@ impl AsyncDataStoreWriter for WsClient {
         )
         .await?;
 
-        resp.result
-            .ok_or_else(|| Error::new(ErrorKind::Other, "no offset returned"))
+        Ok(resp.result)
     }
 
     async fn rename_entry(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {
