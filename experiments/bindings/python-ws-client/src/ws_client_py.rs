@@ -5,7 +5,7 @@ use simd_r_drive_ws_client::{AsyncDataStoreReader, AsyncDataStoreWriter, WsClien
 use std::sync::Arc;
 use tokio::runtime::{Builder, Runtime};
 
-#[pyclass(subclass)]
+#[pyclass(subclass)] // Note: `subclass` allows this to be subclassed
 pub struct BaseDataStoreWsClient {
     ws_client: Arc<WsClient>,
     runtime: Arc<Runtime>,
