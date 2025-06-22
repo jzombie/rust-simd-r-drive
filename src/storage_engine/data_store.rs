@@ -11,7 +11,7 @@ use memmap2::Mmap;
 use std::collections::HashSet;
 use std::convert::From;
 use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 // Experimented with using a feature flag to enable `tokio::sync::Mutex`
