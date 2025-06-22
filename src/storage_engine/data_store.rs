@@ -3,7 +3,6 @@ use crate::storage_engine::digest::{
     Xxh3BuildHasher, compute_checksum, compute_hash, compute_hash_batch,
 };
 use crate::storage_engine::simd_copy;
-use crate::storage_engine::stage_writer_buffer::{KeyHash, StageWriterBuffer};
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
 use crate::traits::{DataStoreReader, DataStoreWriter};
 use crate::utils::verify_file_existence;
@@ -40,7 +39,6 @@ pub struct DataStore {
     tail_offset: AtomicU64,
     key_indexer: Arc<RwLock<KeyIndexer>>,
     path: PathBuf,
-    write_buffer: Arc<StageWriterBuffer>,
 }
 
 impl IntoIterator for DataStore {
@@ -437,7 +435,6 @@ impl DataStore {
             tail_offset: final_len.into(),
             key_indexer: Arc::new(RwLock::new(key_indexer)),
             path: path.to_path_buf(),
-            write_buffer: StageWriterBuffer::new(DEFAULT_WRITE_BUF_LIMIT),
         })
     }
 
