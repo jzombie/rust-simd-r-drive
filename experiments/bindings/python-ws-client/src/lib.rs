@@ -1,13 +1,10 @@
-// lib.rs
-
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use std::io;
-use tracing::{Level, info, warn}; // Import `warn` as well for testing
+use tracing::{Level, info, warn};
 use tracing_subscriber::fmt::SubscriberBuilder;
 use tracing_subscriber::fmt::writer::MakeWriter;
 
-// Your module declarations
 mod base_ws_client_py;
 use base_ws_client_py::BaseDataStoreWsClient;
 mod namespace_hasher_py;
