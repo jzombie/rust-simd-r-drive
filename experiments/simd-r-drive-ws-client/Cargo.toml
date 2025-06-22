@@ -12,12 +12,12 @@ publish.workspace = true # Inherit from workspace
 [dependencies]
 simd-r-drive = { workspace = true }
 simd-r-drive-muxio-service-definition = { workspace = true }
-# muxio-tokio-rpc-client = "0.5.0-alpha"
-muxio-tokio-rpc-client = { path = "../../../rust-muxio/extensions/muxio-tokio-rpc-client" }
-# muxio-rpc-service = "0.5.0-alpha"
-muxio-rpc-service = { path = "../../../rust-muxio/extensions/muxio-rpc-service" }
-# muxio-rpc-service-caller = "0.5.0-alpha"
-muxio-rpc-service-caller = { path = "../../../rust-muxio/extensions/muxio-rpc-service-caller" }
+muxio-tokio-rpc-client = "0.6.0-alpha"
+# muxio-tokio-rpc-client = { path = "../../../rust-muxio/extensions/muxio-tokio-rpc-client" }
+muxio-rpc-service = "0.6.0-alpha"
+# muxio-rpc-service = { path = "../../../rust-muxio/extensions/muxio-rpc-service" }
+muxio-rpc-service-caller = "0.6.0-alpha"
+# muxio-rpc-service-caller = { path = "../../../rust-muxio/extensions/muxio-rpc-service-caller" }
 tokio = "1.45.1"
 tracing = "0.1.41"
 async-trait = "0.1.88"
