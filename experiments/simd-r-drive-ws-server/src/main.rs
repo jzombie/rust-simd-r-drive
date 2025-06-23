@@ -123,8 +123,8 @@ async fn main() -> std::io::Result<()> {
                         // and then drop the read lock to maximize concurrency.
                         let store = store_mutex.blocking_read();
                         let result_data = store
-                            .read(&req.key)
-                            .map(|handle| handle.as_slice().to_vec()); // TODO: Apply error handling
+                            .read(&req.key)?
+                            .map(|handle| handle.as_slice().to_vec());
                         let resp = Read::encode_response(ReadResponseParams {
                             result: result_data,
                         })?;

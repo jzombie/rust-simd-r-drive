@@ -93,14 +93,14 @@ impl DataStore {
     }
 
     fn read<'py>(&self, py: Python<'py>, key: &[u8]) -> PyResult<Option<Py<PyBytes>>> {
-        match self.inner.lock().unwrap().read(key) {
+        match self.inner.lock().unwrap().read(key)? {
             Some(entry) => Ok(Some(PyBytes::new(py, &entry).into())),
             None => Ok(None),
         }
     }
 
     fn read_stream<'py>(&self, py: Python<'py>, key: &[u8]) -> PyResult<Option<Py<EntryStream>>> {
-        match self.inner.lock().unwrap().read(key) {
+        match self.inner.lock().unwrap().read(key)? {
             Some(entry) => {
                 let stream = EntryStream {
                     inner: Mutex::new(BaseEntryStream::from(entry)),
@@ -112,7 +112,7 @@ impl DataStore {
     }
 
     fn read_entry(&self, py: Python<'_>, key: &[u8]) -> PyResult<Option<Py<EntryHandle>>> {
-        match self.inner.lock().unwrap().read(key) {
+        match self.inner.lock().unwrap().read(key)? {
             Some(entry) => {
                 let handle = Py::new(py, EntryHandle { inner: entry })?;
                 Ok(Some(handle))
@@ -130,11 +130,11 @@ impl DataStore {
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
-    fn __contains__(&self, key: &[u8]) -> bool {
-        self.exists(key)
+    fn __contains__(&self, key: &[u8]) -> PyResult<bool> {
+        Ok(self.exists(key)?)
     }
 
-    fn exists(&self, key: &[u8]) -> bool {
-        self.inner.lock().unwrap().read(key).is_some()
+    fn exists(&self, key: &[u8]) -> PyResult<bool> {
+        Ok(self.inner.lock().unwrap().read(key)?.is_some())
     }
 }
