@@ -85,6 +85,10 @@ impl AsyncDataStoreReader for WsClient {
         Ok(resp.result)
     }
 
+    async fn read_last_entry(&self) -> Result<Option<Self::EntryHandleType>> {
+        unimplemented!("`read_last_entry` is not currently implemented");
+    }
+
     async fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>> {
         let batch_read_result = BatchRead::call(
             &self.rpc_client,

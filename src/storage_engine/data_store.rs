@@ -154,6 +154,34 @@ impl DataStoreReader for DataStore {
         }))
     }
 
+    fn read_last_entry(&self) -> Result<Option<EntryHandle>> {
+        let mmap_arc = self.get_mmap_arc();
+        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
+        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
+            return Ok(None);
+        }
+
+        let metadata_offset = (tail_offset - METADATA_SIZE as u64) as usize;
+        if metadata_offset + METADATA_SIZE > mmap_arc.len() {
+            return Ok(None);
+        }
+
+        let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
+        let metadata = EntryMetadata::deserialize(metadata_bytes);
+
+        let entry_start = metadata.prev_offset as usize;
+        let entry_end = metadata_offset;
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
+            return Ok(None);
+        }
+
+        Ok(Some(EntryHandle {
+            mmap_arc,
+            range: entry_start..entry_end,
+            metadata,
+        }))
+    }
+
     fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
         let mmap_arc = self.get_mmap_arc();
         let key_indexer_guard = self.key_indexer.read().map_err(|_| {
@@ -469,34 +497,6 @@ impl DataStore {
         self.reindex(&file, &key_hash_offsets, tail_offset)?;
 
         Ok(self.tail_offset.load(Ordering::Acquire))
-    }
-
-    pub fn read_last_entry(&self) -> Result<Option<EntryHandle>> {
-        let mmap_arc = self.get_mmap_arc();
-        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
-        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
-            return Ok(None);
-        }
-
-        let metadata_offset = (tail_offset - METADATA_SIZE as u64) as usize;
-        if metadata_offset + METADATA_SIZE > mmap_arc.len() {
-            return Ok(None);
-        }
-
-        let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
-        let metadata = EntryMetadata::deserialize(metadata_bytes);
-
-        let entry_start = metadata.prev_offset as usize;
-        let entry_end = metadata_offset;
-        if entry_start >= entry_end || entry_end > mmap_arc.len() {
-            return Ok(None);
-        }
-
-        Ok(Some(EntryHandle {
-            mmap_arc,
-            range: entry_start..entry_end,
-            metadata,
-        }))
     }
 
     #[inline]

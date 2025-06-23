@@ -8,6 +8,8 @@ pub trait DataStoreReader {
 
     fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>>;
 
+    fn read_last_entry(&self) -> Result<Option<Self::EntryHandleType>>;
+
     fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>>;
 
     fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>>;
@@ -22,6 +24,8 @@ pub trait AsyncDataStoreReader {
     type EntryHandleType;
 
     async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>>;
+
+    async fn read_last_entry(&self) -> Result<Option<Self::EntryHandleType>>;
 
     async fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>>;
 
