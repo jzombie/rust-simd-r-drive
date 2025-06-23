@@ -10,7 +10,7 @@ use std::path::PathBuf;
     about = env!("CARGO_PKG_DESCRIPTION"),
     long_about = None
 )]
-#[command(    
+#[command(
     after_help = HELP_TEMPLATE.replace("%BINARY_NAME%", env!("CARGO_PKG_NAME"))
 )]
 pub struct Cli {
