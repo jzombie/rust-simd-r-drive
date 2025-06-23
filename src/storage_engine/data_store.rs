@@ -6,7 +6,6 @@ use crate::storage_engine::simd_copy;
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
 use crate::traits::{DataStoreReader, DataStoreWriter};
 use crate::utils::verify_file_existence;
-use log::{debug, info, warn};
 use memmap2::Mmap;
 use std::collections::HashSet;
 use std::convert::From;
@@ -15,6 +14,7 @@ use std::io::{BufWriter, Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
+use tracing::{debug, info, warn};
 
 /// Append-Only Storage Engine
 pub struct DataStore {
