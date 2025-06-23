@@ -37,6 +37,12 @@ impl IntoIterator for DataStore {
 }
 
 impl From<PathBuf> for DataStore {
+    /// Creates an `DataStore` instance from a `PathBuf`.
+    ///
+    /// This allows creating a storage instance **directly from a file path**.
+    ///
+    /// # Panics:
+    /// - If the file cannot be opened or mapped into memory.
     fn from(path: PathBuf) -> Self {
         DataStore::open(&path).expect("Failed to open storage file")
     }
