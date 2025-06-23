@@ -595,7 +595,7 @@ impl DataStore {
             file_guard.flush()?;
         } else {
             info!(
-                "Compaction would increase file size (data: {}, index: {}). Skipping static index generation.",
+                "Compaction would increase file size (data w/ indexing: {}). Skipping static index generation.",
                 compacted_data_size
             );
         }
