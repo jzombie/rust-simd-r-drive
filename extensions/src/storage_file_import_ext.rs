@@ -114,7 +114,6 @@ impl StorageFileImportExt for DataStore {
     }
 }
 
-// TODO: Move to utils
 fn to_namespaced_key<P: AsRef<Path>>(rel_path: P, namespace: Option<&[u8]>) -> Vec<u8> {
     let unix_key = rel_path
         .as_ref()
