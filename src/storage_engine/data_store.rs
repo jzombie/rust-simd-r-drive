@@ -16,8 +16,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-const STATIC_INDEX_FOOTER_SIZE: u64 = 32;
-
 /// Append-Only Storage Engine
 pub struct DataStore {
     file: Arc<RwLock<BufWriter<File>>>,
@@ -583,15 +581,11 @@ impl DataStore {
 
         let size_before = self.get_storage_size()?;
 
-        // Calculate the overhead of adding a static index
-        let need_slots = (index_pairs.len() as f64 / 0.7).ceil() as u64;
-        let pow2 = 64 - need_slots.leading_zeros();
-        let slots = 1u64 << pow2;
-        let index_size = slots * 16;
-        let index_overhead = index_size + STATIC_INDEX_FOOTER_SIZE;
-
+        // Note: The current implementation should never increase space, but if an additional indexer
+        // is ever used, this may change.
+        //
         // Only write the static index if it actually saves space
-        if size_before > compacted_data_size + index_overhead {
+        if size_before > compacted_data_size {
             info!("Compaction will save space. Writing static index.");
             // let indexed_up_to = compacted_storage.tail_offset.load(Ordering::Acquire);
 
@@ -599,17 +593,10 @@ impl DataStore {
                 std::io::Error::new(std::io::ErrorKind::Other, format!("Lock poisoned: {}", e))
             })?;
             file_guard.flush()?;
-
-            // FIXME: Implement flushed indexes here for faster startup? Some
-            // consideration needs to be made to work with deltas and the proper
-            // choice of flush type so that many keys don't make a huge index.
-            //
-            // let underlying_file = file_guard.get_mut();
-            // flush_static_index(underlying_file, &index_pairs, indexed_up_to)?;
         } else {
             info!(
                 "Compaction would increase file size (data: {}, index: {}). Skipping static index generation.",
-                compacted_data_size, index_overhead
+                compacted_data_size
             );
         }
 
