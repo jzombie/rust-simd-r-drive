@@ -3,7 +3,6 @@ use crate::storage_engine::digest::{
     Xxh3BuildHasher, compute_checksum, compute_hash, compute_hash_batch,
 };
 use crate::storage_engine::simd_copy;
-use crate::storage_engine::static_hash_index::flush_static_index;
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
 use crate::traits::{DataStoreReader, DataStoreWriter};
 use crate::utils::verify_file_existence;
@@ -24,7 +23,7 @@ pub struct DataStore {
     file: Arc<RwLock<BufWriter<File>>>,
     mmap: Arc<Mutex<Arc<Mmap>>>,
     tail_offset: AtomicU64,
-    key_indexer: Arc<RwLock<KeyIndexer<'static>>>,
+    key_indexer: Arc<RwLock<KeyIndexer>>,
     path: PathBuf,
 }
 
@@ -126,7 +125,7 @@ impl DataStoreReader for DataStore {
         let mmap_arc = self.get_mmap_arc();
 
         let offset = match key_indexer_guard.get(&key_hash) {
-            Some(off) => off,        // found → continue
+            Some(off) => *off,       // found → continue
             None => return Ok(None), // not found → early-return
         };
 
@@ -196,7 +195,7 @@ impl DataStoreReader for DataStore {
             .into_iter()
             .map(|h| {
                 key_indexer_guard.get(&h).and_then(|offset| {
-                    let offset = offset as usize;
+                    let offset = *offset as usize;
                     if offset + METADATA_SIZE > mmap_arc.len() {
                         return None;
                     }
@@ -505,7 +504,7 @@ impl DataStore {
         mmap_arc: &Arc<Mmap>,
         key_indexer: &KeyIndexer,
     ) -> Option<EntryHandle> {
-        let offset = key_indexer.get(&key_hash)?;
+        let offset = *key_indexer.get(&key_hash)?;
         if offset as usize + METADATA_SIZE > mmap_arc.len() {
             return None;
         }
@@ -562,14 +561,19 @@ impl DataStore {
         // Only write the static index if it actually saves space
         if size_before > compacted_data_size + index_overhead {
             info!("Compaction will save space. Writing static index.");
-            let indexed_up_to = compacted_storage.tail_offset.load(Ordering::Acquire);
+            // let indexed_up_to = compacted_storage.tail_offset.load(Ordering::Acquire);
 
             let mut file_guard = compacted_storage.file.write().map_err(|e| {
                 std::io::Error::new(std::io::ErrorKind::Other, format!("Lock poisoned: {}", e))
             })?;
             file_guard.flush()?;
-            let underlying_file = file_guard.get_mut();
-            flush_static_index(underlying_file, &index_pairs, indexed_up_to)?;
+
+            // FIXME: Implement flushed indexes here for faster startup? Some
+            // consideration needs to be made to work with deltas and the proper
+            // choice of flush type so that many keys don't make a huge index.
+            //
+            // let underlying_file = file_guard.get_mut();
+            // flush_static_index(underlying_file, &index_pairs, indexed_up_to)?;
         } else {
             info!(
                 "Compaction would increase file size (data: {}, index: {}). Skipping static index generation.",

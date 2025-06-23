@@ -25,9 +25,3 @@ mod simd_copy;
 use simd_copy::*;
 
 pub mod traits;
-
-pub mod static_hash_index;
-pub use static_hash_index::*;
-
-pub mod index_layer;
-pub use index_layer::*;
