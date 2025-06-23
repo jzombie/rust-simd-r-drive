@@ -160,6 +160,7 @@ storage
 // Read from storage stream
 let mut stored_stream = storage
     .open_file_stream(relative_file, Some(b"some-namespace"))
+    .unwrap()
     .expect("File not found in storage");
 
 let mut stored_contents = String::new();
@@ -209,6 +210,7 @@ storage
 // Read from storage
 let mut stored = storage
     .open_file_stream(relative_file, Some(b"some-namespace"))
+    .unwrap()
     .expect("File not found in storage");
 
 let mut stored_contents = String::new();

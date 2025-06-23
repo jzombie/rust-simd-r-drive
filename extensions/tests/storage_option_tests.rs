@@ -114,7 +114,7 @@ mod tests {
         let namespaced_key = namespace_hasher.namespace(key);
 
         // Step 4: Ensure the entry still exists in storage (not fully deleted)
-        let raw_entry = storage.read(&namespaced_key);
+        let raw_entry = storage.read(&namespaced_key).unwrap();
         assert!(
             raw_entry.is_some(),
             "Entry should still exist in storage even after writing None"
@@ -241,14 +241,14 @@ mod tests {
             .expect("Failed to write option");
 
         // Ensure the prefixed key exists in storage
-        let raw_data = storage.read(&namespaced_key);
+        let raw_data = storage.read(&namespaced_key).unwrap();
         assert!(
             raw_data.is_some(),
             "Expected data to be stored under the prefixed key"
         );
 
         // Ensure the unprefixed key does not exist
-        let raw_data_unprefixed = storage.read(key);
+        let raw_data_unprefixed = storage.read(key).unwrap();
         assert!(
             raw_data_unprefixed.is_none(),
             "Unprefixed key should not exist in storage"
@@ -280,14 +280,14 @@ mod tests {
             .expect("Failed to write None with option handling");
 
         // Ensure the prefixed key exists in storage (tombstone marker stored)
-        let raw_data = storage.read(&namespaced_key);
+        let raw_data = storage.read(&namespaced_key).unwrap();
         assert!(
             raw_data.is_some(),
             "Expected tombstone marker to be stored under the prefixed key"
         );
 
         // Ensure the unprefixed key does not exist
-        let raw_data_unprefixed = storage.read(key);
+        let raw_data_unprefixed = storage.read(key).unwrap();
         assert!(
             raw_data_unprefixed.is_none(),
             "Unprefixed key should not exist in storage"
@@ -323,14 +323,17 @@ mod tests {
 
         // Ensure reading from the option-prefixed key fails (since it was not stored as an option)
         let namespaced_key = namespace_hasher.namespace(key);
-        let raw_data_prefixed = storage.read(&namespaced_key);
+        let raw_data_prefixed = storage.read(&namespaced_key).unwrap();
         assert!(
             raw_data_prefixed.is_none(),
             "No option-prefixed entry should exist for a non-prefixed write"
         );
 
         // Ensure we can still retrieve the non-prefixed stored value
-        let raw_bytes = storage.read(key).expect("Failed to read stored data");
+        let raw_bytes = storage
+            .read(key)
+            .unwrap()
+            .expect("Failed to read stored data");
         let retrieved: TestData =
             bincode::deserialize(&raw_bytes).expect("Failed to deserialize TestData");
         assert_eq!(
