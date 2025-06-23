@@ -1,8 +1,8 @@
 [package]
 # Refer to `[project]` section in `pyproject.toml` for build artifact details
 name = "simd-r-drive-py"
-edition.version = true # Inherit from workspace
-edition.workspace = true # Inherit from workspace
+edition = "2024"
+license = "Apache-2.0"
 publish = false # Python bindings only — do not publish to crates.io
 
 [lib]
