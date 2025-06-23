@@ -18,19 +18,19 @@ use std::path::{Path, PathBuf};
 /// # Examples
 ///
 /// ```
-/// use std::path::Path;
+/// use std::path::{Path, PathBuf};
 /// use simd_r_drive::utils::append_extension;
 ///
-/// let path = Path::from("example.txt");
-/// let modified = append_extension(&path, "bk");
+/// let path = Path::new("example.txt");
+/// let modified = append_extension(path, "bk");
 /// assert_eq!(modified, PathBuf::from("example.txt.bk"));
 ///
-/// let path_no_ext = Path::from("example");
-/// let modified_no_ext = append_extension(&path_no_ext, "bk");
+/// let path_no_ext = Path::new("example");
+/// let modified_no_ext = append_extension(path_no_ext, "bk");
 /// assert_eq!(modified_no_ext, PathBuf::from("example.bk"));
 ///
-/// let path_multi_ext = Path::from("archive.tar.gz");
-/// let modified_multi_ext = append_extension(&path_multi_ext, "bk");
+/// let path_multi_ext = Path::new("archive.tar.gz");
+/// let modified_multi_ext = append_extension(path_multi_ext, "bk");
 /// assert_eq!(modified_multi_ext, PathBuf::from("archive.tar.gz.bk"));
 /// ```
 pub fn append_extension(path: &Path, ext: &str) -> PathBuf {
