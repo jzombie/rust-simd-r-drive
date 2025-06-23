@@ -30,7 +30,7 @@ pub trait StorageFileImportExt {
     /// # Returns
     /// - `Ok(Some(EntryHandle))`: If the file exists in storage.
     /// - `Ok(None)`: If the key is missing or marked deleted.
-    /// - `Err`: If there is an I/O error.
+    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
     fn read_file_entry<P: AsRef<Path>>(
         &self,
         rel_path: P,
@@ -50,7 +50,7 @@ pub trait StorageFileImportExt {
     /// # Returns
     /// - `Ok(Some(EntryStream))`: If the file exists in storage.
     /// - `Ok(None)`: If no entry is found or it has been evicted.
-    /// - `Err`: If there is an I/O error.
+    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
     fn open_file_stream<P: AsRef<Path>>(
         &self,
         rel_path: P,
