@@ -242,6 +242,21 @@ impl DataStoreReader for DataStore {
 }
 
 impl DataStore {
+    /// Opens an **existing** or **new** append-only storage file.
+    ///
+    /// This function:
+    /// 1. **Opens the file** in read/write mode (creating it if necessary).
+    /// 2. **Maps the file** into memory using `mmap` for fast access.
+    /// 3. **Recovers the valid chain**, ensuring **data integrity**.
+    /// 4. **Re-maps** the file after recovery to reflect the correct state.
+    /// 5. **Builds an in-memory index** for **fast key lookups**.
+    ///
+    /// # Parameters:
+    /// - `path`: The **file path** where the storage is located.
+    ///
+    /// # Returns:
+    /// - `Ok(DataStore)`: A **new storage instance**.
+    /// - `Err(std::io::Error)`: If any file operation fails.
     pub fn open(path: &Path) -> Result<Self> {
         let file = Self::open_file_in_append_mode(path)?;
         let file_len = file.get_ref().metadata()?.len();
@@ -277,11 +292,41 @@ impl DataStore {
         })
     }
 
+    /// Opens an **existing** append-only storage file.
+    ///
+    /// This function verifies that the file exists before attempting to open it.
+    /// If the file does not exist or is not a valid file, an error is returned.
+    ///
+    /// # Parameters:
+    /// - `path`: The **file path** of the storage file.
+    ///
+    /// # Returns:
+    /// - `Ok(DataStore)`: A **new storage instance** if the file exists and can be opened.
+    /// - `Err(std::io::Error)`: If the file does not exist or is invalid.
+    ///
+    /// # Notes:
+    /// - Unlike `open()`, this function **does not create** a new storage file if the
+    ///   specified file does not exist.
+    /// - If the file is **missing** or is not a regular file, an error is returned.
+    /// - This is useful in scenarios where the caller needs to **ensure** that they are
+    ///   working with an already existing storage file.
     pub fn open_existing(path: &Path) -> Result<Self> {
         verify_file_existence(&path)?;
         Self::open(path)
     }
 
+    /// Workaround for directly opening in **append mode** causing permissions issues on Windows
+    ///
+    /// The file is opened normally and the **cursor is moved to the end.
+    ///
+    /// Unix family unaffected by this issue, but this standardizes their handling.
+    ///
+    /// # Parameters:
+    /// - `path`: The **file path** of the storage file.
+    ///
+    /// # Returns:
+    /// - `Ok(BufWriter<File>)`: A buffered writer pointing to the file.
+    /// - `Err(std::io::Error)`: If the file could not be opened.
     fn open_file_in_append_mode(path: &Path) -> Result<BufWriter<File>> {
         let mut file = OpenOptions::new()
             .read(true)
@@ -296,14 +341,43 @@ impl DataStore {
         unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }
     }
 
-    #[inline]
-    fn get_mmap_arc(&self) -> Arc<Mmap> {
-        let guard = self.mmap.lock().unwrap();
-        let mmap_clone = guard.clone();
-        drop(guard);
-        mmap_clone
-    }
-
+    /// Re-maps the storage file and updates the key index after a write operation.
+    ///
+    /// This function performs two key tasks:
+    /// 1. **Re-maps the file (`mmap`)**: Ensures that newly written data is visible
+    ///    to readers by creating a fresh memory-mapped view of the storage file.
+    /// 2. **Updates the key index**: Inserts new key hash-to-offset mappings into
+    ///    the in-memory key index, ensuring efficient key lookups for future reads.
+    ///
+    /// # Parameters:
+    /// - `write_guard`: A locked reference to the `BufWriter<File>`, ensuring that
+    ///   writes are completed before remapping and indexing.
+    /// - `key_hash_offsets`: A slice of `(key_hash, tail_offset)` tuples containing
+    ///   the latest key mappings to be added to the index.
+    /// - `tail_offset`: The **new absolute file offset** after the most recent write.
+    ///   This represents the byte position where the next write operation should begin.
+    ///   It is updated to reflect the latest valid data in the storage.
+    ///
+    /// # Returns:
+    /// - `Ok(())` if the reindexing process completes successfully.
+    /// - `Err(std::io::Error)` if file metadata retrieval, memory mapping, or
+    ///   key index updates fail.
+    ///
+    /// # Important:
+    /// - **The write operation must be flushed before calling `reindex`** to ensure
+    ///   all pending writes are persisted and visible in the new memory-mapped file.
+    ///   This prevents potential inconsistencies where written data is not reflected
+    ///   in the remapped view.
+    ///
+    /// # Safety:
+    /// - This function should be called **immediately after a write operation**
+    ///   to ensure the file is in a consistent state before remapping.
+    /// - The function acquires locks on both the `mmap` and `key_indexer`
+    ///   to prevent race conditions while updating shared structures.
+    ///
+    /// # Locks Acquired:
+    /// - `mmap` (`Mutex<Arc<Mmap>>`) is locked to update the memory-mapped file.
+    /// - `key_indexer` (`RwLock<HashMap<u64, u64>>`) is locked to modify key mappings.
     fn reindex(
         &self,
         write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
@@ -326,16 +400,45 @@ impl DataStore {
         Ok(())
     }
 
+    /// Returns the storage file path.
+    ///
+    /// # Returns:
+    /// - A `PathBuf` containing the path to the storage file.
     pub fn get_path(&self) -> PathBuf {
         self.path.clone()
     }
 
+    /// Retrieves an iterator over all valid entries in the storage.
+    ///
+    /// This iterator allows scanning the storage file and retrieving **only the most recent**
+    /// versions of each key.
+    ///
+    /// # Returns:
+    /// - An `EntryIterator` instance for iterating over valid entries.
     pub fn iter_entries(&self) -> EntryIterator {
         let mmap_clone = self.get_mmap_arc();
         let tail_offset = self.tail_offset.load(Ordering::Acquire);
         EntryIterator::new(mmap_clone, tail_offset)
     }
 
+    /// Recovers the **latest valid chain** of entries from the storage file.
+    ///
+    /// This function **scans backward** through the file, verifying that each entry
+    /// correctly references the previous offset. It determines the **last valid
+    /// storage position** to ensure data integrity.
+    ///
+    /// # How It Works:
+    /// - Scans from the last written offset **backward**.
+    /// - Ensures each entry correctly points to its **previous offset**.
+    /// - Stops at the **deepest valid chain** that reaches offset `0`.
+    ///
+    /// # Parameters:
+    /// - `mmap`: A reference to the **memory-mapped file**.
+    /// - `file_len`: The **current size** of the file in bytes.
+    ///
+    /// # Returns:
+    /// - `Ok(final_valid_offset)`: The last **valid** byte offset.
+    /// - `Err(std::io::Error)`: If a file read or integrity check fails
     fn recover_valid_chain(mmap: &Mmap, file_len: u64) -> Result<u64> {
         if file_len < METADATA_SIZE as u64 {
             return Ok(0);
@@ -392,6 +495,19 @@ impl DataStore {
         Ok(best_valid_offset.unwrap_or(0))
     }
 
+    /// Writes an entry using a **precomputed key hash** and a streaming `Read` source.
+    ///
+    /// This is a **low-level** method that operates like `write_stream`, but requires
+    /// the key to be hashed beforehand. It is primarily used internally to avoid
+    /// redundant hash computations when writing multiple entries.
+    ///
+    /// # Parameters:
+    /// - `key_hash`: The **precomputed hash** of the key.
+    /// - `reader`: A **streaming reader** (`Read` trait) supplying the entry's content.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
     pub fn write_stream_with_key_hash<R: Read>(
         &self,
         key_hash: u64,
@@ -446,10 +562,54 @@ impl DataStore {
         Ok(tail_offset)
     }
 
+    /// Writes an entry using a **precomputed key hash** and a payload.
+    ///
+    /// This method is a **low-level** alternative to `write()`, allowing direct
+    /// specification of the key hash. It is mainly used for optimized workflows
+    /// where the key hash is already known, avoiding redundant computations.
+    ///
+    /// # Parameters:
+    /// - `key_hash`: The **precomputed hash** of the key.
+    /// - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(offset)`: The file offset where the entry was written.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - The caller is responsible for ensuring that `key_hash` is correctly computed.
+    /// - This method **locks the file for writing** to maintain consistency.
+    /// - If writing **multiple entries**, consider using `batch_write_hashed_payloads()`.
     pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
         self.batch_write_hashed_payloads(vec![(key_hash, payload)], false)
     }
 
+    /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
+    ///
+    /// This method efficiently appends multiple entries in a **batch operation**,
+    /// reducing lock contention and improving performance for bulk writes.
+    ///
+    /// # Parameters:
+    /// - `hashed_payloads`: A **vector of precomputed key hashes and payloads**, where:
+    ///   - `key_hash`: The **precomputed hash** of the key.
+    ///   - `payload`: The **data payload** to be stored.
+    ///
+    /// # Returns:
+    /// - `Ok(final_offset)`: The file offset after all writes.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - **File locking is performed only once** for all writes, improving efficiency.
+    /// - If an entry's `payload` is empty, an error is returned.
+    /// - This method uses **SIMD-accelerated memory copy (`simd_copy`)** to optimize write
+    ///   performance.
+    /// - **Metadata (checksums, offsets) is written after payloads** to ensure data integrity.
+    /// - After writing, the memory-mapped file (`mmap`) is **remapped** to reflect updates.
+    ///
+    /// # Efficiency Considerations:
+    /// - **Faster than multiple `write()` calls**, since it reduces lock contention.
+    /// - Suitable for **bulk insertions** where key hashes are known beforehand.
+    /// - If keys are available but not hashed, use `batch_write()` instead.
     pub fn batch_write_hashed_payloads(
         &self,
         hashed_payloads: Vec<(u64, &[u8])>,
@@ -504,6 +664,27 @@ impl DataStore {
         Ok(self.tail_offset.load(Ordering::Acquire))
     }
 
+    /// Internal helper that does the real work for `read`/`batch_read`.
+    ///
+    /// *   `key` – raw-byte key we are searching for.  
+    /// *   `mmap_arc` – the current shared memory-map.  
+    /// *   `key_indexer` – **already locked** read-only view of the index.  
+    ///
+    /// The function:
+    /// 1.  Hashes `key` with XXH3 (same as writers do).
+    /// 2.  Looks the hash up in the index; bails out early if absent.
+    /// 3.  Validates that the stored offset and metadata still fit inside the
+    ///     current `mmap` (guards against truncated / corrupted files).
+    /// 4.  Creates and returns an `EntryHandle` that spans the payload slice in
+    ///     the `mmap`.
+    ///
+    /// It deliberately **does not** take any locks itself – that must be done by
+    /// the caller so that `batch_read` can reuse the same lock for many lookups.
+    ///
+    /// `None` is returned when:
+    /// * the key is unknown,
+    /// * the mapped file looks inconsistent (bounds checks fail), or
+    /// * the latest record for the key is a tomb-stone (one-byte NULL payload).
     #[inline]
     pub fn read_hashed_with_ctx(
         key_hash: u64,
@@ -535,12 +716,50 @@ impl DataStore {
         })
     }
 
+    /// Copies an entry handle to a **different storage container**.
+    ///
+    /// This function:
+    /// - Extracts metadata and content from the given `EntryHandle`.
+    /// - Writes the entry into the `target` storage.
+    ///
+    /// # Parameters:
+    /// - `entry`: The **entry handle** to be copied.
+    /// - `target`: The **destination storage** where the entry should be copied.
+    ///
+    /// # Returns:
+    /// - `Ok(target_offset)`: The file offset where the copied entry was written.
+    /// - `Err(std::io::Error)`: If a write operation fails.
+    ///
+    /// # Notes:
+    /// - This is a **low-level function** used by `copy_entry` and related operations.
+    /// - The `entry` remains **unchanged** in the original storage.
     fn copy_entry_handle(&self, entry: &EntryHandle, target: &DataStore) -> Result<u64> {
         let mut entry_stream = EntryStream::from(entry.clone_arc());
         target.write_stream_with_key_hash(entry.key_hash(), &mut entry_stream)
     }
 
-    pub fn compact(&mut self) -> std::io::Result<()> {
+    /// Compacts the storage by keeping only the latest version of each key.
+    ///
+    /// # ⚠️ WARNING:
+    /// - **This function should only be used when a single thread is accessing the storage.**
+    /// - While `&mut self` prevents concurrent **mutations**, it **does not** prevent
+    ///   other threads from holding shared references (`&DataStore`) and performing reads.
+    /// - If the `DataStore` instance is wrapped in `Arc<DataStore>`, multiple threads
+    ///   may still hold **read** references while compaction is running, potentially
+    ///   leading to inconsistent reads.
+    /// - If stricter concurrency control is required, **manual synchronization should
+    ///   be enforced externally.**
+    ///
+    /// # Behavior:
+    /// - Creates a **temporary compacted file** containing only the latest versions
+    ///   of stored keys.
+    /// - Swaps the original file with the compacted version upon success.
+    /// - Does **not** remove tombstone (deleted) entries due to the append-only model.
+    ///
+    /// # Returns:
+    /// - `Ok(())` if compaction completes successfully.
+    /// - `Err(std::io::Error)` if an I/O operation fails.
+    pub fn compact(&mut self) -> Result<()> {
         let compacted_path = crate::utils::append_extension(&self.path, "bk");
         info!("Starting compaction. Writing to: {:?}", compacted_path);
 
@@ -595,6 +814,16 @@ impl DataStore {
         Ok(())
     }
 
+    /// Estimates the potential space savings from compaction.
+    ///
+    /// This method scans the storage file and calculates the difference
+    /// between the total file size and the size required to keep only
+    /// the latest versions of all keys.
+    ///
+    /// # How It Works:
+    /// - Iterates through the entries, tracking the **latest version** of each key.
+    /// - Ignores older versions of keys to estimate the **optimized** storage footprint.
+    /// - Returns the **difference** between the total file size and the estimated compacted size.
     pub fn estimate_compaction_savings(&self) -> u64 {
         let total_size = self.get_storage_size().unwrap_or(0);
         let mut unique_entry_size: u64 = 0;
@@ -608,13 +837,41 @@ impl DataStore {
         total_size.saturating_sub(unique_entry_size)
     }
 
+    /// Provides access to the shared memory-mapped file (`Arc<Mmap>`) for testing.
+    ///
+    /// This method returns a cloned `Arc<Mmap>`, allowing test cases to inspect
+    /// the memory-mapped region while ensuring reference counting remains intact.
+    ///
+    /// # Notes:
+    /// - The returned `Arc<Mmap>` ensures safe access without invalidating the mmap.
+    /// - This function is only available in **test** and **debug** builds.
     #[cfg(any(test, debug_assertions))]
     pub fn get_mmap_arc_for_testing(&self) -> Arc<Mmap> {
         self.get_mmap_arc()
     }
 
+    /// Provides direct access to the raw pointer of the underlying memory map for testing.
+    ///
+    /// This method retrieves a raw pointer (`*const u8`) to the start of the memory-mapped file.
+    /// It is useful for validating zero-copy behavior and memory alignment in test cases.
+    ///
+    /// # Safety Considerations:
+    /// - The pointer remains valid **as long as** the mmap is not remapped or dropped.
+    /// - Dereferencing this pointer outside of controlled test environments **is unsafe**
+    ///   and may result in undefined behavior.
+    ///
+    /// # Notes:
+    /// - This function is only available in **test** and **debug** builds.
     #[cfg(any(test, debug_assertions))]
     pub fn arc_ptr(&self) -> *const u8 {
         self.get_mmap_arc().as_ptr()
+    }
+
+    #[inline]
+    fn get_mmap_arc(&self) -> Arc<Mmap> {
+        let guard = self.mmap.lock().unwrap();
+        let mmap_clone = guard.clone();
+        drop(guard);
+        mmap_clone
     }
 }
