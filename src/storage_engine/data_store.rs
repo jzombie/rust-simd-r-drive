@@ -17,6 +17,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
+const STATIC_INDEX_FOOTER_SIZE: u64 = 32;
+
 /// Append-Only Storage Engine
 pub struct DataStore {
     file: Arc<RwLock<BufWriter<File>>>,
@@ -116,11 +118,34 @@ impl DataStoreReader for DataStore {
     type EntryHandleType = EntryHandle;
 
     fn read(&self, key: &[u8]) -> Option<EntryHandle> {
-        let mmap_arc = self.get_mmap_arc();
-        let key_indexer_guard = self.key_indexer.read().ok()?;
-
         let key_hash = compute_hash(key);
-        Self::read_hashed_with_ctx(key_hash, &mmap_arc, &key_indexer_guard)
+        let key_indexer_guard = self.key_indexer.read().ok()?;
+        let mmap_arc = self.get_mmap_arc();
+
+        let offset = key_indexer_guard.get(&key_hash)?;
+
+        if offset as usize + METADATA_SIZE > mmap_arc.len() {
+            return None;
+        }
+
+        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
+        let metadata = EntryMetadata::deserialize(metadata_bytes);
+
+        let entry_start = metadata.prev_offset as usize;
+        let entry_end = offset as usize;
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
+            return None;
+        }
+
+        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+            return None;
+        }
+
+        Some(EntryHandle {
+            mmap_arc: mmap_arc.clone(),
+            range: entry_start..entry_end,
+            metadata,
+        })
     }
 
     fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
@@ -132,9 +157,34 @@ impl DataStoreReader for DataStore {
             )
         })?;
         let hashes = compute_hash_batch(keys);
+
         let results = hashes
             .into_iter()
-            .map(|h| Self::read_hashed_with_ctx(h, &mmap_arc, &key_indexer_guard))
+            .map(|h| {
+                key_indexer_guard.get(&h).and_then(|offset| {
+                    let offset = offset as usize;
+                    if offset + METADATA_SIZE > mmap_arc.len() {
+                        return None;
+                    }
+                    let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
+                    let metadata = EntryMetadata::deserialize(metadata_bytes);
+                    let entry_start = metadata.prev_offset as usize;
+                    let entry_end = offset;
+                    if entry_start >= entry_end || entry_end > mmap_arc.len() {
+                        return None;
+                    }
+                    if entry_end - entry_start == 1
+                        && &mmap_arc[entry_start..entry_end] == NULL_BYTE
+                    {
+                        return None;
+                    }
+                    Some(EntryHandle {
+                        mmap_arc: mmap_arc.clone(),
+                        range: entry_start..entry_end,
+                        metadata,
+                    })
+                })
+            })
             .collect();
         Ok(results)
     }
@@ -415,7 +465,6 @@ impl DataStore {
         Ok(self.tail_offset.load(Ordering::Acquire))
     }
 
-    // METHOD ADDED BACK
     pub fn read_last_entry(&self) -> Option<EntryHandle> {
         let mmap_arc = self.get_mmap_arc();
         let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
@@ -444,7 +493,6 @@ impl DataStore {
         })
     }
 
-    // METHOD ADDED BACK
     #[inline]
     pub fn read_hashed_with_ctx(
         key_hash: u64,
@@ -487,22 +535,40 @@ impl DataStore {
 
         let mut compacted_storage = DataStore::open(&compacted_path)?;
         let mut index_pairs: Vec<(u64, u64)> = Vec::new();
+        let mut compacted_data_size: u64 = 0;
 
         for entry in self.iter_entries() {
             let new_tail_offset = self.copy_entry_handle(&entry, &mut compacted_storage)?;
             let stored_metadata_offset = new_tail_offset - METADATA_SIZE as u64;
             index_pairs.push((entry.key_hash(), stored_metadata_offset));
+            compacted_data_size += entry.size_with_metadata() as u64;
         }
 
-        let indexed_up_to = compacted_storage.tail_offset.load(Ordering::Acquire);
+        let size_before = self.get_storage_size()?;
 
-        {
+        // Calculate the overhead of adding a static index
+        let need_slots = (index_pairs.len() as f64 / 0.7).ceil() as u64;
+        let pow2 = 64 - need_slots.leading_zeros();
+        let slots = 1u64 << pow2;
+        let index_size = slots * 16;
+        let index_overhead = index_size + STATIC_INDEX_FOOTER_SIZE;
+
+        // Only write the static index if it actually saves space
+        if size_before > compacted_data_size + index_overhead {
+            info!("Compaction will save space. Writing static index.");
+            let indexed_up_to = compacted_storage.tail_offset.load(Ordering::Acquire);
+
             let mut file_guard = compacted_storage.file.write().map_err(|e| {
                 std::io::Error::new(std::io::ErrorKind::Other, format!("Lock poisoned: {}", e))
             })?;
             file_guard.flush()?;
             let underlying_file = file_guard.get_mut();
             flush_static_index(underlying_file, &index_pairs, indexed_up_to)?;
+        } else {
+            info!(
+                "Compaction would increase file size (data: {}, index: {}). Skipping static index generation.",
+                compacted_data_size, index_overhead
+            );
         }
 
         drop(compacted_storage);
