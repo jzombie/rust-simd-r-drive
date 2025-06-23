@@ -29,7 +29,7 @@ mod tests {
         storage.write(key, payload).expect("Failed to write entry");
 
         // Retrieve the entry handle
-        let entry_handle = storage.read(key).expect("Failed to read entry");
+        let entry_handle = storage.read(key).unwrap().expect("Failed to read entry");
 
         // Ensure checksum validation passes
         assert!(
@@ -68,7 +68,10 @@ mod tests {
             DataStore::open(&file_path).expect("Failed to reopen storage after corruption");
 
         // Attempt to read the corrupted entry
-        let corrupted_entry = storage.read(key).expect("Failed to read corrupted entry");
+        let corrupted_entry = storage
+            .read(key)
+            .unwrap()
+            .expect("Failed to read corrupted entry");
 
         assert!(
             !corrupted_entry.is_valid_checksum(),
@@ -100,9 +103,13 @@ mod tests {
             .expect("Failed to write stream entry");
 
         // Read both entries
-        let entry1 = storage.read(key1).expect("Failed to read entry from write");
+        let entry1 = storage
+            .read(key1)
+            .unwrap()
+            .expect("Failed to read entry from write");
         let entry2 = storage
             .read(key2)
+            .unwrap()
             .expect("Failed to read entry from write_stream");
 
         // Ensure checksums match
@@ -118,7 +125,10 @@ mod tests {
             .write(key3, different_payload)
             .expect("Failed to write different entry");
 
-        let entry3 = storage.read(key3).expect("Failed to read different entry");
+        let entry3 = storage
+            .read(key3)
+            .unwrap()
+            .expect("Failed to read different entry");
 
         // Ensure checksum is different for different content
         assert_ne!(

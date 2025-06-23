@@ -23,21 +23,17 @@ publish.workspace = true # Inherit from workspace
 [workspace.dependencies]
 # Intra-workspace crates
 simd-r-drive = { path = ".", version = "0.7.0-alpha" }
-simd-r-drive-extensions = { path = "./extensions/simd-r-drive-extensions", version = "0.7.0-alpha" }
 simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.7.0-alpha" }
 simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.7.0-alpha" }
 
 [dependencies]
 async-trait = "0.1.88"
 crc32fast = "1.4.2"
-##
-# TODO: Replace these with `tracing` crate
-log = "0.4.26" 
-env_logger = "0.11.7"
-##
 indoc = "2.0.6"
 memmap2 = "0.9.5"
 dashmap = "6.1.0"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 [dependencies.clap]
 version = "4.5.32"
@@ -75,10 +71,12 @@ expose-internal-api = []
 members = [
     ".",
     "extensions",
-    "experiments/bindings/python",
-    "experiments/bindings/python-ws-client",
     "experiments/simd-r-drive-ws-server",
     "experiments/simd-r-drive-ws-client",
     "experiments/simd-r-drive-muxio-service-definition"
+]
+exclude = [
+    "experiments/bindings/python",
+    "experiments/bindings/python-ws-client"
 ]
 resolver = "2"

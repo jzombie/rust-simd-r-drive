@@ -1,5 +1,5 @@
+use crate::cli::{Commands, HELP_TEMPLATE};
 use clap::Parser;
-use crate::cli::{HELP_TEMPLATE, Commands};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -10,10 +10,9 @@ use std::path::PathBuf;
     about = env!("CARGO_PKG_DESCRIPTION"),
     long_about = None
 )]
-#[command(    
+#[command(
     after_help = HELP_TEMPLATE.replace("%BINARY_NAME%", env!("CARGO_PKG_NAME"))
 )]
-
 pub struct Cli {
     /// The file where data is stored (automatically created if it does not exist).
     #[arg(

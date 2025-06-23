@@ -277,14 +277,14 @@ fn test_ttl_prefix_is_applied() {
         .expect("Failed to write with TTL");
 
     // Ensure the prefixed key exists in storage
-    let raw_data = storage.read(&namespaced_key);
+    let raw_data = storage.read(&namespaced_key).unwrap();
     assert!(
         raw_data.is_some(),
         "Expected data to be stored under the prefixed key"
     );
 
     // Ensure the unprefixed key does not exist
-    let raw_data_unprefixed = storage.read(key);
+    let raw_data_unprefixed = storage.read(key).unwrap();
     assert!(
         raw_data_unprefixed.is_none(),
         "Unprefixed key should not exist in storage"
@@ -321,13 +321,13 @@ fn test_ttl_prefixing_does_not_affect_regular_storage() {
 
     // Ensure reading from TTL-prefixed key fails (since it was not stored with TTL)
     let namespaced_key = namespace_hasher.namespace(key);
-    let raw_data_prefixed = storage.read(&namespaced_key);
+    let raw_data_prefixed = storage.read(&namespaced_key).unwrap();
     assert!(
         raw_data_prefixed.is_none(),
         "No TTL-prefixed entry should exist for a non-TTL write"
     );
 
     // Ensure we can still retrieve the non-TTL stored value
-    let retrieved: TestData = bincode::deserialize(&storage.read(key).unwrap()).unwrap();
+    let retrieved: TestData = bincode::deserialize(&storage.read(key).unwrap().unwrap()).unwrap();
     assert_eq!(retrieved, test_value, "Non-TTL value should be retrievable");
 }

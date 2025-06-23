@@ -2,14 +2,14 @@ use bitcode::{Decode, Encode};
 use muxio_rpc_service::{prebuffered::RpcMethodPrebuffered, rpc_method_id};
 use std::io;
 
-#[derive(Encode, Decode, PartialEq, Debug)]
+#[derive(Encode, Decode, Debug, PartialEq)]
 pub struct BatchReadRequestParams {
     pub keys: Vec<Vec<u8>>,
 }
 
-#[derive(Encode, Decode, PartialEq, Debug)]
+#[derive(Encode, Decode, Debug, PartialEq)]
 pub struct BatchReadResponseParams {
-    pub results: Vec<Option<Vec<u8>>>, // TODO: Rename `results`
+    pub results: Vec<Option<Vec<u8>>>,
 }
 
 pub struct BatchRead;
@@ -31,8 +31,8 @@ impl RpcMethodPrebuffered for BatchRead {
         Ok(req_params)
     }
 
-    fn encode_response(result: Self::Output) -> Result<Vec<u8>, io::Error> {
-        Ok(bitcode::encode(&result))
+    fn encode_response(results: Self::Output) -> Result<Vec<u8>, io::Error> {
+        Ok(bitcode::encode(&results))
     }
 
     fn decode_response(bytes: &[u8]) -> Result<Self::Output, io::Error> {

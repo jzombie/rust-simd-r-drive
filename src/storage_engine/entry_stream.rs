@@ -27,7 +27,7 @@ use std::io::{self, Read};
 ///
 /// // Write some test data
 /// data_store.write(b"test_key", b"test_data");
-/// let entry_handle = data_store.read(b"test_key").unwrap();
+/// let entry_handle = data_store.read(b"test_key").unwrap().unwrap();
 ///
 /// // Assume `entry_handle` is obtained from storage
 /// let mut stream = EntryStream::from(entry_handle);

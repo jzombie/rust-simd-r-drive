@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-use log::warn;
+use tracing::warn;
 
 use std::sync::Once;
 

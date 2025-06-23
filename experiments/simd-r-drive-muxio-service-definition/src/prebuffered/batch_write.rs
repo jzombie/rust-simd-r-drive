@@ -2,14 +2,14 @@ use bitcode::{Decode, Encode};
 use muxio_rpc_service::{prebuffered::RpcMethodPrebuffered, rpc_method_id};
 use std::io;
 
-#[derive(Encode, Decode, PartialEq, Debug)]
+#[derive(Encode, Decode, Debug, PartialEq)]
 pub struct BatchWriteRequestParams {
-    pub entries: Vec<(Vec<u8>, Vec<u8>)>,
+    pub entries: Vec<(Vec<u8>, Vec<u8>)>, // key → payload
 }
 
-#[derive(Encode, Decode, PartialEq, Debug)]
+#[derive(Encode, Decode, Debug, PartialEq)]
 pub struct BatchWriteResponseParams {
-    pub result: Option<u64>, // TODO: Convert to u64 (w/o `Option` wrap)?; TODO: Rename `result`
+    pub result: u64, // total payload bytes
 }
 
 pub struct BatchWrite;

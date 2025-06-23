@@ -158,3 +158,70 @@ def test_batch_read_with_missing_key(client):
             assert (
                 result == expected_payload
             ), f"Payload mismatch for key {key.decode()}"
+
+
+def test_batch_read_structured_single_dict(client):
+    """
+    Tests batch_read_structured with a single dictionary, including a missing key.
+    """
+    # Arrange: Write some initial data to the store
+    client.batch_write(
+        [
+            (b"struct-key-name", b"jeremy"),
+            (b"struct-key-data", b"some-data-payload"),
+        ]
+    )
+
+    # Act: Call the method with a dictionary containing store keys as values
+    request_dict = {
+        "user_name": b"struct-key-name",
+        "user_data": b"struct-key-data",
+        "missing_field": b"this-key-does-not-exist",
+    }
+    result = client.batch_read_structured(request_dict)
+
+    # Assert: The returned dictionary should have the same keys but hydrated values
+    assert isinstance(result, dict), "Result should be a dictionary"
+
+    expected_result = {
+        "user_name": b"jeremy",
+        "user_data": b"some-data-payload",
+        "missing_field": None,
+    }
+    assert (
+        result == expected_result
+    ), "The hydrated dictionary does not match the expected result"
+    print("\nSUCCESS: batch_read_structured with single dictionary passed.")
+
+
+def test_batch_read_structured_list_of_dicts(client):
+    """
+    Tests batch_read_structured with a list of dictionaries.
+    """
+    # Arrange: Write some initial data to the store
+    client.batch_write(
+        [
+            (b"list-key-1", b"value-one"),
+            (b"list-key-2", b"value-two"),
+        ]
+    )
+
+    # Act: Call the method with a list of dictionaries
+    request_list = [
+        {"field_a": b"list-key-1", "field_b": b"non-existent-key"},
+        {"field_c": b"list-key-2", "field_d": b"list-key-1"},
+    ]
+    result = client.batch_read_structured(request_list)
+
+    # Assert: The returned list should have the same structure but with hydrated values
+    assert isinstance(result, list), "Result should be a list"
+    assert len(result) == 2, "Result list should have the same length as the input"
+
+    expected_result = [
+        {"field_a": b"value-one", "field_b": None},
+        {"field_c": b"value-two", "field_d": b"value-one"},
+    ]
+    assert (
+        result == expected_result
+    ), "The hydrated list of dictionaries does not match the expected result"
+    print("SUCCESS: batch_read_structured with a list of dictionaries passed.")

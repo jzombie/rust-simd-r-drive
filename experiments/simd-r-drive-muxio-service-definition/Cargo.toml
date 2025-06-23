@@ -11,4 +11,5 @@ publish.workspace = true # Inherit from workspace
 
 [dependencies]
 bitcode = "0.6.6"
-muxio-rpc-service = "0.5.0-alpha"
+muxio-rpc-service = "0.6.0-alpha"
+# muxio-rpc-service = { path = "../../../rust-muxio/extensions/muxio-rpc-service" }
