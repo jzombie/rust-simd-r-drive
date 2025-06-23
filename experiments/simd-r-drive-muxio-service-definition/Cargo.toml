@@ -1,5 +1,6 @@
 [package]
 name = "simd-r-drive-muxio-service-definition"
+description = "Experimental Muxio service definitions for SIMD R Drive"
 authors.workspace = true # Inherit from workspace
 version.workspace = true # Inherit from workspace
 edition.workspace = true # Inherit from workspace

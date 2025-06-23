@@ -1,5 +1,6 @@
 [package]
 name = "simd-r-drive-ws-server"
+description = "Experimental WebSocket server for SIMD R Drive"
 authors.workspace = true # Inherit from workspace
 version.workspace = true # Inherit from workspace
 edition.workspace = true # Inherit from workspace
