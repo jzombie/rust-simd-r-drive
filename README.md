@@ -36,7 +36,7 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
   - [Direct memory access](#direct-memory-access)
   - [Streaming](#streaming)
 - [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
-- [Bindings and Experiments](#bindings-and-experiments)
+- [Python Bindings and Experiments](#python-bindings-and-experiments)
 - [License](#license)
 
 
@@ -227,7 +227,7 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 [SIMD R Drive Extensions](./extensions/) provide additional functionality.
 
-## Bindings and Experiments
+## Python Bindings and Experiments
 
 - Experimental [Python language bindings](./experiments/bindings/)
 - Experimental WebSocket [client](./experiments/simd-r-drive-ws-client/) / [server](./experiments/simd-r-drive-ws-server/)
