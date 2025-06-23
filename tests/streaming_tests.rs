@@ -28,7 +28,7 @@ mod tests {
         let file_path = _dir.path().join("test_large_file.bin");
         let mut test_file = File::create(&file_path).expect("Failed to create test file");
 
-        let payload_size = 1 * 1024 * 1024; // 1MB
+        let payload_size = 1024 * 1024; // 1MB
         let test_data = vec![b'X'; payload_size];
 
         // Write real test data to file

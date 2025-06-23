@@ -39,7 +39,10 @@ mod tests {
             active: true,
         };
         let integer_payload1 = 12345u64.to_le_bytes();
+
+        #[allow(clippy::approx_constant)]
         let float_payload1 = 3.141592f64.to_le_bytes();
+
         let mixed_payload1 = 123u64.to_le_bytes();
         let temp_payload1 = 456u64.to_le_bytes();
 
@@ -51,7 +54,10 @@ mod tests {
             active: false,
         };
         let integer_payload2 = 67890u64.to_le_bytes();
+
+        #[allow(clippy::approx_constant)]
         let float_payload2 = 2.718281f64.to_le_bytes();
+
         let mixed_payload2 = "Hello".as_bytes();
         let temp_payload2 = 789u64.to_le_bytes();
 

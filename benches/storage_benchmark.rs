@@ -8,7 +8,7 @@ use simd_r_drive::{
     traits::{DataStoreReader, DataStoreWriter},
 };
 use std::fs::remove_file;
-use std::path::PathBuf;
+use std::path::Path;
 use std::time::Instant;
 use tempfile::NamedTempFile;
 use thousands::Separable;
@@ -49,7 +49,7 @@ fn main() {
 // Write 1 M entries (batched)
 // ---------------------------------------------------------------------------
 
-fn benchmark_append_entries(path: &PathBuf) {
+fn benchmark_append_entries(path: &Path) {
     let storage = DataStore::open(path).expect("Failed to open storage");
     let mut batch = Vec::with_capacity(WRITE_BATCH_SIZE);
 
@@ -95,7 +95,7 @@ fn flush_batch(storage: &DataStore, batch: &mut Vec<(Vec<u8>, Vec<u8>)>) {
 // Sequential iteration (zero-copy)
 // ---------------------------------------------------------------------------
 
-fn benchmark_sequential_reads(path: &PathBuf) {
+fn benchmark_sequential_reads(path: &Path) {
     let storage = DataStore::open(path).expect("Failed to open storage");
 
     let start_time = Instant::now();
@@ -121,7 +121,7 @@ fn benchmark_sequential_reads(path: &PathBuf) {
 // Random single-key look-ups
 // ---------------------------------------------------------------------------
 
-fn benchmark_random_reads(path: &PathBuf) {
+fn benchmark_random_reads(path: &Path) {
     let storage = DataStore::open(path).expect("Failed to open storage");
     let mut rng = rng();
 
@@ -152,7 +152,7 @@ fn benchmark_random_reads(path: &PathBuf) {
 // Vectorized look-ups (batch_read)
 // ---------------------------------------------------------------------------
 
-fn benchmark_batch_reads(path: &PathBuf) {
+fn benchmark_batch_reads(path: &Path) {
     let storage = DataStore::open(path).expect("Failed to open storage");
     let mut keys_buf: Vec<Vec<u8>> = Vec::with_capacity(READ_BATCH_SIZE);
     let mut verified = 0usize;
@@ -213,7 +213,7 @@ fn verify_batch(storage: &DataStore, keys_buf: &mut Vec<Vec<u8>>) -> usize {
 ///
 /// 4_741_483.464 → "4,741,483.464"
 ///        987.0  → "987.000"
-
+///
 /// Pretty-print a positive rate with comma-separated thousands
 /// and **exactly three decimals**, e.g.  
 /// `4_741_483.464` → `"4,741,483.464"`

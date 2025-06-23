@@ -67,11 +67,11 @@ impl DataStore {
                 let py_bytes = self
                     .obj
                     .call_method1("read", (buf.len(),))
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
 
                 let bytes: Bound<'py, PyBytes> = py_bytes
                     .extract()
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
 
                 let b = bytes.as_bytes();
                 let len = b.len().min(buf.len());
@@ -131,7 +131,7 @@ impl DataStore {
     }
 
     fn __contains__(&self, key: &[u8]) -> PyResult<bool> {
-        Ok(self.exists(key)?)
+        self.exists(key)
     }
 
     fn exists(&self, key: &[u8]) -> PyResult<bool> {

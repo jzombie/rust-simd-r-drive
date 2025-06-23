@@ -13,7 +13,6 @@ use std::path::PathBuf;
 #[command(    
     after_help = HELP_TEMPLATE.replace("%BINARY_NAME%", env!("CARGO_PKG_NAME"))
 )]
-
 pub struct Cli {
     /// The file where data is stored (automatically created if it does not exist).
     #[arg(

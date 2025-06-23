@@ -94,7 +94,7 @@ pub fn execute_command(cli: &Cli) {
                 storage
                     .write(key_as_bytes, value.as_bytes())
                     .expect("Failed to write entry");
-            } else if !io::stdin().is_terminal() && !(std::env::var("FORCE_NO_TTY").is_ok()) {
+            } else if !io::stdin().is_terminal() && std::env::var("FORCE_NO_TTY").is_err() {
                 // If stdin is piped, use a streaming approach
                 let mut stdin_reader = io::stdin().lock();
 
@@ -115,11 +115,10 @@ pub fn execute_command(cli: &Cli) {
             let source_storage =
                 DataStore::open_existing(&cli.storage).expect("Failed to open source storage");
 
-            let mut target_storage =
-                DataStore::open(target).expect("Failed to open target storage");
+            let target_storage = DataStore::open(target).expect("Failed to open target storage");
 
             source_storage
-                .copy_entry(key.as_bytes(), &mut target_storage)
+                .copy_entry(key.as_bytes(), &target_storage)
                 .map_err(|err| {
                     error!("Could not copy entry. Received error: {}", err.to_string());
                     std::process::exit(1);
@@ -133,11 +132,10 @@ pub fn execute_command(cli: &Cli) {
             let source_storage =
                 DataStore::open_existing(&cli.storage).expect("Failed to open source storage");
 
-            let mut target_storage =
-                DataStore::open(target).expect("Failed to open target storage");
+            let target_storage = DataStore::open(target).expect("Failed to open target storage");
 
             source_storage
-                .move_entry(key.as_bytes(), &mut target_storage)
+                .move_entry(key.as_bytes(), &target_storage)
                 .map_err(|err| {
                     error!("Could not copy entry. Received error: {}", err.to_string());
                     std::process::exit(1);

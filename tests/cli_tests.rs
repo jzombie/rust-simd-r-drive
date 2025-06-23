@@ -13,7 +13,7 @@ fn test_write_and_read() {
 
     // Write a value to the storage
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--quiet",
             "--",
@@ -33,7 +33,7 @@ fn test_write_and_read() {
 
     // Read the value back
     let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", TEST_STORAGE, "read", "test_key"])
+        .args(["run", "--quiet", "--", TEST_STORAGE, "read", "test_key"])
         .output()
         .expect("Failed to execute process");
 
@@ -56,7 +56,7 @@ fn test_write_without_value() {
 
     // Try writing without a value (should fail)
     let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", TEST_STORAGE, "write", "test_key"])
+        .args(["run", "--quiet", "--", TEST_STORAGE, "write", "test_key"])
         .env("FORCE_NO_TTY", "1") // Set env variable to override is_terminal()
         .stdin(std::process::Stdio::null()) // Explicitly set no stdin
         .output()
@@ -88,7 +88,7 @@ fn test_read_nonexistent_key() {
 
     // Attempt to read a nonexistent key (should fail)
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--quiet",
             "--",
@@ -126,7 +126,7 @@ fn test_read_with_buffer_size() {
 
     // Write the large value to the storage using stdin
     let mut child = Command::new("cargo")
-        .args(&["run", "--quiet", "--", TEST_STORAGE, "write", "large_key"])
+        .args(["run", "--quiet", "--", TEST_STORAGE, "write", "large_key"])
         .stdin(std::process::Stdio::piped()) // Open a pipe to send data
         .spawn()
         .expect("Failed to execute process");
@@ -150,7 +150,7 @@ fn test_read_with_buffer_size() {
 
     // Read the value back with a 64KB buffer size
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--quiet",
             "--",
@@ -189,7 +189,7 @@ fn test_copy_key() {
 
     // Write a value to the storage
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--quiet",
             "--",
@@ -208,7 +208,7 @@ fn test_copy_key() {
 
     // Copy the key to target storage
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--quiet",
             "--",
@@ -223,7 +223,7 @@ fn test_copy_key() {
 
     // Read from target storage
     let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", TARGET_STORAGE, "read", "copy_key"])
+        .args(["run", "--quiet", "--", TARGET_STORAGE, "read", "copy_key"])
         .output()
         .expect("Failed to execute process");
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -245,7 +245,7 @@ fn test_rename_key() {
 
     // Write a value
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--quiet",
             "--",
@@ -264,7 +264,7 @@ fn test_rename_key() {
 
     // Rename the key
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--quiet",
             "--",
@@ -283,14 +283,14 @@ fn test_rename_key() {
 
     // Ensure old key doesn't exist
     let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", TEST_STORAGE, "read", "old_key"])
+        .args(["run", "--quiet", "--", TEST_STORAGE, "read", "old_key"])
         .output()
         .expect("Failed to execute process");
     assert!(!output.status.success(), "Old key should not exist");
 
     // Ensure new key exists
     let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", TEST_STORAGE, "read", "new_key"])
+        .args(["run", "--quiet", "--", TEST_STORAGE, "read", "new_key"])
         .output()
         .expect("Failed to execute process");
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -311,7 +311,7 @@ fn test_delete_key() {
 
     // Write a value
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--quiet",
             "--",
@@ -330,7 +330,7 @@ fn test_delete_key() {
 
     // Delete the key
     let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", TEST_STORAGE, "delete", "delete_key"])
+        .args(["run", "--quiet", "--", TEST_STORAGE, "delete", "delete_key"])
         .output()
         .expect("Failed to execute process");
     assert!(
@@ -341,7 +341,7 @@ fn test_delete_key() {
 
     // Ensure key doesn't exist
     let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", TEST_STORAGE, "read", "delete_key"])
+        .args(["run", "--quiet", "--", TEST_STORAGE, "read", "delete_key"])
         .output()
         .expect("Failed to execute process");
     assert!(!output.status.success(), "Deleted key should not exist");
@@ -356,7 +356,7 @@ fn test_metadata() {
 
     // Write a test value
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--quiet",
             "--",
@@ -376,7 +376,7 @@ fn test_metadata() {
 
     // Retrieve metadata for the key
     let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", TEST_STORAGE, "metadata", "test_key"])
+        .args(["run", "--quiet", "--", TEST_STORAGE, "metadata", "test_key"])
         .output()
         .expect("Failed to execute process");
 
@@ -450,7 +450,7 @@ fn test_info() {
 
     // Retrieve storage info
     let output = Command::new("cargo")
-        .args(&["run", "--quiet", "--", TEST_STORAGE, "info"])
+        .args(["run", "--quiet", "--", TEST_STORAGE, "info"])
         .output()
         .expect("Failed to execute process");
 

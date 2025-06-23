@@ -44,7 +44,7 @@ async fn concurrent_slow_streamed_write_test() {
         (b"stream_key_B", dir.path().join("test_stream_b.bin"), b'B'),
     ];
 
-    let payload_size = 1 * 1024 * 1024; // 1 MB
+    let payload_size = 1024 * 1024; // 1 MB
     let mut tasks = Vec::new();
 
     // Generate test files

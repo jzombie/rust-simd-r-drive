@@ -19,7 +19,7 @@ mod tests {
     #[test]
     fn test_copy_entry_between_storages() {
         let (_dir1, source_storage) = create_temp_storage();
-        let (_dir2, mut target_storage) = create_temp_storage();
+        let (_dir2, target_storage) = create_temp_storage();
 
         let key = b"copy_key";
         let payload = b"Data to be copied";
@@ -31,7 +31,7 @@ mod tests {
 
         // Step 2: Copy the entry to the target storage
         source_storage
-            .copy_entry(key, &mut target_storage)
+            .copy_entry(key, &target_storage)
             .expect("Failed to copy entry");
 
         // Step 3: Ensure the original entry still exists in the source
@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn test_move_entry_between_storages() {
         let (_dir1, source_storage) = create_temp_storage();
-        let (_dir2, mut target_storage) = create_temp_storage();
+        let (_dir2, target_storage) = create_temp_storage();
 
         let key = b"move_key";
         let payload = b"Data to be moved";
@@ -114,7 +114,7 @@ mod tests {
 
         // Step 2: Move the entry to the target storage
         source_storage
-            .move_entry(key, &mut target_storage)
+            .move_entry(key, &target_storage)
             .expect("Failed to move entry");
 
         // Step 3: Ensure the original entry no longer exists in the source
