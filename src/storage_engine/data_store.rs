@@ -48,199 +48,6 @@ impl From<PathBuf> for DataStore {
     }
 }
 
-impl DataStoreWriter for DataStore {
-    fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64> {
-        let key_hash = compute_hash(key);
-        self.write_stream_with_key_hash(key_hash, reader)
-    }
-
-    fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
-        let key_hash = compute_hash(key);
-        self.write_with_key_hash(key_hash, payload)
-    }
-
-    fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
-        let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
-        let hashes = compute_hash_batch(&keys);
-        let hashed_entries = hashes
-            .into_iter()
-            .zip(payloads.into_iter())
-            .collect::<Vec<_>>();
-        self.batch_write_hashed_payloads(hashed_entries, false)
-    }
-
-    fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
-        if old_key == new_key {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Cannot rename a key to itself",
-            ));
-        }
-
-        let old_entry = self.read(old_key)?.ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
-        })?;
-        let mut old_entry_stream = EntryStream::from(old_entry);
-
-        self.write_stream(new_key, &mut old_entry_stream)?;
-
-        let new_offset = self.delete_entry(old_key)?;
-        Ok(new_offset)
-    }
-
-    fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
-        if self.path == target.path {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!(
-                    "Cannot copy entry to the same storage ({:?}). Use `rename_entry` instead.",
-                    self.path
-                ),
-            ));
-        }
-
-        let entry_handle = self.read(key)?.ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Key not found: {:?}", String::from_utf8_lossy(key)),
-            )
-        })?;
-        self.copy_entry_handle(&entry_handle, target)
-    }
-
-    fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
-        self.copy_entry(key, target)?;
-        self.delete_entry(key)
-    }
-
-    fn delete_entry(&self, key: &[u8]) -> Result<u64> {
-        let key_hash = compute_hash(key);
-        self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
-    }
-}
-
-impl DataStoreReader for DataStore {
-    type EntryHandleType = EntryHandle;
-
-    fn read(&self, key: &[u8]) -> Result<Option<EntryHandle>> {
-        let key_hash = compute_hash(key);
-        let key_indexer_guard = self
-            .key_indexer
-            .read()
-            .map_err(|_| Error::new(ErrorKind::Other, "key-index lock poisoned"))?;
-        let mmap_arc = self.get_mmap_arc();
-
-        let offset = match key_indexer_guard.get(&key_hash) {
-            Some(off) => *off,       // found → continue
-            None => return Ok(None), // not found → early-return
-        };
-
-        if offset as usize + METADATA_SIZE > mmap_arc.len() {
-            return Ok(None);
-        }
-
-        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
-        let metadata = EntryMetadata::deserialize(metadata_bytes);
-
-        let entry_start = metadata.prev_offset as usize;
-        let entry_end = offset as usize;
-        if entry_start >= entry_end || entry_end > mmap_arc.len() {
-            return Ok(None);
-        }
-
-        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
-            return Ok(None);
-        }
-
-        Ok(Some(EntryHandle {
-            mmap_arc: mmap_arc.clone(),
-            range: entry_start..entry_end,
-            metadata,
-        }))
-    }
-
-    fn read_last_entry(&self) -> Result<Option<EntryHandle>> {
-        let mmap_arc = self.get_mmap_arc();
-        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
-        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
-            return Ok(None);
-        }
-
-        let metadata_offset = (tail_offset - METADATA_SIZE as u64) as usize;
-        if metadata_offset + METADATA_SIZE > mmap_arc.len() {
-            return Ok(None);
-        }
-
-        let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
-        let metadata = EntryMetadata::deserialize(metadata_bytes);
-
-        let entry_start = metadata.prev_offset as usize;
-        let entry_end = metadata_offset;
-        if entry_start >= entry_end || entry_end > mmap_arc.len() {
-            return Ok(None);
-        }
-
-        Ok(Some(EntryHandle {
-            mmap_arc,
-            range: entry_start..entry_end,
-            metadata,
-        }))
-    }
-
-    fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
-        let mmap_arc = self.get_mmap_arc();
-        let key_indexer_guard = self.key_indexer.read().map_err(|_| {
-            Error::new(
-                ErrorKind::Other,
-                "Key-index lock poisoned during batch_read",
-            )
-        })?;
-        let hashes = compute_hash_batch(keys);
-
-        let results = hashes
-            .into_iter()
-            .map(|h| {
-                key_indexer_guard.get(&h).and_then(|offset| {
-                    let offset = *offset as usize;
-                    if offset + METADATA_SIZE > mmap_arc.len() {
-                        return None;
-                    }
-                    let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
-                    let metadata = EntryMetadata::deserialize(metadata_bytes);
-                    let entry_start = metadata.prev_offset as usize;
-                    let entry_end = offset;
-                    if entry_start >= entry_end || entry_end > mmap_arc.len() {
-                        return None;
-                    }
-                    if entry_end - entry_start == 1
-                        && &mmap_arc[entry_start..entry_end] == NULL_BYTE
-                    {
-                        return None;
-                    }
-                    Some(EntryHandle {
-                        mmap_arc: mmap_arc.clone(),
-                        range: entry_start..entry_end,
-                        metadata,
-                    })
-                })
-            })
-            .collect();
-        Ok(results)
-    }
-
-    fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>> {
-        Ok(self.read(key)?.map(|entry| entry.metadata().clone()))
-    }
-
-    fn count(&self) -> Result<usize> {
-        Ok(self.iter_entries().count())
-    }
-
-    fn get_storage_size(&self) -> Result<u64> {
-        std::fs::metadata(&self.path).map(|meta| meta.len())
-    }
-}
-
 impl DataStore {
     /// Opens an **existing** or **new** append-only storage file.
     ///
@@ -873,5 +680,198 @@ impl DataStore {
         let mmap_clone = guard.clone();
         drop(guard);
         mmap_clone
+    }
+}
+
+impl DataStoreWriter for DataStore {
+    fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64> {
+        let key_hash = compute_hash(key);
+        self.write_stream_with_key_hash(key_hash, reader)
+    }
+
+    fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
+        let key_hash = compute_hash(key);
+        self.write_with_key_hash(key_hash, payload)
+    }
+
+    fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
+        let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
+        let hashes = compute_hash_batch(&keys);
+        let hashed_entries = hashes
+            .into_iter()
+            .zip(payloads.into_iter())
+            .collect::<Vec<_>>();
+        self.batch_write_hashed_payloads(hashed_entries, false)
+    }
+
+    fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
+        if old_key == new_key {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Cannot rename a key to itself",
+            ));
+        }
+
+        let old_entry = self.read(old_key)?.ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
+        })?;
+        let mut old_entry_stream = EntryStream::from(old_entry);
+
+        self.write_stream(new_key, &mut old_entry_stream)?;
+
+        let new_offset = self.delete_entry(old_key)?;
+        Ok(new_offset)
+    }
+
+    fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+        if self.path == target.path {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "Cannot copy entry to the same storage ({:?}). Use `rename_entry` instead.",
+                    self.path
+                ),
+            ));
+        }
+
+        let entry_handle = self.read(key)?.ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Key not found: {:?}", String::from_utf8_lossy(key)),
+            )
+        })?;
+        self.copy_entry_handle(&entry_handle, target)
+    }
+
+    fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+        self.copy_entry(key, target)?;
+        self.delete_entry(key)
+    }
+
+    fn delete_entry(&self, key: &[u8]) -> Result<u64> {
+        let key_hash = compute_hash(key);
+        self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
+    }
+}
+
+impl DataStoreReader for DataStore {
+    type EntryHandleType = EntryHandle;
+
+    fn read(&self, key: &[u8]) -> Result<Option<EntryHandle>> {
+        let key_hash = compute_hash(key);
+        let key_indexer_guard = self
+            .key_indexer
+            .read()
+            .map_err(|_| Error::new(ErrorKind::Other, "key-index lock poisoned"))?;
+        let mmap_arc = self.get_mmap_arc();
+
+        let offset = match key_indexer_guard.get(&key_hash) {
+            Some(off) => *off,       // found → continue
+            None => return Ok(None), // not found → early-return
+        };
+
+        if offset as usize + METADATA_SIZE > mmap_arc.len() {
+            return Ok(None);
+        }
+
+        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
+        let metadata = EntryMetadata::deserialize(metadata_bytes);
+
+        let entry_start = metadata.prev_offset as usize;
+        let entry_end = offset as usize;
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
+            return Ok(None);
+        }
+
+        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+            return Ok(None);
+        }
+
+        Ok(Some(EntryHandle {
+            mmap_arc: mmap_arc.clone(),
+            range: entry_start..entry_end,
+            metadata,
+        }))
+    }
+
+    fn read_last_entry(&self) -> Result<Option<EntryHandle>> {
+        let mmap_arc = self.get_mmap_arc();
+        let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
+        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
+            return Ok(None);
+        }
+
+        let metadata_offset = (tail_offset - METADATA_SIZE as u64) as usize;
+        if metadata_offset + METADATA_SIZE > mmap_arc.len() {
+            return Ok(None);
+        }
+
+        let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
+        let metadata = EntryMetadata::deserialize(metadata_bytes);
+
+        let entry_start = metadata.prev_offset as usize;
+        let entry_end = metadata_offset;
+        if entry_start >= entry_end || entry_end > mmap_arc.len() {
+            return Ok(None);
+        }
+
+        Ok(Some(EntryHandle {
+            mmap_arc,
+            range: entry_start..entry_end,
+            metadata,
+        }))
+    }
+
+    fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
+        let mmap_arc = self.get_mmap_arc();
+        let key_indexer_guard = self.key_indexer.read().map_err(|_| {
+            Error::new(
+                ErrorKind::Other,
+                "Key-index lock poisoned during batch_read",
+            )
+        })?;
+        let hashes = compute_hash_batch(keys);
+
+        let results = hashes
+            .into_iter()
+            .map(|h| {
+                key_indexer_guard.get(&h).and_then(|offset| {
+                    let offset = *offset as usize;
+                    if offset + METADATA_SIZE > mmap_arc.len() {
+                        return None;
+                    }
+                    let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
+                    let metadata = EntryMetadata::deserialize(metadata_bytes);
+                    let entry_start = metadata.prev_offset as usize;
+                    let entry_end = offset;
+                    if entry_start >= entry_end || entry_end > mmap_arc.len() {
+                        return None;
+                    }
+                    if entry_end - entry_start == 1
+                        && &mmap_arc[entry_start..entry_end] == NULL_BYTE
+                    {
+                        return None;
+                    }
+                    Some(EntryHandle {
+                        mmap_arc: mmap_arc.clone(),
+                        range: entry_start..entry_end,
+                        metadata,
+                    })
+                })
+            })
+            .collect();
+        Ok(results)
+    }
+
+    fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>> {
+        Ok(self.read(key)?.map(|entry| entry.metadata().clone()))
+    }
+
+    fn count(&self) -> Result<usize> {
+        Ok(self.iter_entries().count())
+    }
+
+    fn get_storage_size(&self) -> Result<u64> {
+        std::fs::metadata(&self.path).map(|meta| meta.len())
     }
 }
