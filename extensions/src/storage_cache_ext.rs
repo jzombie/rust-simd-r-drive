@@ -83,7 +83,7 @@ impl StorageCacheExt for DataStore {
             TTL_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(TTL_PREFIX)));
         let namespaced_key = namespace_hasher.namespace(key);
 
-        match self.read(&namespaced_key) {
+        match self.read(&namespaced_key)? {
             Some(entry) => {
                 let data = entry.as_slice();
 

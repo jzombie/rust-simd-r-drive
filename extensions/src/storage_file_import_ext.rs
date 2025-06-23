@@ -100,6 +100,7 @@ impl StorageFileImportExt for DataStore {
         Ok(results)
     }
 
+    // TODO: Use `Result` type
     fn read_file_entry<P: AsRef<Path>>(
         &self,
         rel_path: P,
@@ -109,6 +110,7 @@ impl StorageFileImportExt for DataStore {
         self.read(&namespaced_key)
     }
 
+    // TODO: Use `Result` type
     fn open_file_stream<P: AsRef<Path>>(
         &self,
         rel_path: P,
