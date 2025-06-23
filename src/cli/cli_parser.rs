@@ -1,5 +1,5 @@
+use crate::cli::{Commands, HELP_TEMPLATE};
 use clap::Parser;
-use crate::cli::{HELP_TEMPLATE, Commands};
 use std::path::PathBuf;
 
 #[derive(Parser)]

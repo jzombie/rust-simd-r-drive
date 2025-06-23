@@ -1,6 +1,6 @@
+use pyo3::PyResult;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
-use pyo3::PyResult;
 mod entry_handle;
 use entry_handle::EntryHandle;
 mod entry_stream;

@@ -10,7 +10,7 @@ use memmap2::Mmap;
 use std::collections::HashSet;
 use std::convert::From;
 use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Error, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
@@ -85,7 +85,7 @@ impl DataStore {
         }
 
         let mmap_arc = Arc::new(mmap);
-        let mmap_for_indexer: &'static Mmap = unsafe { &*(Arc::as_ptr(&mmap_arc) as *const Mmap) };
+        let mmap_for_indexer: &'static Mmap = unsafe { &*(Arc::as_ptr(&mmap_arc)) };
         let key_indexer = KeyIndexer::build(mmap_for_indexer, final_len);
 
         Ok(Self {
@@ -116,7 +116,7 @@ impl DataStore {
     /// - This is useful in scenarios where the caller needs to **ensure** that they are
     ///   working with an already existing storage file.
     pub fn open_existing(path: &Path) -> Result<Self> {
-        verify_file_existence(&path)?;
+        verify_file_existence(path)?;
         Self::open(path)
     }
 
@@ -192,9 +192,10 @@ impl DataStore {
     ) -> std::io::Result<()> {
         let new_mmap = Self::init_mmap(write_guard)?;
         let mut mmap_guard = self.mmap.lock().unwrap();
-        let mut key_indexer_guard = self.key_indexer.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire index lock")
-        })?;
+        let mut key_indexer_guard = self
+            .key_indexer
+            .write()
+            .map_err(|_| std::io::Error::other("Failed to acquire index lock"))?;
 
         for (key_hash, offset) in key_hash_offsets.iter() {
             key_indexer_guard.insert(*key_hash, *offset);
@@ -319,9 +320,10 @@ impl DataStore {
         key_hash: u64,
         reader: &mut R,
     ) -> Result<u64> {
-        let mut file = self.file.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
-        })?;
+        let mut file = self
+            .file
+            .write()
+            .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
         let prev_offset = self.tail_offset.load(Ordering::Acquire);
 
         let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE];
@@ -421,9 +423,10 @@ impl DataStore {
         hashed_payloads: Vec<(u64, &[u8])>,
         allow_null_bytes: bool,
     ) -> Result<u64> {
-        let mut file = self.file.write().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire file lock")
-        })?;
+        let mut file = self
+            .file
+            .write()
+            .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
 
         let mut buffer = Vec::new();
         let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
@@ -511,7 +514,7 @@ impl DataStore {
             return None;
         }
 
-        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+        if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
             return None;
         }
 
@@ -569,12 +572,12 @@ impl DataStore {
         let compacted_path = crate::utils::append_extension(&self.path, "bk");
         info!("Starting compaction. Writing to: {:?}", compacted_path);
 
-        let mut compacted_storage = DataStore::open(&compacted_path)?;
+        let compacted_storage = DataStore::open(&compacted_path)?;
         let mut index_pairs: Vec<(u64, u64)> = Vec::new();
         let mut compacted_data_size: u64 = 0;
 
         for entry in self.iter_entries() {
-            let new_tail_offset = self.copy_entry_handle(&entry, &mut compacted_storage)?;
+            let new_tail_offset = self.copy_entry_handle(&entry, &compacted_storage)?;
             let stored_metadata_offset = new_tail_offset - METADATA_SIZE as u64;
             index_pairs.push((entry.key_hash(), stored_metadata_offset));
             compacted_data_size += entry.size_with_metadata() as u64;
@@ -590,9 +593,10 @@ impl DataStore {
             info!("Compaction will save space. Writing static index.");
             // let indexed_up_to = compacted_storage.tail_offset.load(Ordering::Acquire);
 
-            let mut file_guard = compacted_storage.file.write().map_err(|e| {
-                std::io::Error::new(std::io::ErrorKind::Other, format!("Lock poisoned: {}", e))
-            })?;
+            let mut file_guard = compacted_storage
+                .file
+                .write()
+                .map_err(|e| std::io::Error::other(format!("Lock poisoned: {}", e)))?;
             file_guard.flush()?;
         } else {
             info!(
@@ -685,10 +689,7 @@ impl DataStoreWriter for DataStore {
     fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
         let hashes = compute_hash_batch(&keys);
-        let hashed_entries = hashes
-            .into_iter()
-            .zip(payloads.into_iter())
-            .collect::<Vec<_>>();
+        let hashed_entries = hashes.into_iter().zip(payloads).collect::<Vec<_>>();
         self.batch_write_hashed_payloads(hashed_entries, false)
     }
 
@@ -750,7 +751,7 @@ impl DataStoreReader for DataStore {
         let key_indexer_guard = self
             .key_indexer
             .read()
-            .map_err(|_| Error::new(ErrorKind::Other, "key-index lock poisoned"))?;
+            .map_err(|_| Error::other("key-index lock poisoned"))?;
         let mmap_arc = self.get_mmap_arc();
 
         let offset = match key_indexer_guard.get(&key_hash) {
@@ -771,7 +772,7 @@ impl DataStoreReader for DataStore {
             return Ok(None);
         }
 
-        if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+        if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
             return Ok(None);
         }
 
@@ -785,7 +786,7 @@ impl DataStoreReader for DataStore {
     fn read_last_entry(&self) -> Result<Option<EntryHandle>> {
         let mmap_arc = self.get_mmap_arc();
         let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
-        if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
+        if tail_offset < METADATA_SIZE as u64 || mmap_arc.is_empty() {
             return Ok(None);
         }
 
@@ -812,12 +813,10 @@ impl DataStoreReader for DataStore {
 
     fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
         let mmap_arc = self.get_mmap_arc();
-        let key_indexer_guard = self.key_indexer.read().map_err(|_| {
-            Error::new(
-                ErrorKind::Other,
-                "Key-index lock poisoned during batch_read",
-            )
-        })?;
+        let key_indexer_guard = self
+            .key_indexer
+            .read()
+            .map_err(|_| Error::other("Key-index lock poisoned during batch_read"))?;
         let hashes = compute_hash_batch(keys);
 
         let results = hashes
@@ -835,8 +834,7 @@ impl DataStoreReader for DataStore {
                     if entry_start >= entry_end || entry_end > mmap_arc.len() {
                         return None;
                     }
-                    if entry_end - entry_start == 1
-                        && &mmap_arc[entry_start..entry_end] == NULL_BYTE
+                    if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE
                     {
                         return None;
                     }
