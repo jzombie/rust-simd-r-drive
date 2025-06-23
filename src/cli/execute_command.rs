@@ -5,7 +5,6 @@ use crate::storage_engine::{
 };
 use crate::utils::{format_bytes, parse_buffer_size};
 use std::io::{self, IsTerminal, Read, Write};
-use tracing::{error, info, warn};
 
 /// Executes commands from the CLI and interacts with the storage engine.
 ///
@@ -34,7 +33,7 @@ pub fn execute_command(cli: &Cli) {
                 .map(parse_buffer_size)
                 .transpose()
                 .unwrap_or_else(|err| {
-                    error!("{}", err);
+                    eprintln!("{}", err);
                     std::process::exit(1);
                 })
                 .unwrap_or(64 * 1024); // Default to 64KB
@@ -79,7 +78,7 @@ pub fn execute_command(cli: &Cli) {
                     std::process::exit(1);
                 }
                 Err(e) => {
-                    error!("Error: {:?}", e);
+                    eprintln!("Error: {:?}", e);
                     std::process::exit(1);
                 }
             }
@@ -99,16 +98,16 @@ pub fn execute_command(cli: &Cli) {
                 let mut stdin_reader = io::stdin().lock();
 
                 if let Err(err) = storage.write_stream(key_as_bytes, &mut stdin_reader) {
-                    error!("Failed to write streamed stdin data: {}", err);
+                    eprintln!("Failed to write streamed stdin data: {}", err);
                     std::process::exit(1);
                 }
             } else {
                 // If neither a value nor piped stdin is provided, return an error
-                error!("Error: No value provided and stdin is empty.");
+                eprintln!("Error: No value provided and stdin is empty.");
                 std::process::exit(1);
             }
 
-            info!("Stored '{}'", key);
+            println!("Stored '{}'", key);
         }
 
         Commands::Copy { key, target } => {
@@ -120,12 +119,12 @@ pub fn execute_command(cli: &Cli) {
             source_storage
                 .copy_entry(key.as_bytes(), &target_storage)
                 .map_err(|err| {
-                    error!("Could not copy entry. Received error: {}", err.to_string());
+                    eprintln!("Could not copy entry. Received error: {}", err.to_string());
                     std::process::exit(1);
                 })
                 .ok(); // Ignore the success case
 
-            info!("Copied key '{}' to {:?}", key, target);
+            println!("Copied key '{}' to {:?}", key, target);
         }
 
         Commands::Move { key, target } => {
@@ -137,12 +136,12 @@ pub fn execute_command(cli: &Cli) {
             source_storage
                 .move_entry(key.as_bytes(), &target_storage)
                 .map_err(|err| {
-                    error!("Could not copy entry. Received error: {}", err.to_string());
+                    eprintln!("Could not copy entry. Received error: {}", err.to_string());
                     std::process::exit(1);
                 })
                 .ok(); // Ignore the success case
 
-            info!("Moved key '{}' to {:?}", key, target);
+            println!("Moved key '{}' to {:?}", key, target);
         }
 
         Commands::Rename { old_key, new_key } => {
@@ -152,7 +151,7 @@ pub fn execute_command(cli: &Cli) {
             storage
                 .rename_entry(old_key.as_bytes(), new_key.as_bytes())
                 .map_err(|err| {
-                    error!(
+                    eprintln!(
                         "Could not rename entry. Received error: {}",
                         err.to_string()
                     );
@@ -160,7 +159,7 @@ pub fn execute_command(cli: &Cli) {
                 })
                 .ok(); // Ignore the success case
 
-            info!("Renamed key '{}' to {}", old_key, new_key);
+            println!("Renamed key '{}' to {}", old_key, new_key);
         }
 
         Commands::Delete { key } => {
@@ -169,18 +168,18 @@ pub fn execute_command(cli: &Cli) {
             storage
                 .delete_entry(key.as_bytes())
                 .expect("Failed to delete entry");
-            warn!("Deleted key '{}'", key);
+            eprintln!("Deleted key '{}'", key);
         }
 
         Commands::Compact => {
             let mut storage =
                 DataStore::open_existing(&cli.storage).expect("Failed to open storage");
-            info!("Starting compaction...");
+            println!("Starting compaction...");
             if let Err(e) = storage.compact() {
-                error!("Compaction failed: {}", e);
+                eprintln!("Compaction failed: {}", e);
                 std::process::exit(1);
             }
-            info!("Compaction completed successfully.");
+            println!("Compaction completed successfully.");
         }
 
         Commands::Metadata { key } => {
@@ -218,11 +217,11 @@ pub fn execute_command(cli: &Cli) {
                     println!("{:=<50}", ""); // Footer Line
                 }
                 Ok(None) => {
-                    error!("Error: Key '{}' not found", key);
+                    eprintln!("Error: Key '{}' not found", key);
                     std::process::exit(1);
                 }
                 Err(e) => {
-                    error!("Error: {:?}", e);
+                    eprintln!("Error: {:?}", e);
                     std::process::exit(1);
                 }
             }
