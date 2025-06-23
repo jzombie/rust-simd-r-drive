@@ -133,7 +133,11 @@ impl DataStore {
     /// - `Ok(BufWriter<File>)`: A buffered writer pointing to the file.
     /// - `Err(std::io::Error)`: If the file could not be opened.
     fn open_file_in_append_mode(path: &Path) -> Result<BufWriter<File>> {
-        let mut file = OpenOptions::new().read(true).write(true).open(path)?;
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)?;
         file.seek(SeekFrom::End(0))?;
         Ok(BufWriter::new(file))
     }
