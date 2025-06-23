@@ -137,6 +137,7 @@ impl DataStore {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(path)?;
         file.seek(SeekFrom::End(0))?;
         Ok(BufWriter::new(file))
