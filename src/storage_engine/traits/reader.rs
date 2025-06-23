@@ -1,8 +1,6 @@
 use crate::storage_engine::EntryMetadata;
 use std::io::Result;
 
-// TODO: Add `read_last_entry` here
-
 pub trait DataStoreReader {
     type EntryHandleType;
 
