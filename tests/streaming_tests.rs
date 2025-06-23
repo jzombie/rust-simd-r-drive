@@ -51,6 +51,7 @@ mod tests {
         // Retrieve the entry
         let retrieved_entry = storage
             .read(large_key)
+            .unwrap()
             .expect("Failed to retrieve large entry");
 
         // Create an EntryStream from the retrieved entry

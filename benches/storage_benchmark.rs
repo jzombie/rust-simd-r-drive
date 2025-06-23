@@ -132,6 +132,7 @@ fn benchmark_random_reads(path: &PathBuf) {
         let key = format!("bench-key-{i}");
         let handle = storage
             .read(key.as_bytes())
+            .unwrap()
             .expect("Missing entry in random read");
 
         let stored = u64::from_le_bytes(handle.as_slice().try_into().unwrap());

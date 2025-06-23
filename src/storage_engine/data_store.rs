@@ -72,7 +72,7 @@ impl DataStoreWriter for DataStore {
             ));
         }
 
-        let old_entry = self.read(old_key).ok_or_else(|| {
+        let old_entry = self.read(old_key)?.ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
         })?;
         let mut old_entry_stream = EntryStream::from(old_entry);
@@ -94,7 +94,7 @@ impl DataStoreWriter for DataStore {
             ));
         }
 
-        let entry_handle = self.read(key).ok_or_else(|| {
+        let entry_handle = self.read(key)?.ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 format!("Key not found: {:?}", String::from_utf8_lossy(key)),
@@ -117,15 +117,21 @@ impl DataStoreWriter for DataStore {
 impl DataStoreReader for DataStore {
     type EntryHandleType = EntryHandle;
 
-    fn read(&self, key: &[u8]) -> Option<EntryHandle> {
+    fn read(&self, key: &[u8]) -> Result<Option<EntryHandle>> {
         let key_hash = compute_hash(key);
-        let key_indexer_guard = self.key_indexer.read().ok()?;
+        let key_indexer_guard = self
+            .key_indexer
+            .read()
+            .map_err(|_| Error::new(ErrorKind::Other, "key-index lock poisoned"))?;
         let mmap_arc = self.get_mmap_arc();
 
-        let offset = key_indexer_guard.get(&key_hash)?;
+        let offset = match key_indexer_guard.get(&key_hash) {
+            Some(off) => off,        // found → continue
+            None => return Ok(None), // not found → early-return
+        };
 
         if offset as usize + METADATA_SIZE > mmap_arc.len() {
-            return None;
+            return Ok(None);
         }
 
         let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
@@ -134,18 +140,18 @@ impl DataStoreReader for DataStore {
         let entry_start = metadata.prev_offset as usize;
         let entry_end = offset as usize;
         if entry_start >= entry_end || entry_end > mmap_arc.len() {
-            return None;
+            return Ok(None);
         }
 
         if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
-            return None;
+            return Ok(None);
         }
 
-        Some(EntryHandle {
+        Ok(Some(EntryHandle {
             mmap_arc: mmap_arc.clone(),
             range: entry_start..entry_end,
             metadata,
-        })
+        }))
     }
 
     fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
@@ -190,7 +196,7 @@ impl DataStoreReader for DataStore {
     }
 
     fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>> {
-        Ok(self.read(key).map(|entry| entry.metadata().clone()))
+        Ok(self.read(key)?.map(|entry| entry.metadata().clone()))
     }
 
     fn count(&self) -> Result<usize> {
@@ -465,16 +471,16 @@ impl DataStore {
         Ok(self.tail_offset.load(Ordering::Acquire))
     }
 
-    pub fn read_last_entry(&self) -> Option<EntryHandle> {
+    pub fn read_last_entry(&self) -> Result<Option<EntryHandle>> {
         let mmap_arc = self.get_mmap_arc();
         let tail_offset = self.tail_offset.load(std::sync::atomic::Ordering::Acquire);
         if tail_offset < METADATA_SIZE as u64 || mmap_arc.len() == 0 {
-            return None;
+            return Ok(None);
         }
 
         let metadata_offset = (tail_offset - METADATA_SIZE as u64) as usize;
         if metadata_offset + METADATA_SIZE > mmap_arc.len() {
-            return None;
+            return Ok(None);
         }
 
         let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
@@ -483,14 +489,14 @@ impl DataStore {
         let entry_start = metadata.prev_offset as usize;
         let entry_end = metadata_offset;
         if entry_start >= entry_end || entry_end > mmap_arc.len() {
-            return None;
+            return Ok(None);
         }
 
-        Some(EntryHandle {
+        Ok(Some(EntryHandle {
             mmap_arc,
             range: entry_start..entry_end,
             metadata,
-        })
+        }))
     }
 
     #[inline]

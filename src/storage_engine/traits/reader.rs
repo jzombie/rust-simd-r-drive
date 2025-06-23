@@ -6,7 +6,7 @@ use std::io::Result;
 pub trait DataStoreReader {
     type EntryHandleType;
 
-    fn read(&self, key: &[u8]) -> Option<Self::EntryHandleType>;
+    fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>>;
 
     fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>>;
 

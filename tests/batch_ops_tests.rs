@@ -30,7 +30,10 @@ fn test_batch_write_and_individual_reads() {
     storage.batch_write(&entries).expect("batch_write failed");
 
     for (k, v) in &entries {
-        let got = storage.read(k).expect("missing key written via batch");
+        let got = storage
+            .read(k)
+            .unwrap()
+            .expect("missing key written via batch");
         assert_eq!(got.as_slice(), *v);
     }
 }
@@ -115,8 +118,8 @@ fn test_batch_write_rejects_empty_payload_among_many() {
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
 
     // Ensure *nothing* was persisted
-    assert!(storage.read(b"k1").is_none());
-    assert!(storage.read(b"k2").is_none());
+    assert!(storage.read(b"k1").unwrap().is_none());
+    assert!(storage.read(b"k2").unwrap().is_none());
     assert_eq!(
         storage.count().unwrap(),
         0,

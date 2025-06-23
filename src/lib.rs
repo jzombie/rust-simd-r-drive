@@ -36,30 +36,30 @@
 //! storage.write(b"key5", b"value5").unwrap();
 //!
 //! // Retrieve some entries
-//! let entry = storage.read(b"key1").unwrap();
-//! assert_eq!(entry.as_slice(), b"value1");
+//! let entry_handle = storage.read(b"key1").unwrap().unwrap();
+//! assert_eq!(entry_handle.as_slice(), b"value1");
 //!
-//! let entry = storage.read(b"key2").unwrap();
-//! assert_eq!(entry.as_slice(), b"value2");
+//! let entry_handle = storage.read(b"key2").unwrap().unwrap();
+//! assert_eq!(entry_handle.as_slice(), b"value2");
 //!
-//! let entry = storage.read(b"key3").unwrap();
-//! assert_eq!(entry.as_slice(), b"value3");
+//! let entry_handle = storage.read(b"key3").unwrap().unwrap();
+//! assert_eq!(entry_handle.as_slice(), b"value3");
 //!
-//! let entry = storage.read(b"key4").unwrap();
-//! assert_eq!(entry.as_slice(), b"value4");
+//! let entry_handle = storage.read(b"key4").unwrap().unwrap();
+//! assert_eq!(entry_handle.as_slice(), b"value4");
 //!
-//! let entry = storage.read(b"key5").unwrap();
-//! assert_eq!(entry.as_slice(), b"value5");
+//! let entry_handle = storage.read(b"key5").unwrap().unwrap();
+//! assert_eq!(entry_handle.as_slice(), b"value5");
 //!
 //! // Overwrite an entry
 //! storage.write(b"key3", b"A new value").unwrap();
-//! let entry = storage.read(b"key3").unwrap();
-//! assert_eq!(entry.as_slice(), b"A new value");
+//! let entry_handle = storage.read(b"key3").unwrap().unwrap();
+//! assert_eq!(entry_handle.as_slice(), b"A new value");
 //!
 //! // Delete an entry
 //! storage.delete_entry(b"key3").unwrap();
-//! let entry = storage.read(b"key3");
-//! assert!(entry.is_none());
+//! let entry_handle = storage.read(b"key3").unwrap();
+//! assert!(entry_handle.is_none());
 //! ```
 //!
 //! ## Streaming Example
@@ -84,7 +84,7 @@
 //! storage.write_stream(b"stream_key", &mut cursor).unwrap();
 //!
 //! // Read and validate streaming data using `EntryStream`
-//! let entry_handle = storage.read(b"stream_key").unwrap(); // Get EntryHandle
+//! let entry_handle = storage.read(b"stream_key").unwrap().unwrap(); // Get EntryHandle
 //! let mut retrieved_stream = EntryStream::from(entry_handle); // Convert to EntryStream
 //! let mut buffer = Vec::new();
 //!
@@ -102,7 +102,7 @@
 //! storage.write_stream(b"file_stream_key", &mut file).unwrap();
 //!
 //! // Read back the streamed file using `EntryStream`
-//! let file_entry = storage.read(b"file_stream_key").unwrap(); // Get EntryHandle
+//! let file_entry = storage.read(b"file_stream_key").unwrap().unwrap(); // Get EntryHandle
 //! let mut file_stream = EntryStream::from(file_entry); // Convert to EntryStream
 //! let mut file_buffer = Vec::new();
 //!

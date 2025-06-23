@@ -141,9 +141,9 @@ mod tests {
             .expect("Failed to write ns3 data");
 
         // Read back and verify
-        let read_ns1 = storage.read(&key_ns1).expect("Missing ns1 entry");
-        let read_ns2 = storage.read(&key_ns2).expect("Missing ns2 entry");
-        let read_ns3 = storage.read(&key_ns3).expect("Missing ns3 entry");
+        let read_ns1 = storage.read(&key_ns1).unwrap().expect("Missing ns1 entry");
+        let read_ns2 = storage.read(&key_ns2).unwrap().expect("Missing ns2 entry");
+        let read_ns3 = storage.read(&key_ns3).unwrap().expect("Missing ns3 entry");
 
         assert_eq!(read_ns1.as_slice(), payload_ns1);
         assert_eq!(read_ns2.as_slice(), payload_ns2);

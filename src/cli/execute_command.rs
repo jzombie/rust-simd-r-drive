@@ -40,7 +40,7 @@ pub fn execute_command(cli: &Cli) {
                 .unwrap_or(64 * 1024); // Default to 64KB
 
             match storage.read(key.as_bytes()) {
-                Some(entry_handle) => {
+                Ok(Some(entry_handle)) => {
                     let stdout = io::stdout();
                     let mut stdout_handle = stdout.lock();
                     let mut entry_stream = EntryStream::from(entry_handle);
@@ -74,8 +74,12 @@ pub fn execute_command(cli: &Cli) {
                         stdout_handle.write_all(b"\n").unwrap();
                     }
                 }
-                None => {
+                Ok(None) => {
                     eprintln!("Error: Key '{}' not found", key);
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    error!("Error: {:?}", e);
                     std::process::exit(1);
                 }
             }
@@ -185,7 +189,7 @@ pub fn execute_command(cli: &Cli) {
             let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
 
             match storage.read(key.as_bytes()) {
-                Some(entry) => {
+                Ok(Some(entry)) => {
                     println!("\n{:=^50}", " METADATA SUMMARY ");
                     println!("{:<25} \"{}\"", "ENTRY FOR:", key);
                     println!("{:-<50}", ""); // Separator
@@ -215,8 +219,12 @@ pub fn execute_command(cli: &Cli) {
                     println!("{:<25} {:?}", "STORED METADATA:", entry.metadata());
                     println!("{:=<50}", ""); // Footer Line
                 }
-                None => {
+                Ok(None) => {
                     error!("Error: Key '{}' not found", key);
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    error!("Error: {:?}", e);
                     std::process::exit(1);
                 }
             }
