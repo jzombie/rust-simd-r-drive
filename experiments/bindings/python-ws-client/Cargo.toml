@@ -8,6 +8,7 @@ publish = false # Python bindings only — do not publish to crates.io
 [lib]
 name = "simd_r_drive_ws_client"
 crate-type = ["cdylib"]
+doc = false
 
 [dependencies]
 memmap2 = "0.9.5"

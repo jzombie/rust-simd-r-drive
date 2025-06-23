@@ -31,13 +31,13 @@ pub trait DataStoreReader {
 
     /// Reads many keys in one shot.
     ///
-    /// This is the **vectorized** counterpart to [`read`].  
+    /// This is the **vectorized** counterpart to [`crate::DataStore::read`].  
     /// It takes a slice of raw-byte keys and returns a `Vec` whose *i-th* element
     /// is the result of looking up the *i-th* key.
     ///
     /// *   **Zero-copy** – each `Some(EntryHandle)` points directly into the
     ///     shared `Arc<Mmap>`; no payload is copied.
-    /// *   **Constant-time per key** – the in-memory [`KeyIndexer`] map is used
+    /// *   **Constant-time per key** – the in-memory [`crate::storage_engine::KeyIndexer`] map is used
     ///     for each lookup, so the complexity is *O(n)* where *n* is
     ///     `keys.len()`.
     /// *   **Thread-safe** – a read lock on the index is taken once for the whole
@@ -108,13 +108,13 @@ pub trait AsyncDataStoreReader {
 
     /// Reads many keys in one shot.
     ///
-    /// This is the **vectorized** counterpart to [`read`].  
+    /// This is the **vectorized** counterpart to [`crate::DataStore::read`].  
     /// It takes a slice of raw-byte keys and returns a `Vec` whose *i-th* element
     /// is the result of looking up the *i-th* key.
     ///
     /// *   **Zero-copy** – each `Some(EntryHandle)` points directly into the
     ///     shared `Arc<Mmap>`; no payload is copied.
-    /// *   **Constant-time per key** – the in-memory [`KeyIndexer`] map is used
+    /// *   **Constant-time per key** – the in-memory [`crate::storage_engine::KeyIndexer`] map is used
     ///     for each lookup, so the complexity is *O(n)* where *n* is
     ///     `keys.len()`.
     /// *   **Thread-safe** – a read lock on the index is taken once for the whole
