@@ -155,7 +155,7 @@ impl StorageOptionExt for DataStore {
             OPTION_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(OPTION_PREFIX)));
         let namespaced_key = namespace_hasher.namespace(key);
 
-        match self.read(&namespaced_key) {
+        match self.read(&namespaced_key)? {
             Some(entry) => deserialize_option::<T>(entry.as_slice()),
             None => Err(io::Error::new(
                 ErrorKind::NotFound,

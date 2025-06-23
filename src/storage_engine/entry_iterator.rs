@@ -58,7 +58,7 @@ impl Iterator for EntryIterator {
     /// - `None` when no more valid entries are available.
     fn next(&mut self) -> Option<Self::Item> {
         // Stop iteration if cursor is out of valid range
-        if self.cursor < METADATA_SIZE as u64 || self.mmap.len() == 0 {
+        if self.cursor < METADATA_SIZE as u64 || self.mmap.is_empty() {
             return None;
         }
 

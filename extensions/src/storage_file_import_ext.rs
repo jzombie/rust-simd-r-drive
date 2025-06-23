@@ -4,25 +4,18 @@ use simd_r_drive::{
     utils::NamespaceHasher,
 };
 use std::fs::File;
-use std::io::{self};
+use std::io::{self, Result};
 use std::path::Path;
 
 /// Recursively walks a directory and imports files into the DataStore.
 /// Keys are the relative Unix-style paths from `base_dir`.
 pub trait StorageFileImportExt {
     /// Adds all regular files under `base_dir` into the DataStore.
-    ///
-    /// # Arguments
-    /// - `base_dir`: Root directory to walk.
-    /// - `namespace`: Optional namespace prefix for stored keys.
-    ///
-    /// # Returns
-    /// - A list of `(key, offset)` for stored files.
     fn import_dir_recursively<P: AsRef<Path>>(
         &self,
         base_dir: P,
         namespace: Option<&[u8]>,
-    ) -> io::Result<Vec<(Vec<u8>, u64)>>;
+    ) -> Result<Vec<(Vec<u8>, u64)>>;
 
     /// Retrieves a file entry **stored in the DataStore**, using a relative path
     /// and optional namespace.
@@ -35,13 +28,14 @@ pub trait StorageFileImportExt {
     /// - `namespace`: Optional namespace used during import (if any).
     ///
     /// # Returns
-    /// - `Some(EntryHandle)`: If the file exists in storage.
-    /// - `None`: If the key is missing or marked deleted.
+    /// - `Ok(Some(EntryHandle))`: If the file exists in storage.
+    /// - `Ok(None)`: If the key is missing or marked deleted.
+    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
     fn read_file_entry<P: AsRef<Path>>(
         &self,
         rel_path: P,
         namespace: Option<&[u8]>,
-    ) -> Option<EntryHandle>;
+    ) -> Result<Option<EntryHandle>>;
 
     /// Opens a **streaming reader** for a file stored in the DataStore,
     /// identified by its relative path and optional namespace.
@@ -54,13 +48,14 @@ pub trait StorageFileImportExt {
     /// - `namespace`: Optional namespace prefix applied during import.
     ///
     /// # Returns
-    /// - `Some(EntryStream)`: If the file exists in storage.
-    /// - `None`: If no entry is found or it has been evicted.
+    /// - `Ok(Some(EntryStream))`: If the file exists in storage.
+    /// - `Ok(None)`: If no entry is found or it has been evicted.
+    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
     fn open_file_stream<P: AsRef<Path>>(
         &self,
         rel_path: P,
         namespace: Option<&[u8]>,
-    ) -> Option<EntryStream>;
+    ) -> Result<Option<EntryStream>>;
 }
 
 impl StorageFileImportExt for DataStore {
@@ -68,7 +63,7 @@ impl StorageFileImportExt for DataStore {
         &self,
         base_dir: P,
         namespace: Option<&[u8]>,
-    ) -> io::Result<Vec<(Vec<u8>, u64)>> {
+    ) -> Result<Vec<(Vec<u8>, u64)>> {
         let mut results = Vec::new();
         let base = base_dir.as_ref();
 
@@ -81,7 +76,7 @@ impl StorageFileImportExt for DataStore {
 
         for entry in walkdir::WalkDir::new(base)
             .into_iter()
-            .filter_map(Result::ok)
+            .filter_map(|result| result.ok())
         {
             let path = entry.path();
             if !path.is_file() {
@@ -104,7 +99,7 @@ impl StorageFileImportExt for DataStore {
         &self,
         rel_path: P,
         namespace: Option<&[u8]>,
-    ) -> Option<EntryHandle> {
+    ) -> Result<Option<EntryHandle>> {
         let namespaced_key = to_namespaced_key(rel_path, namespace);
         self.read(&namespaced_key)
     }
@@ -113,9 +108,9 @@ impl StorageFileImportExt for DataStore {
         &self,
         rel_path: P,
         namespace: Option<&[u8]>,
-    ) -> Option<EntryStream> {
+    ) -> Result<Option<EntryStream>> {
         let namespaced_key = to_namespaced_key(rel_path, namespace);
-        self.read(&namespaced_key).map(EntryStream::from)
+        Ok(self.read(&namespaced_key)?.map(EntryStream::from))
     }
 }
 

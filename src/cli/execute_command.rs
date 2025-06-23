@@ -4,8 +4,8 @@ use crate::storage_engine::{
     traits::{DataStoreReader, DataStoreWriter},
 };
 use crate::utils::{format_bytes, parse_buffer_size};
-use log::{error, info, warn};
 use std::io::{self, IsTerminal, Read, Write};
+use tracing::{error, info, warn};
 
 /// Executes commands from the CLI and interacts with the storage engine.
 ///
@@ -40,7 +40,7 @@ pub fn execute_command(cli: &Cli) {
                 .unwrap_or(64 * 1024); // Default to 64KB
 
             match storage.read(key.as_bytes()) {
-                Some(entry_handle) => {
+                Ok(Some(entry_handle)) => {
                     let stdout = io::stdout();
                     let mut stdout_handle = stdout.lock();
                     let mut entry_stream = EntryStream::from(entry_handle);
@@ -74,8 +74,12 @@ pub fn execute_command(cli: &Cli) {
                         stdout_handle.write_all(b"\n").unwrap();
                     }
                 }
-                None => {
+                Ok(None) => {
                     eprintln!("Error: Key '{}' not found", key);
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    error!("Error: {:?}", e);
                     std::process::exit(1);
                 }
             }
@@ -90,7 +94,7 @@ pub fn execute_command(cli: &Cli) {
                 storage
                     .write(key_as_bytes, value.as_bytes())
                     .expect("Failed to write entry");
-            } else if !io::stdin().is_terminal() && !(std::env::var("FORCE_NO_TTY").is_ok()) {
+            } else if !io::stdin().is_terminal() && std::env::var("FORCE_NO_TTY").is_err() {
                 // If stdin is piped, use a streaming approach
                 let mut stdin_reader = io::stdin().lock();
 
@@ -111,11 +115,10 @@ pub fn execute_command(cli: &Cli) {
             let source_storage =
                 DataStore::open_existing(&cli.storage).expect("Failed to open source storage");
 
-            let mut target_storage =
-                DataStore::open(target).expect("Failed to open target storage");
+            let target_storage = DataStore::open(target).expect("Failed to open target storage");
 
             source_storage
-                .copy_entry(key.as_bytes(), &mut target_storage)
+                .copy_entry(key.as_bytes(), &target_storage)
                 .map_err(|err| {
                     error!("Could not copy entry. Received error: {}", err.to_string());
                     std::process::exit(1);
@@ -129,11 +132,10 @@ pub fn execute_command(cli: &Cli) {
             let source_storage =
                 DataStore::open_existing(&cli.storage).expect("Failed to open source storage");
 
-            let mut target_storage =
-                DataStore::open(target).expect("Failed to open target storage");
+            let target_storage = DataStore::open(target).expect("Failed to open target storage");
 
             source_storage
-                .move_entry(key.as_bytes(), &mut target_storage)
+                .move_entry(key.as_bytes(), &target_storage)
                 .map_err(|err| {
                     error!("Could not copy entry. Received error: {}", err.to_string());
                     std::process::exit(1);
@@ -185,7 +187,7 @@ pub fn execute_command(cli: &Cli) {
             let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
 
             match storage.read(key.as_bytes()) {
-                Some(entry) => {
+                Ok(Some(entry)) => {
                     println!("\n{:=^50}", " METADATA SUMMARY ");
                     println!("{:<25} \"{}\"", "ENTRY FOR:", key);
                     println!("{:-<50}", ""); // Separator
@@ -215,8 +217,12 @@ pub fn execute_command(cli: &Cli) {
                     println!("{:<25} {:?}", "STORED METADATA:", entry.metadata());
                     println!("{:=<50}", ""); // Footer Line
                 }
-                None => {
+                Ok(None) => {
                     error!("Error: Key '{}' not found", key);
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    error!("Error: {:?}", e);
                     std::process::exit(1);
                 }
             }

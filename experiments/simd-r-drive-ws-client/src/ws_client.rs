@@ -8,7 +8,7 @@ use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Read,
     ReadRequestParams, Write, WriteRequestParams,
 };
-use std::io::{Error, ErrorKind, Result};
+use std::io::{Error, Result};
 
 pub struct WsClient {
     rpc_client: RpcClient,
@@ -39,7 +39,7 @@ impl AsyncDataStoreWriter for WsClient {
         .await?;
 
         resp.result
-            .ok_or_else(|| Error::new(ErrorKind::Other, "no offset returned"))
+            .ok_or_else(|| Error::other("no offset returned"))
     }
 
     async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
@@ -85,11 +85,15 @@ impl AsyncDataStoreReader for WsClient {
         Ok(resp.result)
     }
 
+    async fn read_last_entry(&self) -> Result<Option<Self::EntryHandleType>> {
+        unimplemented!("`read_last_entry` is not currently implemented");
+    }
+
     async fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>> {
         let batch_read_result = BatchRead::call(
             &self.rpc_client,
             BatchReadRequestParams {
-                keys: keys.into_iter().map(|key| key.to_vec()).collect(),
+                keys: keys.iter().map(|key| key.to_vec()).collect(),
             },
         )
         .await?;

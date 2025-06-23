@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::join;
 use tokio::net::TcpListener;
@@ -26,7 +25,7 @@ async fn main() -> std::io::Result<()> {
 
     tracing_subscriber::fmt().with_env_filter("info").init();
 
-    let store_path = PathBuf::from(args.storage);
+    let store_path = args.storage;
     let listener = TcpListener::bind(args.listen).await?;
     let addr = listener.local_addr()?;
 
@@ -35,9 +34,10 @@ async fn main() -> std::io::Result<()> {
     // - exclusive write access when needed
     //
     // This improves read throughput by allowing parallel read-only RPCs.
-    let store = Arc::new(RwLock::new(DataStore::open(&store_path).map_err(|e| {
-        std::io::Error::new(std::io::ErrorKind::Other, format!("store open failed: {e}"))
-    })?));
+    let store =
+        Arc::new(RwLock::new(DataStore::open(&store_path).map_err(|e| {
+            std::io::Error::other(format!("store open failed: {e}"))
+        })?));
     info!("MAIN: DataStore opened and wrapped in Arc<RwLock>.");
 
     let rpc_server = RpcServer::new();
@@ -70,9 +70,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await
-                    .map_err(|e| {
-                        std::io::Error::new(std::io::ErrorKind::Other, format!("write task: {e}"))
-                    })??;
+                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
                     Ok(resp)
                 }
             }
@@ -100,9 +98,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await
-                    .map_err(|e| {
-                        std::io::Error::new(std::io::ErrorKind::Other, format!("batch task: {e}"))
-                    })??;
+                    .map_err(|e| std::io::Error::other(format!("batch task: {e}")))??;
                     Ok(resp)
                 }
             }
@@ -123,17 +119,15 @@ async fn main() -> std::io::Result<()> {
                         // and then drop the read lock to maximize concurrency.
                         let store = store_mutex.blocking_read();
                         let result_data = store
-                            .read(&req.key)
-                            .map(|handle| handle.as_slice().to_vec()); // TODO: Apply error handling
+                            .read(&req.key)?
+                            .map(|handle| handle.as_slice().to_vec());
                         let resp = Read::encode_response(ReadResponseParams {
                             result: result_data,
                         })?;
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await
-                    .map_err(|e| {
-                        std::io::Error::new(std::io::ErrorKind::Other, format!("read task: {e}"))
-                    })??;
+                    .map_err(|e| std::io::Error::other(format!("read task: {e}")))??;
                     Ok(resp)
                 }
             }
@@ -178,12 +172,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await
-                    .map_err(|e| {
-                        std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!("batch read task: {e}"),
-                        )
-                    })??;
+                    .map_err(|e| std::io::Error::other(format!("batch read task: {e}")))??;
 
                     Ok(resp)
                 }
@@ -196,7 +185,7 @@ async fn main() -> std::io::Result<()> {
     Arc::new(rpc_server)
         .serve_with_listener(listener)
         .await
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        .map_err(std::io::Error::other)?;
 
     Ok(())
 }

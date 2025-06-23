@@ -6,7 +6,7 @@ use simd_r_drive::{
     traits::{DataStoreReader, DataStoreWriter},
     utils::NamespaceHasher,
 };
-use std::io::{self, ErrorKind};
+use std::io::{self, ErrorKind, Result};
 use std::sync::{Arc, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -35,8 +35,7 @@ pub trait StorageCacheExt {
     /// ## Returns
     /// - `Ok(offset)`: The **file offset** where the data was written.
     /// - `Err(std::io::Error)`: If the write operation fails.
-    fn write_with_ttl<T: Serialize>(&self, key: &[u8], value: &T, ttl_secs: u64)
-    -> io::Result<u64>;
+    fn write_with_ttl<T: Serialize>(&self, key: &[u8], value: &T, ttl_secs: u64) -> Result<u64>;
 
     /// Reads a value, checking TTL expiration.
     ///
@@ -49,7 +48,7 @@ pub trait StorageCacheExt {
     /// - `Ok(Some(T))`: If the TTL is still valid and the value is readable.
     /// - `Ok(None)`: If the TTL has expired and the entry has been evicted.
     /// - `Err(std::io::Error)`: If the key is missing or deserialization fails.
-    fn read_with_ttl<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, io::Error>;
+    fn read_with_ttl<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>>;
 }
 
 /// Implements TTL-based caching for `DataStore`
@@ -78,12 +77,12 @@ impl StorageCacheExt for DataStore {
         self.write(&namespaced_key, &data)
     }
 
-    fn read_with_ttl<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, io::Error> {
+    fn read_with_ttl<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>> {
         let namespace_hasher =
             TTL_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(TTL_PREFIX)));
         let namespaced_key = namespace_hasher.namespace(key);
 
-        match self.read(&namespaced_key) {
+        match self.read(&namespaced_key)? {
             Some(entry) => {
                 let data = entry.as_slice();
 

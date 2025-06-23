@@ -1,13 +1,14 @@
 [package]
 # Refer to `[project]` section in `pyproject.toml` for build artifact details
 name = "simd-r-drive-ws-client-py"
-edition.version = true # Inherit from workspace
-edition.workspace = true # Inherit from workspace
+edition = "2024"
+license = "Apache-2.0"
 publish = false # Python bindings only — do not publish to crates.io
 
 [lib]
 name = "simd_r_drive_ws_client"
 crate-type = ["cdylib"]
+doc = false
 
 [dependencies]
 memmap2 = "0.9.5"

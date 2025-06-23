@@ -1,5 +1,10 @@
 # SIMD R Drive
 
+[![made-with-rust][rust-logo]][rust-src-page]
+[![crates.io][crates-badge]][crates-page]
+[![Documentation][docs-badge]][docs-page]
+[![MIT licensed][license-badge]][license-page]
+
 **Work in progress.**
 
 `SIMD R Drive` is a high-performance, thread-safe storage engine using a single-file storage container optimized for zero-copy binary access.
@@ -240,3 +245,15 @@ Bindings are tested on:
 ## License
 
 Licensed under the [Apache-2.0 License](LICENSE).
+
+[rust-src-page]: https://www.rust-lang.org/
+[rust-logo]: https://img.shields.io/badge/Made%20with-Rust-black?&logo=Rust
+
+[crates-page]: https://crates.io/crates/simd-r-drive
+[crates-badge]: https://img.shields.io/crates/v/simd-r-drive.svg
+
+[docs-page]: https://docs.rs/simd-r-drive
+[docs-badge]: https://docs.rs/simd-r-drive/badge.svg
+
+[license-page]: ./LICENSE
+[license-badge]: https://img.shields.io/badge/license-Apache%202.0-blue.svg

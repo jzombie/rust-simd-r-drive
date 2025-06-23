@@ -46,7 +46,7 @@ mod tests {
 
     #[test]
     fn test_multiple_f32_values() {
-        let values = vec![1.0f32, 2.0, 3.5];
+        let values = [1.0f32, 2.0, 3.5];
         let bytes: Vec<u8> = values.iter().flat_map(|f| f.to_le_bytes()).collect();
         let result = align_or_copy::<f32, 4>(&bytes, f32::from_le_bytes);
         assert_eq!(result.as_ref(), &values[..]);

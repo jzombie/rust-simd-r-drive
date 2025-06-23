@@ -1,7 +1,7 @@
 use crate::constants::OPTION_TOMBSTONE_MARKER;
 use bincode;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::io::{self, ErrorKind};
 
 /// Serializes an `Option<T>` into a binary representation compatible with `SIMD R Drive`.
