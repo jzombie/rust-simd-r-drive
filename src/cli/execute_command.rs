@@ -119,7 +119,7 @@ pub fn execute_command(cli: &Cli) {
             source_storage
                 .copy_entry(key.as_bytes(), &target_storage)
                 .map_err(|err| {
-                    eprintln!("Could not copy entry. Received error: {}", err.to_string());
+                    eprintln!("Could not copy entry. Received error: {}", err);
                     std::process::exit(1);
                 })
                 .ok(); // Ignore the success case
@@ -136,7 +136,7 @@ pub fn execute_command(cli: &Cli) {
             source_storage
                 .move_entry(key.as_bytes(), &target_storage)
                 .map_err(|err| {
-                    eprintln!("Could not copy entry. Received error: {}", err.to_string());
+                    eprintln!("Could not copy entry. Received error: {}", err);
                     std::process::exit(1);
                 })
                 .ok(); // Ignore the success case
@@ -151,10 +151,7 @@ pub fn execute_command(cli: &Cli) {
             storage
                 .rename_entry(old_key.as_bytes(), new_key.as_bytes())
                 .map_err(|err| {
-                    eprintln!(
-                        "Could not rename entry. Received error: {}",
-                        err.to_string()
-                    );
+                    eprintln!("Could not rename entry. Received error: {}", err);
                     std::process::exit(1);
                 })
                 .ok(); // Ignore the success case
