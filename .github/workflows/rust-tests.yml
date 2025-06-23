@@ -22,5 +22,8 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Build workspace
+        run: cargo build --workspace
+
       - name: Run tests
         run: cargo test --workspace --all-targets --verbose

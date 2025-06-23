@@ -1,8 +1,11 @@
 #[cfg(test)]
 mod tests {
 
-    use simd_r_drive::DataStore;
-    use std::fs::{metadata, OpenOptions};
+    use simd_r_drive::{
+        DataStore,
+        traits::{DataStoreReader, DataStoreWriter},
+    };
+    use std::fs::{OpenOptions, metadata};
     use std::io::{Seek, SeekFrom, Write};
     use tempfile::tempdir;
 
@@ -37,7 +40,7 @@ mod tests {
                 (b"key2", &b"Persistent Entry 2 ...."[..]),
                 (b"key3", &b"Persistent Entry 3 ......"[..]),
             ] {
-                let retrieved = storage.read(key);
+                let retrieved = storage.read(key).unwrap();
                 assert!(
                     retrieved.is_some(),
                     "Entry should be found after reopening, but got None"
@@ -89,12 +92,12 @@ mod tests {
             let storage = DataStore::open(&path).expect("Failed to reopen storage");
 
             assert_eq!(
-                storage.read(b"key1").as_deref(),
+                storage.read(b"key1").unwrap().as_deref(),
                 Some(b"Updated Value 1".as_slice()),
                 "Key1 should contain the updated value"
             );
             assert_eq!(
-                storage.read(b"key2").as_deref(),
+                storage.read(b"key2").unwrap().as_deref(),
                 Some(b"Updated Value 2".as_slice()),
                 "Key2 should contain the updated value"
             );
@@ -170,7 +173,7 @@ mod tests {
                 );
 
                 // Verify recovery worked
-                let recovered = storage.read(b"key1");
+                let recovered = storage.read(b"key1").unwrap();
                 assert!(
                     recovered.is_some(),
                     "Expected to recover at least one valid entry"
@@ -186,7 +189,7 @@ mod tests {
                     .expect("Failed to append entry after recovery");
 
                 // Verify new data
-                let retrieved = storage.read(new_key);
+                let retrieved = storage.read(new_key).unwrap();
                 assert!(
                     retrieved.is_some(),
                     "Failed to retrieve newly written entry after recovery"
@@ -202,10 +205,13 @@ mod tests {
             {
                 let storage = DataStore::open(&path).expect("Failed to recover storage");
 
-                assert_eq!(storage.read(b"key1").unwrap().as_slice(), b"Valid Entry");
+                assert_eq!(
+                    storage.read(b"key1").unwrap().unwrap().as_slice(),
+                    b"Valid Entry"
+                );
 
                 assert_eq!(
-                    storage.read(b"new_key").unwrap().as_slice(),
+                    storage.read(b"new_key").unwrap().unwrap().as_slice(),
                     b"New Data After Recovery"
                 );
             }

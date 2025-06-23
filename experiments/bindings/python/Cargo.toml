@@ -1,0 +1,22 @@
+[package]
+# Refer to `[project]` section in `pyproject.toml` for build artifact details
+name = "simd-r-drive-py"
+edition = "2024"
+license = "Apache-2.0"
+publish = false # Python bindings only — do not publish to crates.io
+
+[lib]
+name = "simd_r_drive"
+crate-type = ["cdylib"]
+doc = false
+
+[dependencies]
+memmap2 = "0.9.5"
+pyo3 = { version = "0.25.0", features = ["extension-module"] }
+simd-r-drive = { path = "../../../", features = ["expose-internal-api"] }
+
+[workspace]
+# Note: This is intentionally isolated from the parent workspace so that it does not
+# get automatically built when building the workspace, as this is not guaranteed to build
+# without `maturin`.
+

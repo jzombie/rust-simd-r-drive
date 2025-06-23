@@ -1,5 +1,8 @@
 use serial_test::serial;
-use simd_r_drive::DataStore;
+use simd_r_drive::{
+    DataStore,
+    traits::{DataStoreReader, DataStoreWriter},
+};
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::sync::Arc;
@@ -41,7 +44,7 @@ async fn concurrent_slow_streamed_write_test() {
         (b"stream_key_B", dir.path().join("test_stream_b.bin"), b'B'),
     ];
 
-    let payload_size = 1 * 1024 * 1024; // 1 MB
+    let payload_size = 1024 * 1024; // 1 MB
     let mut tasks = Vec::new();
 
     // Generate test files
@@ -83,7 +86,7 @@ async fn concurrent_slow_streamed_write_test() {
     // Validate all writes
     for (key, _, expected_byte) in test_cases {
         let expected_data = vec![expected_byte; payload_size];
-        let retrieved = storage.read(key).unwrap();
+        let retrieved = storage.read(key).unwrap().unwrap();
 
         let all_values_match = retrieved.as_slice() == expected_data.as_slice();
         let length_match = retrieved.len() == expected_data.len();
@@ -147,7 +150,7 @@ async fn concurrent_write_test() {
             let key = format!("thread{}_key{}", thread_id, i).into_bytes();
             let value = format!("thread{}_value{}", thread_id, i).into_bytes();
 
-            let stored_value = storage.read(&key);
+            let stored_value = storage.read(&key).unwrap();
             eprintln!(
                 "[Main] Verifying {} -> {:?} (Found: {:?})",
                 String::from_utf8_lossy(&key),
@@ -188,7 +191,7 @@ async fn interleaved_read_write_test() {
         // Step 5: Wait for Thread B to write before reading the updated value
         notify_b_clone.notified().await;
 
-        let result = storage_clone_a.read(key);
+        let result = storage_clone_a.read(key).unwrap();
         eprintln!("[Thread A] Read updated value: {:?}", result.as_slice());
         assert_eq!(result.as_deref(), Some(b"value_from_B".as_ref()));
     });
@@ -203,7 +206,7 @@ async fn interleaved_read_write_test() {
         // Step 3: Wait for Thread A to write before reading
         notify_a_clone.notified().await;
 
-        let result = storage_clone_b.read(key);
+        let result = storage_clone_b.read(key).unwrap();
         eprintln!("[Thread B] Read initial value: {:?}", result);
         assert_eq!(result.as_deref(), Some(b"value_from_A1".as_ref()));
 
@@ -223,7 +226,7 @@ async fn interleaved_read_write_test() {
     res_b.unwrap();
 
     // Final Check: Ensure storage contains the latest value
-    let final_value = storage.read(b"shared_key");
+    let final_value = storage.read(b"shared_key").unwrap();
     eprintln!("[Main] FINAL VALUE: {:?}", final_value);
     assert_eq!(final_value.as_deref(), Some(b"value_from_B".as_ref()));
 }

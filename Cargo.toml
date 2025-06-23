@@ -1,12 +1,12 @@
 [workspace.package]
 authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
-version = "0.6.1-alpha"
+version = "0.7.0-alpha"
 edition = "2024"
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
 categories = ["database-implementations", "data-structures", "filesystem"]
 keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
-publish = true
+publish = false
 
 [package]
 name = "simd-r-drive"
@@ -22,23 +22,25 @@ publish.workspace = true # Inherit from workspace
 
 [workspace.dependencies]
 # Intra-workspace crates
-simd-r-drive = { path = ".", version = "0.6.1-alpha" }
-simd-r-drive-extensions = { path = "./extensions/simd-r-drive-extensions", version = "0.6.1-alpha" }
-simd-r-drive-py = { path = "./bindings/python", version = "0.6.1-alpha" }
+simd-r-drive = { path = ".", version = "0.7.0-alpha" }
+simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.7.0-alpha" }
+simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.7.0-alpha" }
 
 [dependencies]
+async-trait = "0.1.88"
 crc32fast = "1.4.2"
-env_logger = "0.11.7"
 indoc = "2.0.6"
-log = "0.4.26"
 memmap2 = "0.9.5"
+dashmap = "6.1.0"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 [dependencies.clap]
 version = "4.5.32"
 features = ["derive"]
 
 [dependencies.xxhash-rust]
-version = "0.8.12"
+version = "0.8.15"
 features = ["xxh3", "const_xxh3"]
 
 [dev-dependencies]
@@ -49,9 +51,16 @@ serde_json = "1.0.140"
 serial_test = "3.2.0"
 serde = { version = "1.0.219", features = ["derive"] }
 tokio = { version = "1.44.0", features = ["rt-multi-thread", "macros", "time", "sync"] }
+thousands = "0.2.0"
+criterion = "0.6.0"
+futures = "0.3.31"
 
 [[bench]]
 name = "storage_benchmark"
+harness = false
+
+[[bench]]
+name = "contention_benchmark"
 harness = false
 
 [features]
@@ -62,6 +71,12 @@ expose-internal-api = []
 members = [
     ".",
     "extensions",
-    "bindings/python"
+    "experiments/simd-r-drive-ws-server",
+    "experiments/simd-r-drive-ws-client",
+    "experiments/simd-r-drive-muxio-service-definition"
+]
+exclude = [
+    "experiments/bindings/python",
+    "experiments/bindings/python-ws-client"
 ]
 resolver = "2"

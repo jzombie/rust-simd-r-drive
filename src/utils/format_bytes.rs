@@ -16,7 +16,6 @@
 ///
 /// # Returns:
 /// - A `String` representing the human-readable file size.
-
 pub fn format_bytes(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = KB * 1024;

@@ -1,10 +1,10 @@
 use clap::Parser;
 use simd_r_drive::*;
 mod cli;
-use cli::{execute_command, Cli};
+use cli::{Cli, execute_command};
 
 fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     let cli = Cli::parse();
 

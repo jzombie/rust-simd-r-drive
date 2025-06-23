@@ -1,11 +1,14 @@
 use crate::EntryHandle;
 use crate::EntryStream;
+use pyo3::PyResult;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyAnyMethods;
 use pyo3::types::PyBytes;
-use pyo3::PyResult;
-use simd_r_drive::{DataStore as BaseDataStore, EntryStream as BaseEntryStream};
+use simd_r_drive::{
+    DataStore as BaseDataStore, EntryStream as BaseEntryStream,
+    traits::{DataStoreReader, DataStoreWriter},
+};
 use std::io::Read;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -64,11 +67,11 @@ impl DataStore {
                 let py_bytes = self
                     .obj
                     .call_method1("read", (buf.len(),))
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
 
                 let bytes: Bound<'py, PyBytes> = py_bytes
                     .extract()
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
 
                 let b = bytes.as_bytes();
                 let len = b.len().min(buf.len());
@@ -90,14 +93,14 @@ impl DataStore {
     }
 
     fn read<'py>(&self, py: Python<'py>, key: &[u8]) -> PyResult<Option<Py<PyBytes>>> {
-        match self.inner.lock().unwrap().read(key) {
+        match self.inner.lock().unwrap().read(key)? {
             Some(entry) => Ok(Some(PyBytes::new(py, &entry).into())),
             None => Ok(None),
         }
     }
 
     fn read_stream<'py>(&self, py: Python<'py>, key: &[u8]) -> PyResult<Option<Py<EntryStream>>> {
-        match self.inner.lock().unwrap().read(key) {
+        match self.inner.lock().unwrap().read(key)? {
             Some(entry) => {
                 let stream = EntryStream {
                     inner: Mutex::new(BaseEntryStream::from(entry)),
@@ -109,7 +112,7 @@ impl DataStore {
     }
 
     fn read_entry(&self, py: Python<'_>, key: &[u8]) -> PyResult<Option<Py<EntryHandle>>> {
-        match self.inner.lock().unwrap().read(key) {
+        match self.inner.lock().unwrap().read(key)? {
             Some(entry) => {
                 let handle = Py::new(py, EntryHandle { inner: entry })?;
                 Ok(Some(handle))
@@ -127,11 +130,11 @@ impl DataStore {
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }
 
-    fn __contains__(&self, key: &[u8]) -> bool {
+    fn __contains__(&self, key: &[u8]) -> PyResult<bool> {
         self.exists(key)
     }
 
-    fn exists(&self, key: &[u8]) -> bool {
-        self.inner.lock().unwrap().read(key).is_some()
+    fn exists(&self, key: &[u8]) -> PyResult<bool> {
+        Ok(self.inner.lock().unwrap().read(key)?.is_some())
     }
 }

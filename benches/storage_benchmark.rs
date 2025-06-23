@@ -1,133 +1,233 @@
-use rand::Rng;
-use simd_r_drive::DataStore;
+//! Single-process micro-benchmarks for the SIMD-R-Drive append-only
+//! engine.  It writes 1 M entries, then exercises sequential, random
+//! and *vectorized* (`batch_read`) lookup paths.
+
+use rand::{Rng, rng}; // `rng()` & `random_range` are the new, non-deprecated names
+use simd_r_drive::{
+    DataStore,
+    traits::{DataStoreReader, DataStoreWriter},
+};
 use std::fs::remove_file;
-use std::path::PathBuf;
+use std::path::Path;
 use std::time::Instant;
 use tempfile::NamedTempFile;
+use thousands::Separable;
 
-const ENTRY_SIZE: usize = 8; // 8-byte values
-const WRITE_BATCH_SIZE: usize = 1024;
+// ---------------------------------------------------------------------------
+// Tunables
+// ---------------------------------------------------------------------------
+
+const ENTRY_SIZE: usize = 8; // bytes per value
+const WRITE_BATCH_SIZE: usize = 1024; // entries / write
+const READ_BATCH_SIZE: usize = 1024; // entries / batch_read
 
 const NUM_ENTRIES: usize = 1_000_000;
 const NUM_RANDOM_CHECKS: usize = 1_000_000;
+const NUM_BATCH_CHECKS: usize = 1_000_000; // total *entries* verified via batch_read
+
+// ---------------------------------------------------------------------------
+// main
+// ---------------------------------------------------------------------------
 
 fn main() {
     let temp_file = NamedTempFile::new().expect("Failed to create temp file");
     let path = temp_file.path().to_path_buf();
 
-    println!("Running storage benchmark...");
+    println!("Running storage benchmark…");
     benchmark_append_entries(&path);
     benchmark_sequential_reads(&path);
     benchmark_random_reads(&path);
-    println!("✅ Benchmark completed.");
+    benchmark_batch_reads(&path);
+    println!("✅ Benchmarks completed.");
 
+    // clean-up (NamedTempFile deletes on drop, but this keeps `cargo bench`
+    // output tidy if it ever crashes mid-way)
     remove_file(path).ok();
 }
 
-/// Writes 1M entries
-fn benchmark_append_entries(path: &PathBuf) {
+// ---------------------------------------------------------------------------
+// Write 1 M entries (batched)
+// ---------------------------------------------------------------------------
+
+fn benchmark_append_entries(path: &Path) {
     let storage = DataStore::open(path).expect("Failed to open storage");
     let mut batch = Vec::with_capacity(WRITE_BATCH_SIZE);
 
     let start_time = Instant::now();
-    for i in 0..NUM_ENTRIES {
-        let key = format!("bench-key-{}", i).into_bytes(); // Convert to Vec<u8>
 
-        // Ensure value is exactly ENTRY_SIZE bytes
+    for i in 0..NUM_ENTRIES {
+        let key = format!("bench-key-{i}").into_bytes();
+
+        // Fixed-width little-endian payload
         let mut value = vec![0u8; ENTRY_SIZE];
         let bytes = i.to_le_bytes();
         value[..bytes.len().min(ENTRY_SIZE)].copy_from_slice(&bytes[..bytes.len().min(ENTRY_SIZE)]);
 
-        batch.push((key, value)); // Store owned values
+        batch.push((key, value));
 
-        if batch.len() >= WRITE_BATCH_SIZE {
-            let batch_refs: Vec<(&[u8], &[u8])> = batch
-                .iter()
-                .map(|(k, v)| (k.as_slice(), v.as_slice()))
-                .collect();
-            storage
-                .batch_write(&batch_refs)
-                .expect("Batch write failed");
-            batch.clear();
+        if batch.len() == WRITE_BATCH_SIZE {
+            flush_batch(&storage, &mut batch);
         }
     }
-
     if !batch.is_empty() {
-        let batch_refs: Vec<(&[u8], &[u8])> = batch
-            .iter()
-            .map(|(k, v)| (k.as_slice(), v.as_slice()))
-            .collect();
-        storage
-            .batch_write(&batch_refs)
-            .expect("Final batch write failed");
+        flush_batch(&storage, &mut batch);
     }
 
-    let duration = start_time.elapsed();
-
+    let dt = start_time.elapsed();
     println!(
-        "Wrote {} entries of {} bytes each in {:.3} seconds ({:.3} writes/sec)",
-        NUM_ENTRIES,
-        ENTRY_SIZE,
-        duration.as_secs_f64(),
-        NUM_ENTRIES as f64 / duration.as_secs_f64()
+        "Wrote {} entries of {ENTRY_SIZE} bytes in {}s ({} writes/s)",
+        fmt_rate(NUM_ENTRIES as f64),
+        dt.as_secs_f64(),
+        fmt_rate(NUM_ENTRIES as f64 / dt.as_secs_f64())
     );
 }
 
-fn benchmark_sequential_reads(path: &PathBuf) {
+fn flush_batch(storage: &DataStore, batch: &mut Vec<(Vec<u8>, Vec<u8>)>) {
+    let refs: Vec<(&[u8], &[u8])> = batch
+        .iter()
+        .map(|(k, v)| (k.as_slice(), v.as_slice()))
+        .collect();
+    storage.batch_write(&refs).expect("Batch write failed");
+    batch.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Sequential iteration (zero-copy)
+// ---------------------------------------------------------------------------
+
+fn benchmark_sequential_reads(path: &Path) {
     let storage = DataStore::open(path).expect("Failed to open storage");
 
     let start_time = Instant::now();
     let mut count = 0;
 
     for entry in storage.into_iter() {
-        let stored_value = u64::from_le_bytes((&*entry).try_into().expect("Failed to parse"));
-        let expected_value = NUM_ENTRIES as u64 - 1 - count; // Reverse expectation
-        assert_eq!(
-            stored_value, expected_value,
-            "Corrupt data at index {}",
-            count
-        );
+        let stored = u64::from_le_bytes((&*entry).try_into().unwrap());
+        let expected = NUM_ENTRIES as u64 - 1 - count; // iterator returns newest→oldest
+        assert_eq!(stored, expected, "Corrupt data at index {count}");
         count += 1;
     }
 
-    let duration = start_time.elapsed();
+    let dt = start_time.elapsed();
     println!(
-        "Sequentially read {} entries in {:.3} seconds ({:.3} reads/sec)",
-        count,
-        duration.as_secs_f64(),
-        count as f64 / duration.as_secs_f64()
+        "Sequentially read {} entries in {:#.3}s ({} reads/s)",
+        fmt_rate(count as f64),
+        dt.as_secs_f64(),
+        fmt_rate(count as f64 / dt.as_secs_f64())
     );
 }
 
-/// Random read benchmark
-fn benchmark_random_reads(path: &PathBuf) {
+// ---------------------------------------------------------------------------
+// Random single-key look-ups
+// ---------------------------------------------------------------------------
+
+fn benchmark_random_reads(path: &Path) {
     let storage = DataStore::open(path).expect("Failed to open storage");
-    let mut rng = rand::rng();
+    let mut rng = rng();
 
     let start_time = Instant::now();
+
     for _ in 0..NUM_RANDOM_CHECKS {
         let i = rng.random_range(0..NUM_ENTRIES);
-        let key = format!("bench-key-{}", i);
-        let entry = storage.read(key.as_bytes());
+        let key = format!("bench-key-{i}");
+        let handle = storage
+            .read(key.as_bytes())
+            .unwrap()
+            .expect("Missing entry in random read");
 
-        if let Some(data) = entry {
-            let stored_value =
-                u64::from_le_bytes(data.as_slice().try_into().expect("Failed to parse"));
-            assert_eq!(
-                stored_value, i as u64,
-                "Corrupt data: expected {}, got {}",
-                i, stored_value
-            );
-        } else {
-            panic!("Missing entry for key: {}", key);
+        let stored = u64::from_le_bytes(handle.as_slice().try_into().unwrap());
+        assert_eq!(stored, i as u64, "Corrupt data for key {i}");
+    }
+
+    let dt = start_time.elapsed();
+    println!(
+        "Randomly read {} entries in {:#.3}s ({} reads/s)",
+        fmt_rate(NUM_RANDOM_CHECKS as f64),
+        dt.as_secs_f64(),
+        fmt_rate(NUM_RANDOM_CHECKS as f64 / dt.as_secs_f64())
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Vectorized look-ups (batch_read)
+// ---------------------------------------------------------------------------
+
+fn benchmark_batch_reads(path: &Path) {
+    let storage = DataStore::open(path).expect("Failed to open storage");
+    let mut keys_buf: Vec<Vec<u8>> = Vec::with_capacity(READ_BATCH_SIZE);
+    let mut verified = 0usize;
+
+    let start_time = Instant::now();
+
+    for i in 0..NUM_BATCH_CHECKS {
+        let key = format!("bench-key-{}", i % NUM_ENTRIES).into_bytes();
+        keys_buf.push(key);
+
+        if keys_buf.len() == READ_BATCH_SIZE {
+            verified += verify_batch(&storage, &mut keys_buf);
         }
     }
-    let duration = start_time.elapsed();
+    if !keys_buf.is_empty() {
+        verified += verify_batch(&storage, &mut keys_buf);
+    }
 
+    let dt = start_time.elapsed();
     println!(
-        "Randomly read {} entries in {:.3} seconds ({:.3} reads/sec)",
-        NUM_RANDOM_CHECKS,
-        duration.as_secs_f64(),
-        NUM_RANDOM_CHECKS as f64 / duration.as_secs_f64()
+        "Batch-read verified {} entries in {:#.3}s ({} reads/s)",
+        fmt_rate(verified as f64),
+        dt.as_secs_f64(),
+        fmt_rate(verified as f64 / dt.as_secs_f64())
     );
+}
+
+fn verify_batch(storage: &DataStore, keys_buf: &mut Vec<Vec<u8>>) -> usize {
+    let key_refs: Vec<&[u8]> = keys_buf.iter().map(|k| k.as_slice()).collect();
+    let handles = storage.batch_read(&key_refs).expect("batch_read failed"); // ← unwrap the Result
+
+    for (k_bytes, opt_handle) in keys_buf.iter().zip(handles.into_iter()) {
+        let handle = opt_handle.expect("Missing batch entry");
+        let stored = u64::from_le_bytes(handle.as_slice().try_into().unwrap());
+
+        // fast numeric suffix parse without heap allocation
+        let idx = {
+            let s = std::str::from_utf8(&k_bytes[b"bench-key-".len()..]).unwrap();
+            s.parse::<usize>().unwrap()
+        };
+        assert_eq!(stored, idx as u64, "Corrupt data for key {idx}");
+    }
+
+    let n = keys_buf.len();
+    keys_buf.clear();
+    n
+}
+
+/// Format a positive rate (reads/s or writes/s) with
+///   * thousands-separated integral part
+///   * exactly three decimals
+///
+/// 4_741_483.464 → "4,741,483.464"
+///        987.0  → "987.000"
+/// Format a positive rate (reads/s or writes/s) with
+///   * thousands-separated integral part
+///   * exactly three decimals
+///
+/// 4_741_483.464 → "4,741,483.464"
+///        987.0  → "987.000"
+///
+/// Pretty-print a positive rate with comma-separated thousands
+/// and **exactly three decimals**, e.g.  
+/// `4_741_483.464` → `"4,741,483.464"`
+fn fmt_rate(rate: f64) -> String {
+    let whole = rate.trunc() as u64;
+    let mut frac = (rate.fract() * 1_000.0).round() as u16;
+
+    // Carry if we rounded to 1000.000
+    let whole = if frac == 1_000 {
+        frac = 0;
+        whole + 1
+    } else {
+        whole
+    };
+
+    format!("{}.{:03}", whole.separate_with_commas(), frac)
 }

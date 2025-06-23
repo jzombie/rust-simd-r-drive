@@ -2,7 +2,10 @@
 mod tests {
 
     use serde::{Deserialize, Serialize};
-    use simd_r_drive::DataStore;
+    use simd_r_drive::{
+        DataStore,
+        traits::{DataStoreReader, DataStoreWriter},
+    };
     use tempfile::tempdir;
 
     #[test]
@@ -36,7 +39,10 @@ mod tests {
             active: true,
         };
         let integer_payload1 = 12345u64.to_le_bytes();
+
+        #[allow(clippy::approx_constant)]
         let float_payload1 = 3.141592f64.to_le_bytes();
+
         let mixed_payload1 = 123u64.to_le_bytes();
         let temp_payload1 = 456u64.to_le_bytes();
 
@@ -48,7 +54,10 @@ mod tests {
             active: false,
         };
         let integer_payload2 = 67890u64.to_le_bytes();
+
+        #[allow(clippy::approx_constant)]
         let float_payload2 = 2.718281f64.to_le_bytes();
+
         let mixed_payload2 = "Hello".as_bytes();
         let temp_payload2 = 789u64.to_le_bytes();
 
@@ -87,18 +96,33 @@ mod tests {
         storage.write(key7, &temp_payload2).expect("Append failed");
 
         // Ensure Data is Stored Correctly Before Compaction
-        assert_eq!(storage.read(key1).as_deref(), Some(text_payload2));
-        assert_eq!(storage.read(key2).as_deref(), Some(&binary_payload2[..]));
-        assert_eq!(storage.read(key4).as_deref(), Some(&integer_payload2[..]));
-        assert_eq!(storage.read(key5).as_deref(), Some(&float_payload2[..]));
-        assert_eq!(storage.read(key6).as_deref(), Some(mixed_payload2));
-        assert_eq!(storage.read(key7).as_deref(), Some(&temp_payload2[..]));
+        assert_eq!(storage.read(key1).unwrap().as_deref(), Some(text_payload2));
+        assert_eq!(
+            storage.read(key2).unwrap().as_deref(),
+            Some(&binary_payload2[..])
+        );
+        assert_eq!(
+            storage.read(key4).unwrap().as_deref(),
+            Some(&integer_payload2[..])
+        );
+        assert_eq!(
+            storage.read(key5).unwrap().as_deref(),
+            Some(&float_payload2[..])
+        );
+        assert_eq!(storage.read(key6).unwrap().as_deref(), Some(mixed_payload2));
+        assert_eq!(
+            storage.read(key7).unwrap().as_deref(),
+            Some(&temp_payload2[..])
+        );
 
         storage.delete_entry(key7).unwrap();
 
-        assert_eq!(storage.read(key7).as_deref(), None);
+        assert_eq!(storage.read(key7).unwrap().as_deref(), None);
 
-        let retrieved_struct = storage.read(key3).expect("Failed to retrieve struct");
+        let retrieved_struct = storage
+            .read(key3)
+            .unwrap()
+            .expect("Failed to retrieve struct");
         let deserialized_struct: CustomStruct = bincode::deserialize(retrieved_struct.as_slice())
             .expect("Failed to deserialize struct");
         assert_eq!(deserialized_struct, struct_payload2);
@@ -128,14 +152,26 @@ mod tests {
         let storage = DataStore::open(&path).expect("Failed to reopen storage after compaction");
 
         // Verify that only the latest versions remain
-        assert_eq!(storage.read(key1).as_deref(), Some(text_payload2));
-        assert_eq!(storage.read(key2).as_deref(), Some(&binary_payload2[..]));
-        assert_eq!(storage.read(key4).as_deref(), Some(&integer_payload2[..]));
-        assert_eq!(storage.read(key5).as_deref(), Some(&float_payload2[..]));
-        assert_eq!(storage.read(key6).as_deref(), Some(mixed_payload2));
-        assert_eq!(storage.read(key7).as_deref(), None);
+        assert_eq!(storage.read(key1).unwrap().as_deref(), Some(text_payload2));
+        assert_eq!(
+            storage.read(key2).unwrap().as_deref(),
+            Some(&binary_payload2[..])
+        );
+        assert_eq!(
+            storage.read(key4).unwrap().as_deref(),
+            Some(&integer_payload2[..])
+        );
+        assert_eq!(
+            storage.read(key5).unwrap().as_deref(),
+            Some(&float_payload2[..])
+        );
+        assert_eq!(storage.read(key6).unwrap().as_deref(), Some(mixed_payload2));
+        assert_eq!(storage.read(key7).unwrap().as_deref(), None);
 
-        let retrieved_struct = storage.read(key3).expect("Failed to retrieve struct");
+        let retrieved_struct = storage
+            .read(key3)
+            .unwrap()
+            .expect("Failed to retrieve struct");
         let deserialized_struct: CustomStruct = bincode::deserialize(retrieved_struct.as_slice())
             .expect("Failed to deserialize struct");
         assert_eq!(deserialized_struct, struct_payload2);

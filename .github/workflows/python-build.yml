@@ -5,10 +5,10 @@ on:
     tags:
       - "python-v*"
     paths:
-      - "bindings/python/**"
+      - "experiments/bindings/python/**"
   pull_request:
     paths:
-      - "bindings/python/**"
+      - "experiments/bindings/python/**"
 
 jobs:
   build:
@@ -17,7 +17,7 @@ jobs:
     env:
       # This was opted for instead of using `working-directory`, which breaks
       # tools like `maturin` and `cibuildwheel` that expect the workspace root.
-      PYTHON_BINDING_DIR: bindings/python
+      PYTHON_BINDING_DIR: experiments/bindings/python
     strategy:
       matrix:
         include:
@@ -32,6 +32,7 @@ jobs:
         with:
           python-version: "3.13"
 
+      # TODO: Install from `uv` instead
       - name: Install build tooling from requirements.txt
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         run: |

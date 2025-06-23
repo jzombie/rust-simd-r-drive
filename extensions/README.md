@@ -16,11 +16,15 @@ cargo add simd-r-drive-extensions
 
 ### Working with `Option<T>`
 ```rust
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 use simd_r_drive_extensions::StorageOptionExt;
 use std::path::PathBuf;
+use tempfile::tempdir;
 
-let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
+let temp_dir = tempdir().expect("Failed to create temp dir");
+let temp_path = temp_dir.path().join("test_store.bin");
+
+let storage = DataStore::open(&PathBuf::from(temp_path)).unwrap();
 
 // Write Some value
 storage.write_option(b"key_with_some_value", Some(&42)).unwrap();
@@ -48,13 +52,17 @@ assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
 
 ### Working with TTL-based Caching
 ```rust
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 use simd_r_drive_extensions::StorageCacheExt;
 use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
+use tempfile::tempdir;
 
-let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
+let temp_dir = tempdir().expect("Failed to create temp dir");
+let temp_path = temp_dir.path().join("test_store.bin");
+
+let storage = DataStore::open(&PathBuf::from(temp_path)).unwrap();
 
 // Write value with a TTL of 5 seconds
 storage.write_with_ttl(b"key_with_ttl", &42, 5).unwrap();
@@ -81,11 +89,15 @@ assert_eq!(
 ### Importing Files from a Directory (Recursive + Streaming)
 
 ```rust
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 use simd_r_drive_extensions::StorageFileImportExt;
 use std::path::PathBuf;
+use tempfile::tempdir;
 
-let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
+let temp_dir = tempdir().expect("Failed to create temp dir");
+let temp_path = temp_dir.path().join("test_store.bin");
+
+let storage = DataStore::open(&PathBuf::from(temp_path)).unwrap();
 
 // Recursively stream and import all files under `./assets`
 // Keys will use Unix-style paths like "subdir/file.txt"
@@ -125,13 +137,17 @@ for (key, offset) in &namespace_imported {
 #### Streaming Example
 
 ```rust
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 use simd_r_drive_extensions::StorageFileImportExt;
 use std::fs;
 use std::io::{Read, BufReader};
 use std::path::PathBuf;
+use tempfile::tempdir;
 
-let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
+let temp_dir = tempdir().expect("Failed to create temp dir");
+let temp_path = temp_dir.path().join("test_store.bin");
+
+let storage = DataStore::open(&PathBuf::from(temp_path)).unwrap();
 
 let import_dir = "../.github";
 let relative_file = "workflows/rust-release.yml";
@@ -144,6 +160,7 @@ storage
 // Read from storage stream
 let mut stored_stream = storage
     .open_file_stream(relative_file, Some(b"some-namespace"))
+    .unwrap()
     .expect("File not found in storage");
 
 let mut stored_contents = String::new();
@@ -170,13 +187,17 @@ assert_eq!(
 #### Non-Streaming Example
 
 ```rust
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::{DataStoreReader, DataStoreWriter}};
 use simd_r_drive_extensions::StorageFileImportExt;
 use std::fs;
 use std::io::{Read, BufReader};
 use std::path::PathBuf;
+use tempfile::tempdir;
 
-let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
+let temp_dir = tempdir().expect("Failed to create temp dir");
+let temp_path = temp_dir.path().join("test_store.bin");
+
+let storage = DataStore::open(&PathBuf::from(temp_path)).unwrap();
 
 let import_dir = "../.github";
 let relative_file = "workflows/rust-release.yml";
@@ -189,6 +210,7 @@ storage
 // Read from storage
 let mut stored = storage
     .open_file_stream(relative_file, Some(b"some-namespace"))
+    .unwrap()
     .expect("File not found in storage");
 
 let mut stored_contents = String::new();

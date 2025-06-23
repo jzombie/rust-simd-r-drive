@@ -1,0 +1,27 @@
+[package]
+# Refer to `[project]` section in `pyproject.toml` for build artifact details
+name = "simd-r-drive-ws-client-py"
+edition = "2024"
+license = "Apache-2.0"
+publish = false # Python bindings only — do not publish to crates.io
+
+[lib]
+name = "simd_r_drive_ws_client"
+crate-type = ["cdylib"]
+doc = false
+
+[dependencies]
+memmap2 = "0.9.5"
+pyo3 = { version = "0.25.0", features = ["extension-module"] }
+pyo3-async-runtimes = { version = "0.25.0", features = ["tokio-runtime"] } 
+simd-r-drive = { path = "../../../" } # Note: Intentionally not in workspace
+simd-r-drive-ws-client = { path = "../../simd-r-drive-ws-client" } # Note: Intentionally not in workspace
+tokio = "1.45.1"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+
+[workspace]
+# Note: This is intentionally isolated from the parent workspace so that it does not
+# get automatically built when building the workspace, as this is not guaranteed to build
+# without `maturin`.
+

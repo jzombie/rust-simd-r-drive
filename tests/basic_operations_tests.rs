@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod tests {
 
-    use simd_r_drive::DataStore;
+    use simd_r_drive::{
+        DataStore,
+        traits::{DataStoreReader, DataStoreWriter},
+    };
     use tempfile::tempdir;
 
     /// Helper function to create a temporary file for testing
@@ -21,7 +24,7 @@ mod tests {
         let payload = b"Hello, world!".as_slice();
         storage.write(key, payload).expect("Failed to append entry");
 
-        let last_entry = storage.read_last_entry().expect("No entry found");
+        let last_entry = storage.read_last_entry().unwrap().expect("No entry found");
         assert_eq!(
             last_entry.as_slice(),
             payload,
@@ -43,7 +46,10 @@ mod tests {
             storage.write(key, payload).expect("Failed to append entry");
         }
 
-        let last_entry = storage.read_last_entry().expect("No last entry found");
+        let last_entry = storage
+            .read_last_entry()
+            .unwrap()
+            .expect("No last entry found");
         assert_eq!(
             last_entry.as_slice(),
             entries.last().unwrap().1,
@@ -67,7 +73,10 @@ mod tests {
                 .expect("Failed to append entry");
         }
 
-        let last_entry = storage.read_last_entry().expect("No last entry found");
+        let last_entry = storage
+            .read_last_entry()
+            .unwrap()
+            .expect("No last entry found");
         assert_eq!(
             last_entry.as_slice(),
             payloads.last().unwrap().as_slice(),
@@ -83,7 +92,7 @@ mod tests {
         let payload = b"Hello, world!".as_slice();
         storage.write(key, payload).expect("Failed to append entry");
 
-        let retrieved = storage.read(key);
+        let retrieved = storage.read(key).unwrap();
 
         assert!(
             retrieved.is_some(),
@@ -129,21 +138,30 @@ mod tests {
             .write(key2, updated_payload2)
             .expect("Failed to update entry");
 
-        let retrieved1 = storage.read(key1).expect("Entry for key1 should be found");
+        let retrieved1 = storage
+            .read(key1)
+            .unwrap()
+            .expect("Entry for key1 should be found");
         assert_eq!(
             retrieved1.as_slice(),
             updated_payload1,
             "Latest version of key1 was not retrieved"
         );
 
-        let retrieved2 = storage.read(key2).expect("Entry for key2 should be found");
+        let retrieved2 = storage
+            .read(key2)
+            .unwrap()
+            .expect("Entry for key2 should be found");
         assert_eq!(
             retrieved2.as_slice(),
             updated_payload2,
             "Latest version of key2 was not retrieved"
         );
 
-        let retrieved3 = storage.read(key3).expect("Entry for key3 should be found");
+        let retrieved3 = storage
+            .read(key3)
+            .unwrap()
+            .expect("Entry for key3 should be found");
         assert_eq!(
             retrieved3.as_slice(),
             initial_payload3,
@@ -170,7 +188,10 @@ mod tests {
         let payload = b"Existing file test".as_slice();
         storage.write(key, payload).expect("Failed to write entry");
 
-        let retrieved = storage.read(key).expect("Entry should exist in storage");
+        let retrieved = storage
+            .read(key)
+            .unwrap()
+            .expect("Entry should exist in storage");
         assert_eq!(
             retrieved.as_slice(),
             payload,

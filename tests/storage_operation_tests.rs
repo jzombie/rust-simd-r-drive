@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod tests {
 
-    use simd_r_drive::{compute_checksum, compute_hash, DataStore};
+    use simd_r_drive::{
+        DataStore, compute_checksum, compute_hash,
+        traits::{DataStoreReader, DataStoreWriter},
+    };
     use tempfile::tempdir;
 
     /// Helper function to create a temporary file for testing
@@ -16,7 +19,7 @@ mod tests {
     #[test]
     fn test_copy_entry_between_storages() {
         let (_dir1, source_storage) = create_temp_storage();
-        let (_dir2, mut target_storage) = create_temp_storage();
+        let (_dir2, target_storage) = create_temp_storage();
 
         let key = b"copy_key";
         let payload = b"Data to be copied";
@@ -28,11 +31,14 @@ mod tests {
 
         // Step 2: Copy the entry to the target storage
         source_storage
-            .copy_entry(key, &mut target_storage)
+            .copy_entry(key, &target_storage)
             .expect("Failed to copy entry");
 
         // Step 3: Ensure the original entry still exists in the source
-        let original_entry = source_storage.read(key).expect("Source entry should exist");
+        let original_entry = source_storage
+            .read(key)
+            .unwrap()
+            .expect("Source entry should exist");
         assert_eq!(
             original_entry.as_slice(),
             payload,
@@ -42,6 +48,7 @@ mod tests {
         // Step 4: Ensure the copied entry exists in the target
         let copied_entry = target_storage
             .read(key)
+            .unwrap()
             .expect("Copied entry should exist in target");
         assert_eq!(
             copied_entry.as_slice(),
@@ -95,7 +102,7 @@ mod tests {
     #[test]
     fn test_move_entry_between_storages() {
         let (_dir1, source_storage) = create_temp_storage();
-        let (_dir2, mut target_storage) = create_temp_storage();
+        let (_dir2, target_storage) = create_temp_storage();
 
         let key = b"move_key";
         let payload = b"Data to be moved";
@@ -107,18 +114,19 @@ mod tests {
 
         // Step 2: Move the entry to the target storage
         source_storage
-            .move_entry(key, &mut target_storage)
+            .move_entry(key, &target_storage)
             .expect("Failed to move entry");
 
         // Step 3: Ensure the original entry no longer exists in the source
         assert!(
-            source_storage.read(key).is_none(),
+            source_storage.read(key).unwrap().is_none(),
             "Moved entry should no longer exist in source"
         );
 
         // Step 4: Ensure the moved entry exists in the target
         let moved_entry = target_storage
             .read(key)
+            .unwrap()
             .expect("Moved entry should exist in target");
         assert_eq!(
             moved_entry.as_slice(),
@@ -165,8 +173,14 @@ mod tests {
             .expect("Failed to append entry");
 
         // Verify initial entries exist
-        assert_eq!(storage.read(key1).as_deref(), Some(initial_payload1));
-        assert_eq!(storage.read(key2).as_deref(), Some(initial_payload2));
+        assert_eq!(
+            storage.read(key1).unwrap().as_deref(),
+            Some(initial_payload1)
+        );
+        assert_eq!(
+            storage.read(key2).unwrap().as_deref(),
+            Some(initial_payload2)
+        );
 
         // Update entries
         storage
@@ -177,10 +191,16 @@ mod tests {
             .expect("Failed to update entry");
 
         // Verify updates were applied correctly
-        assert_eq!(storage.read(key1).as_deref(), Some(updated_payload1));
-        assert_eq!(storage.read(key2).as_deref(), Some(updated_payload2));
+        assert_eq!(
+            storage.read(key1).unwrap().as_deref(),
+            Some(updated_payload1)
+        );
+        assert_eq!(
+            storage.read(key2).unwrap().as_deref(),
+            Some(updated_payload2)
+        );
 
-        let count_before_delete = storage.count();
+        let count_before_delete = storage.count().unwrap();
 
         assert_eq!(count_before_delete, 2);
 
@@ -188,7 +208,7 @@ mod tests {
         storage.delete_entry(key1).expect("Failed to delete entry");
 
         // Verify count is reduced
-        let count_after_delete = storage.count();
+        let count_after_delete = storage.count().unwrap();
         assert_eq!(
             count_after_delete,
             count_before_delete - 1,
@@ -197,7 +217,7 @@ mod tests {
 
         // Verify key1 is no longer retrievable
         assert!(
-            storage.read(key1).is_none(),
+            storage.read(key1).unwrap().is_none(),
             "Deleted key1 should not be retrievable"
         );
 
@@ -217,7 +237,7 @@ mod tests {
         }
 
         assert_eq!(
-            storage.read(b"key2").unwrap().as_slice(),
+            storage.read(b"key2").unwrap().unwrap().as_slice(),
             updated_payload2,
             "`key2` does not match updated payload"
         );
@@ -242,7 +262,10 @@ mod tests {
             .expect("Failed to rename entry");
 
         // Step 3: Ensure the new key exists and has the same data
-        let renamed_entry = storage.read(new_key).expect("Renamed entry should exist");
+        let renamed_entry = storage
+            .read(new_key)
+            .unwrap()
+            .expect("Renamed entry should exist");
         assert_eq!(
             renamed_entry.as_slice(),
             payload,
@@ -251,7 +274,7 @@ mod tests {
 
         // Step 4: Ensure the old key no longer exists
         assert!(
-            storage.read(old_key).is_none(),
+            storage.read(old_key).unwrap().is_none(),
             "Old key should no longer exist after renaming"
         );
     }
@@ -283,7 +306,10 @@ mod tests {
         );
 
         // Step 4: Ensure the original entry still exists
-        let existing_entry = storage.read(key).expect("Entry should still exist");
+        let existing_entry = storage
+            .read(key)
+            .unwrap()
+            .expect("Entry should still exist");
         assert_eq!(
             existing_entry.as_slice(),
             payload,
@@ -325,6 +351,7 @@ mod tests {
         // Step 5: Extract the nested storage from storage2
         let extracted_storage_bytes = storage2
             .read(nested_key)
+            .unwrap()
             .expect("Failed to retrieve the nested storage")
             .as_slice()
             .to_vec();
@@ -341,6 +368,7 @@ mod tests {
         // Step 8: Read the original entry from the extracted storage
         let retrieved_entry = extracted_storage
             .read(key1)
+            .unwrap()
             .expect("Failed to retrieve original entry from extracted storage");
 
         // Step 9: Validate that the extracted storage's data is correct

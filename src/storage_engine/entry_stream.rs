@@ -15,15 +15,19 @@ use std::io::{self, Read};
 ///
 /// # Example Usage
 /// ```rust
-/// use simd_r_drive::storage_engine::{DataStore, EntryHandle, EntryStream};
+/// use simd_r_drive::storage_engine::{DataStore, EntryHandle, EntryStream, traits::{DataStoreReader, DataStoreWriter}};
 /// use std::io::Read;
 /// use std::path::PathBuf;
+/// use tempfile::tempdir;
 ///
-/// let data_store = DataStore::from(PathBuf::from("test_storage.bin"));
+/// let temp_dir = tempdir().expect("Failed to create temp dir");
+/// let temp_path = temp_dir.path().join("test_storage.bin");
+///
+/// let data_store = DataStore::from(PathBuf::from(temp_path));
 ///
 /// // Write some test data
 /// data_store.write(b"test_key", b"test_data");
-/// let entry_handle = data_store.read(b"test_key").unwrap();
+/// let entry_handle = data_store.read(b"test_key").unwrap().unwrap();
 ///
 /// // Assume `entry_handle` is obtained from storage
 /// let mut stream = EntryStream::from(entry_handle);

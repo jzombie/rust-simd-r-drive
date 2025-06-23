@@ -25,3 +25,51 @@ use xxhash_rust::xxh3::xxh3_64;
 pub fn compute_hash(key: &[u8]) -> u64 {
     xxh3_64(key)
 }
+
+/// Computes XXH3 64-bit hashes for a batch of keys **in one call**.
+///
+/// The function walks the `keys` slice only once, feeding each key into
+/// `xxh3_64`.  Internally `xxh3_64` already dispatches to the fastest SIMD
+/// implementation available on the host (AVX2, NEON, …), so you still get the
+/// intrinsic acceleration for *each* key – but with the added benefit that
+/// you can:
+///
+/// * call the hasher exactly **once** from the high-level API,
+/// * pre-allocate the `Vec<u64>` only once,
+/// * hand the resulting `(hash, payload)` tuples straight to
+///   `batch_write_hashed_payloads`, keeping the critical section (the `RwLock`)
+///   as small as possible.
+///
+/// # Parameters
+/// * `keys` – slice of key byte-slices; the `n`-th output hash corresponds to
+///   the `n`-th input key.
+///
+/// # Returns
+/// A `Vec<u64>` whose length equals `keys.len()`, containing the XXH3 hash of
+/// each key.
+///
+/// # Examples
+/// ```
+/// use simd_r_drive::storage_engine::digest::{compute_hash, compute_hash_batch};
+///
+/// let keys: &[&[u8]] = &[b"alice", b"bob", b"carol"];
+/// let hashes = compute_hash_batch(keys);
+///
+/// assert_eq!(hashes.len(), 3);
+/// assert_eq!(hashes[0], compute_hash(b"alice"));
+/// assert_eq!(hashes[1], compute_hash(b"bob"));
+/// assert_eq!(hashes[2], compute_hash(b"carol"));
+/// ```
+#[inline]
+pub fn compute_hash_batch(keys: &[&[u8]]) -> Vec<u64> {
+    // TODO: Look into more efficient approaches that can work on a matrix of
+    // keys without iterating over them.
+
+    // A plain loop beats an iterator here; it lets LLVM unroll/vectorize freely.
+    let mut out = Vec::with_capacity(keys.len());
+    for k in keys {
+        // xxh3_64 already uses SIMD internally where available.
+        out.push(xxh3_64(k));
+    }
+    out
+}

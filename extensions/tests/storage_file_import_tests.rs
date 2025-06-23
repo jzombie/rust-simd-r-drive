@@ -1,4 +1,4 @@
-use simd_r_drive::DataStore;
+use simd_r_drive::{DataStore, traits::DataStoreReader};
 use simd_r_drive_extensions::StorageFileImportExt;
 use std::fs;
 use std::io::Read;
@@ -53,7 +53,7 @@ fn test_import_directory_and_verify_contents() {
         file.read_to_end(&mut expected)
             .expect("Failed to read file");
 
-        let actual = storage.read(&key).expect("Key missing from store");
+        let actual = storage.read(&key).unwrap().expect("Key missing from store");
         assert_eq!(
             actual.as_slice(),
             expected.as_slice(),
@@ -91,7 +91,7 @@ fn test_import_without_namespace() {
             .read_to_end(&mut expected)
             .expect("Failed to read file");
 
-        let stored = storage.read(key).expect("Missing key in store");
+        let stored = storage.read(key).unwrap().expect("Missing key in store");
         assert_eq!(stored.as_slice(), expected.as_slice());
     }
 }
@@ -119,6 +119,7 @@ fn test_read_file_entry_returns_correct_contents() {
 
     let entry = storage
         .read_file_entry(&known_file, None)
+        .unwrap()
         .expect("Expected file entry to be present");
 
     let mut expected = Vec::new();
@@ -153,6 +154,7 @@ fn test_open_file_stream_reads_all_bytes() {
 
     let mut stream = storage
         .open_file_stream(&known_file, None)
+        .unwrap()
         .expect("Expected file stream to be present");
 
     let mut streamed = Vec::new();

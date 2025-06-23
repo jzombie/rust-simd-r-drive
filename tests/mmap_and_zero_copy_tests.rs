@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod tests {
 
-    use simd_r_drive::DataStore;
+    use simd_r_drive::{
+        DataStore,
+        traits::{DataStoreReader, DataStoreWriter},
+    };
     use tempfile::tempdir;
 
     /// Helper function to create a temporary file for testing
@@ -24,7 +27,7 @@ mod tests {
         storage.write(key, payload).expect("Failed to write entry");
 
         // Retrieve the entry handle
-        let entry_handle = storage.read(key).expect("Failed to read entry");
+        let entry_handle = storage.read(key).unwrap().expect("Failed to read entry");
 
         // Clone the entry handle
         let cloned_entry = entry_handle.clone_arc();
@@ -68,7 +71,7 @@ mod tests {
         storage.write(key, payload).expect("Failed to write entry");
 
         // Retrieve the entry handle
-        let entry_handle = storage.read(key).expect("Failed to read entry");
+        let entry_handle = storage.read(key).unwrap().expect("Failed to read entry");
 
         // Clone the entry handle
         let cloned_entry = entry_handle.clone_arc();
@@ -120,7 +123,7 @@ mod tests {
         storage.write(key, payload).expect("Failed to write entry");
 
         // Retrieve the entry handle
-        let entry_handle = storage.read(key).expect("Failed to read entry");
+        let entry_handle = storage.read(key).unwrap().expect("Failed to read entry");
 
         // Get direct access to mmap for testing
         let mmap_arc = storage.get_mmap_arc_for_testing(); // Get Arc<Mmap>
@@ -155,7 +158,10 @@ mod tests {
         );
 
         // Ensure data integrity
-        let read_back = storage.read(key).expect("Entry should still be readable");
+        let read_back = storage
+            .read(key)
+            .unwrap()
+            .expect("Entry should still be readable");
         assert_eq!(
             read_back.as_slice(),
             payload,

@@ -1,8 +1,13 @@
 # SIMD R Drive
 
+[![made-with-rust][rust-logo]][rust-src-page]
+[![crates.io][crates-badge]][crates-page]
+[![Documentation][docs-badge]][docs-page]
+[![MIT licensed][license-badge]][license-page]
+
 **Work in progress.**
 
-`SIMD R Drive` is a high-performance storage engine using a single-file storage container optimized for zero-copy binary access.
+`SIMD R Drive` is a high-performance, thread-safe storage engine using a single-file storage container optimized for zero-copy binary access.
 
 Can be used as a command line interface (CLI) app, or as a library in another application. Continuously tested on Mac, Linux, and Windows.
 
@@ -31,8 +36,7 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
   - [Direct memory access](#direct-memory-access)
   - [Streaming](#streaming)
 - [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
-- [Extensions](#extensions)
-- [Python Language Bindings](#python-language-bindings)
+- [Python Bindings and Experiments](#python-bindings-and-experiments)
 - [License](#license)
 
 
@@ -223,20 +227,23 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 [SIMD R Drive Extensions](./extensions/) provide additional functionality.
 
-## Python Language Bindings
+## Python Bindings and Experiments
 
-[Experimental Python bindings](./bindings/python) are available for integrating with Python applications.
-
-These bindings expose high-performance, zero-copy access to `SIMD R Drive` from Python using [PyO3](https://github.com/PyO3/pyo3) and [maturin](https://github.com/PyO3/maturin).
-
-> ❌ **Python bindings for Windows is not supported** due to inconsistent file and memory-mapping semantics (though the bindings *can* build in Windows). These bindings target UNIX-like systems where `mmap` and thread behavior are reliable and consistent.  
-✅ The Rust library itself fully supports Windows, and is continuously tested on Windows targets.
-
-Bindings are tested on:
-
-* **Linux (x86\_64, aarch64)**
-* **macOS (x86\_64, arm64/M1/M2)**
+- Experimental [Python language bindings](./experiments/bindings/)
+- Experimental WebSocket [client](./experiments/simd-r-drive-ws-client/) / [server](./experiments/simd-r-drive-ws-server/)
 
 ## License
 
 Licensed under the [Apache-2.0 License](LICENSE).
+
+[rust-src-page]: https://www.rust-lang.org/
+[rust-logo]: https://img.shields.io/badge/Made%20with-Rust-black?&logo=Rust
+
+[crates-page]: https://crates.io/crates/simd-r-drive
+[crates-badge]: https://img.shields.io/crates/v/simd-r-drive.svg
+
+[docs-page]: https://docs.rs/simd-r-drive
+[docs-badge]: https://docs.rs/simd-r-drive/badge.svg
+
+[license-page]: ./LICENSE
+[license-badge]: https://img.shields.io/badge/license-Apache%202.0-blue.svg

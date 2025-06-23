@@ -1,8 +1,12 @@
 use crate::constants::{OPTION_PREFIX, OPTION_TOMBSTONE_MARKER};
 use crate::{deserialize_option, serialize_option};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
-use simd_r_drive::{utils::NamespaceHasher, DataStore};
+use serde::de::DeserializeOwned;
+use simd_r_drive::{
+    DataStore,
+    traits::{DataStoreReader, DataStoreWriter},
+    utils::NamespaceHasher,
+};
 use std::io::{self, ErrorKind};
 use std::sync::{Arc, OnceLock};
 
@@ -34,8 +38,12 @@ pub const TEST_OPTION_PREFIX: &[u8] = OPTION_PREFIX;
 /// use simd_r_drive::DataStore;
 /// use simd_r_drive_extensions::StorageOptionExt;
 /// use std::path::PathBuf;
+/// use tempfile::tempdir;
 ///
-/// let storage = DataStore::open(&PathBuf::from("test_store.bin")).unwrap();
+/// let temp_dir = tempdir().expect("Failed to create temp dir");
+/// let temp_path = temp_dir.path().join("test_store.bin");
+///
+/// let storage = DataStore::open(&PathBuf::from(temp_path)).unwrap();
 ///
 /// // Store `Some(value)`
 /// storage.write_option(b"key1", Some(&42)).unwrap();
@@ -66,8 +74,12 @@ pub trait StorageOptionExt {
     /// use simd_r_drive::DataStore;
     /// use simd_r_drive_extensions::StorageOptionExt;
     /// use std::path::PathBuf;
+    /// use tempfile::tempdir;
     ///
-    /// let storage = DataStore::open(&PathBuf::from("store.bin")).unwrap();
+    /// let temp_dir = tempdir().expect("Failed to create temp dir");
+    /// let temp_path = temp_dir.path().join("test_store.bin");
+    ///
+    /// let storage = DataStore::open(&PathBuf::from(temp_path)).unwrap();
     ///
     /// // Write `Some(value)`
     /// storage.write_option(b"key_with_some_value", Some(&123)).unwrap();
@@ -97,8 +109,12 @@ pub trait StorageOptionExt {
     /// use simd_r_drive::DataStore;
     /// use simd_r_drive_extensions::StorageOptionExt;
     /// use std::path::PathBuf;
+    /// use tempfile::tempdir;
     ///
-    /// let storage = DataStore::open(&PathBuf::from("store.bin")).unwrap();
+    /// let temp_dir = tempdir().expect("Failed to create temp dir");
+    /// let temp_path = temp_dir.path().join("test_store.bin");
+    ///
+    /// let storage = DataStore::open(&PathBuf::from(temp_path)).unwrap();
     ///
     /// storage.write_option(b"key_with_some_value", Some(&789)).unwrap();
     /// storage.write_option::<i32>(b"key_with_none_value", None).unwrap();
@@ -139,7 +155,7 @@ impl StorageOptionExt for DataStore {
             OPTION_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(OPTION_PREFIX)));
         let namespaced_key = namespace_hasher.namespace(key);
 
-        match self.read(&namespaced_key) {
+        match self.read(&namespaced_key)? {
             Some(entry) => deserialize_option::<T>(entry.as_slice()),
             None => Err(io::Error::new(
                 ErrorKind::NotFound,
