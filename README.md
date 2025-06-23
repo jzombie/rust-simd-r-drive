@@ -36,8 +36,7 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
   - [Direct memory access](#direct-memory-access)
   - [Streaming](#streaming)
 - [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
-- [Extensions](#extensions)
-- [Python Language Bindings](#python-language-bindings)
+- [Bindings and Experiments](#bindings-and-experiments)
 - [License](#license)
 
 
@@ -228,19 +227,10 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 [SIMD R Drive Extensions](./extensions/) provide additional functionality.
 
-## Python Language Bindings
+## Bindings and Experiments
 
-[Experimental Python bindings](./experiments/bindings/python) are available for integrating with Python applications.
-
-These bindings expose high-performance, zero-copy access to `SIMD R Drive` from Python using [PyO3](https://github.com/PyO3/pyo3) and [maturin](https://github.com/PyO3/maturin).
-
-> ❌ **Python bindings for Windows is not supported** due to inconsistent file and memory-mapping semantics (though the bindings *can* build in Windows). These bindings target UNIX-like systems where `mmap` and thread behavior are reliable and consistent.  
-✅ The Rust library itself fully supports Windows, and is continuously tested on Windows targets.
-
-Bindings are tested on:
-
-* **Linux (x86\_64, aarch64)**
-* **macOS (x86\_64, arm64/M1/M2)**
+- Experimental [Python language bindings](./experiments/bindings/)
+- Experimental WebSocket [client](./experiments/simd-r-drive-ws-client/) / [server](./experiments/simd-r-drive-ws-server/)
 
 ## License
 
