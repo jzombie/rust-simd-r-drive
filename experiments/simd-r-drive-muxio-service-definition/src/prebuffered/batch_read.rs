@@ -1,25 +1,17 @@
-// TODO: Switch back to `bitcode` implementation?
-
-use crate::utils::batch_codec::BatchCodec;
+use bitcode::{Decode, Encode};
 use muxio_rpc_service::{prebuffered::RpcMethodPrebuffered, rpc_method_id};
 use std::io;
 
-/// ------------------------------------------------------------------------
-///   Wire-format structs (unchanged)
-/// ------------------------------------------------------------------------
-#[derive(Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq)]
 pub struct BatchReadRequestParams {
     pub keys: Vec<Vec<u8>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Encode, Decode, Debug, PartialEq)]
 pub struct BatchReadResponseParams {
     pub results: Vec<Option<Vec<u8>>>,
 }
 
-/// ------------------------------------------------------------------------
-///   RPC Method implementation – now based on `BatchCodec`
-/// ------------------------------------------------------------------------
 pub struct BatchRead;
 
 impl RpcMethodPrebuffered for BatchRead {
@@ -28,25 +20,25 @@ impl RpcMethodPrebuffered for BatchRead {
     type Input = BatchReadRequestParams;
     type Output = BatchReadResponseParams;
 
-    /* --------------- request (keys) ----------------------------------- */
-    fn encode_request(req: Self::Input) -> io::Result<Vec<u8>> {
-        Ok(BatchCodec::encode_keys(&req.keys))
+    fn encode_request(read_request_params: BatchReadRequestParams) -> Result<Vec<u8>, io::Error> {
+        Ok(bitcode::encode(&read_request_params))
     }
 
-    fn decode_request(buf: &[u8]) -> io::Result<Self::Input> {
-        let keys = BatchCodec::decode_keys(buf)
+    fn decode_request(bytes: &[u8]) -> Result<Self::Input, io::Error> {
+        let req_params = bitcode::decode::<BatchReadRequestParams>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        Ok(BatchReadRequestParams { keys })
+
+        Ok(req_params)
     }
 
-    /* --------------- response (optional payloads) --------------------- */
-    fn encode_response(resp: Self::Output) -> io::Result<Vec<u8>> {
-        Ok(BatchCodec::encode_optional_payloads(&resp.results))
+    fn encode_response(results: Self::Output) -> Result<Vec<u8>, io::Error> {
+        Ok(bitcode::encode(&results))
     }
 
-    fn decode_response(buf: &[u8]) -> io::Result<Self::Output> {
-        let results = BatchCodec::decode_optional_payloads(buf)
+    fn decode_response(bytes: &[u8]) -> Result<Self::Output, io::Error> {
+        let resp_params = bitcode::decode::<BatchReadResponseParams>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        Ok(BatchReadResponseParams { results })
+
+        Ok(resp_params)
     }
 }
