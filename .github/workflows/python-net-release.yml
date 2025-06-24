@@ -45,7 +45,7 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install cibuildwheel
-        run: uv pip install cibuildwheel==2.23.3
+        run: uv pip --system install cibuildwheel==2.23.3
 
       # Note: Using `working-directory` here is problematic due to relative path linking
       - name: Build wheels
