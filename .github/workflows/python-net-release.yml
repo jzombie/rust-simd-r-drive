@@ -1,0 +1,107 @@
+name: Build Python WebSocket Wheels
+
+on:
+  push:
+    tags:
+      - "python-v*"
+    paths:
+      - "experiments/bindings/python-ws-client/**"
+  pull_request:
+    paths:
+      - "experiments/bindings/python-ws-client/**"
+
+jobs:
+  build:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    env:
+      # This was opted for instead of using `working-directory`, which breaks
+      # tools like `maturin` and `cibuildwheel` that expect the workspace root.
+      PYTHON_BINDING_DIR: experiments/bindings/python-ws-client
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # - name: Install build tooling from requirements.txt
+      #   working-directory: ${{ env.PYTHON_BINDING_DIR }}
+      #   run: |
+      #     pip install -r "requirements-dev.txt"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install cibuildwheel
+        run: uv pip install cibuildwheel==2.23.3
+
+      # Note: Using `working-directory` here is problematic due to relative path linking
+      - name: Build wheels
+        env:
+          CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp* *-manylinux_i686 *-musllinux_*"
+        run: uv run cibuildwheel "${{ env.PYTHON_BINDING_DIR }}" --output-dir "${{ env.PYTHON_BINDING_DIR }}/dist"
+
+      - name: Install built wheel and run tests
+        working-directory: ${{ env.PYTHON_BINDING_DIR }}
+        # IMPORTANT: `--no-index` in `pip install` prevents pulling from PyPi
+        run: |
+          uv pip install --no-index --find-links="dist" --prefer-binary simd_r_drive_ws_client
+          uv venv exec python -m site
+          uv venv exec stubtest simd_r_drive
+          uv venv exec python extract_readme_tests.py
+          uv venv exec pytest --import-mode=importlib
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: simd-r-drive-ws-client-wheels-${{ matrix.os }}
+          path: ${{ env.PYTHON_BINDING_DIR }}/dist/*.whl
+
+  publish:
+    name: Upload wheels to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+
+    # Accept tags like: python-v0.3.0-test or python-v0.3.0
+    # Example test tagging:
+    #   git tag python-v0.3.0-test (or `*-test2`, etc)
+    #   git push origin python-v0.3.0-test (or `*-test2`, etc)
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/python-v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download built wheels from all platforms
+        uses: actions/download-artifact@v4
+        with:
+          pattern: simd-r-drive-ws-client-wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Determine PyPI repository and token
+        id: pypi
+        run: |
+          if [[ "${GITHUB_REF}" == *-test* ]]; then
+            echo "url=https://test.pypi.org/legacy/" >> $GITHUB_OUTPUT
+            echo "token=${{ secrets.PYPI_TEST_API_TOKEN }}" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://upload.pypi.org/legacy/" >> $GITHUB_OUTPUT
+            echo "token=${{ secrets.PYPI_API_TOKEN }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload to PyPI (or Test PyPI)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ steps.pypi.outputs.url }}
+          user: __token__
+          password: ${{ steps.pypi.outputs.token }}
