@@ -13,6 +13,7 @@ publish.workspace = true # Inherit from workspace
 [dependencies]
 simd-r-drive = { workspace = true }
 muxio-tokio-rpc-server = "0.6.0-alpha"
+# TODO: Override using `local-dev.toml `& `[patch.crates-io]`
 # muxio-tokio-rpc-server = { path = "../../../rust-muxio/extensions/muxio-tokio-rpc-server" }
 muxio-rpc-service = "0.6.0-alpha"
 # muxio-rpc-service = { path = "../../../rust-muxio/extensions/muxio-rpc-service" }
