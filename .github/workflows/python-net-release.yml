@@ -6,9 +6,11 @@ on:
       - "python-v*"
     paths:
       - "experiments/bindings/python-ws-client/**"
+      - ".github/workflows/*.yml"
   pull_request:
     paths:
       - "experiments/bindings/python-ws-client/**"
+      - ".github/workflows/*.yml"
 
 jobs:
   build:
