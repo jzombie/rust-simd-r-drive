@@ -58,7 +58,7 @@ jobs:
         working-directory: ${{ env.PYTHON_BINDING_DIR }}
         # IMPORTANT: `--no-index` in `pip install` prevents pulling from PyPi
         run: |
-          uv pip install --no-index --find-links="dist" --prefer-binary simd_r_drive_ws_client
+          uv pip install --no-index --find-links="dist"
           uv venv exec python -m site
           uv venv exec stubtest simd_r_drive
           uv venv exec python extract_readme_tests.py
