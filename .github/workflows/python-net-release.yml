@@ -32,11 +32,6 @@ jobs:
         with:
           python-version: "3.13"
 
-      # - name: Install build tooling from requirements.txt
-      #   working-directory: ${{ env.PYTHON_BINDING_DIR }}
-      #   run: |
-      #     pip install -r "requirements-dev.txt"
-
       - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
