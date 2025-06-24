@@ -22,9 +22,10 @@ jobs:
       PYTHON_BINDING_DIR: experiments/bindings/python-ws-client
     strategy:
       matrix:
+        # TODO: Include all major OS's
         include:
           - os: ubuntu-latest
-          - os: macos-latest
+          # - os: macos-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +46,7 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install cibuildwheel
-        run: uv pip --system install cibuildwheel==2.23.3
+        run: uv pip install --system cibuildwheel==2.23.3
 
       # Note: Using `working-directory` here is problematic due to relative path linking
       - name: Build wheels
