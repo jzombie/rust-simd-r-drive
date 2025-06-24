@@ -22,10 +22,7 @@ jobs:
       PYTHON_BINDING_DIR: experiments/bindings/python-ws-client
     strategy:
       matrix:
-        # TODO: Include all major OS's
-        include:
-          - os: ubuntu-latest
-          # - os: macos-latest
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -45,33 +42,20 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      - name: Run Integration Test Script
+      - name: Run integration and unit tests
         run: |
           chmod +x experiments/bindings/python-ws-client/integration_test.sh
           ./experiments/bindings/python-ws-client/integration_test.sh
         shell: bash
 
-      # TODO: Can this step be replaced with `maturin`?
       - name: Install cibuildwheel
         run: uv pip install --system cibuildwheel==2.23.3
 
-      # TODO: Can this step be replaced with `maturin`?
       # Note: Using `working-directory` here is problematic due to relative path linking
       - name: Build wheels
         env:
           CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp* *-manylinux_i686 *-musllinux_*"
         run: cibuildwheel "${{ env.PYTHON_BINDING_DIR }}" --output-dir "${{ env.PYTHON_BINDING_DIR }}/dist"
-
-      # TODO: Remove; replaced with integration tests in previous step
-      # - name: Install built wheel and run tests
-      #   working-directory: ${{ env.PYTHON_BINDING_DIR }}
-      #   # IMPORTANT: `--no-index` in `pip install` prevents pulling from PyPi
-      #   run: |
-      #     uv pip install --no-index --find-links="dist"
-      #     uv venv exec python -m site
-      #     uv venv exec stubtest simd_r_drive
-      #     uv venv exec python extract_readme_tests.py
-      #     uv venv exec pytest --import-mode=importlib
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
