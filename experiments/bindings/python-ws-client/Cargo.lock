@@ -1074,7 +1074,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.7.0-alpha"
+version = "0.8.0-alpha"
 dependencies = [
  "async-trait",
  "clap",
@@ -1089,7 +1089,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-muxio-service-definition"
-version = "0.7.0-alpha"
+version = "0.8.0-alpha"
 dependencies = [
  "bitcode",
  "muxio-rpc-service",
@@ -1097,7 +1097,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-client"
-version = "0.7.0-alpha"
+version = "0.8.0-alpha"
 dependencies = [
  "async-trait",
  "muxio-rpc-service",
