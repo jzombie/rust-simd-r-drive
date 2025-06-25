@@ -8,7 +8,7 @@ use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Read,
     ReadRequestParams, Write, WriteRequestParams,
 };
-use std::io::{Error, Result};
+use std::io::Result;
 
 pub struct WsClient {
     rpc_client: RpcClient,
@@ -38,8 +38,7 @@ impl AsyncDataStoreWriter for WsClient {
         )
         .await?;
 
-        resp.result
-            .ok_or_else(|| Error::other("no offset returned"))
+        Ok(resp.tail_offset)
     }
 
     async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
@@ -54,7 +53,7 @@ impl AsyncDataStoreWriter for WsClient {
         )
         .await?;
 
-        Ok(resp.result)
+        Ok(resp.tail_offset)
     }
 
     async fn rename_entry(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {
@@ -98,7 +97,7 @@ impl AsyncDataStoreReader for WsClient {
         )
         .await?;
 
-        Ok(batch_read_result.results)
+        Ok(batch_read_result.entries)
     }
 
     async fn read_metadata(&self, _key: &[u8]) -> Result<Option<EntryMetadata>> {

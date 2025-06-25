@@ -9,7 +9,7 @@ pub struct BatchWriteRequestParams {
 
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct BatchWriteResponseParams {
-    pub result: u64, // total payload bytes
+    pub tail_offset: u64,
 }
 
 pub struct BatchWrite;

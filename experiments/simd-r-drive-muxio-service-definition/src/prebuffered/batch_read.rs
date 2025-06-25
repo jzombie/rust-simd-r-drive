@@ -9,7 +9,7 @@ pub struct BatchReadRequestParams {
 
 #[derive(Encode, Decode, Debug, PartialEq)]
 pub struct BatchReadResponseParams {
-    pub results: Vec<Option<Vec<u8>>>,
+    pub entries: Vec<Option<Vec<u8>>>,
 }
 
 pub struct BatchRead;
