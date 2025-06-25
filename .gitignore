@@ -5,3 +5,6 @@
 /data
 
 out.txt
+
+# Local Cargo overrides
+.cargo/config.toml

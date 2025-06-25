@@ -16,7 +16,8 @@ pub struct WsClient {
 
 impl WsClient {
     pub async fn new(websocket_address: &str) -> Self {
-        let rpc_client = RpcClient::new(&format!("ws://{}/ws", websocket_address)).await;
+        // TODO: Do not unwrap
+        let rpc_client = RpcClient::new(&format!("ws://{}/ws", websocket_address)).await.unwrap();
 
         Self { rpc_client }
     }
