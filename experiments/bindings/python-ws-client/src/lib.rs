@@ -9,6 +9,9 @@ use tracing_subscriber::fmt::writer::MakeWriter;
 mod base_ws_client_py;
 use base_ws_client_py::*;
 
+mod namespace_hasher_py;
+use namespace_hasher_py::*;
+
 // Define exceptions at the top level of the library file.
 create_exception!(simd_r_drive_ws_client, ConnectionError, PyException);
 create_exception!(simd_r_drive_ws_client, TimeoutError, PyException);
@@ -96,6 +99,7 @@ fn simd_r_drive_ws_client(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(setup_logging, m)?)?;
     m.add_function(wrap_pyfunction!(test_rust_logging, m)?)?;
     m.add_class::<BaseDataStoreWsClient>()?;
+    m.add_class::<NamespaceHasher>()?;
     m.add("ConnectionError", py.get_type::<ConnectionError>())?;
     m.add("TimeoutError", py.get_type::<TimeoutError>())?;
     Ok(())
