@@ -1,5 +1,5 @@
-use muxio_rpc_service_caller::prebuffered::RpcCallPrebuffered;
-use muxio_tokio_rpc_client::RpcClient;
+use muxio_rpc_service_caller::{RpcServiceCallerInterface, prebuffered::RpcCallPrebuffered};
+use muxio_tokio_rpc_client::{RpcClient, RpcTransportState};
 use simd_r_drive::{
     DataStore, EntryMetadata,
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
@@ -15,26 +15,20 @@ pub struct WsClient {
 }
 
 impl WsClient {
-    pub async fn new(websocket_address: &str) -> Self {
-        // TODO: Do not unwrap
-        let rpc_client = RpcClient::new(&format!("ws://{}/ws", websocket_address)).await.unwrap();
+    pub async fn new(websocket_address: &str) -> Result<Self> {
+        let rpc_client = RpcClient::new(&format!("ws://{}/ws", websocket_address)).await?;
 
-        Self { rpc_client }
+        Ok(Self { rpc_client })
     }
 
-    // TODO: Implement
-    // Registers a callback to be executed whenever the underlying transport state changes.
-    //
-    // # Arguments
-    // * `handler`: A closure that takes a `TransportState` enum and will be called
-    //   on events like `Connected` or `Disconnected`.
-    // pub fn on_state_change<F>(&self, handler: F)
-    // where
-    //     F: Fn(TransportState) + Send + Sync + 'static,
-    // {
-    //     // This is the key: simply delegate the call to the underlying rpc_client.
-    //     self.rpc_client.set_state_change_handler(handler);
-    // }
+    /// Sets a callback that will be invoked with the current `RpcTransportState`
+    /// whenever the WebSocket connection status changes.
+    pub fn set_state_change_handler(
+        &self,
+        handler: impl Fn(RpcTransportState) + Send + Sync + 'static,
+    ) {
+        self.rpc_client.set_state_change_handler(handler);
+    }
 }
 
 #[async_trait::async_trait]
