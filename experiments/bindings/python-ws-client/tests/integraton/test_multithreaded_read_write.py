@@ -26,7 +26,9 @@ def client():
             f"Failed to connect to the WebSocket server at {SERVER_ADDR}. Is it running? Error: {e}"
         )
 
-
+# FIXME: On older hardware this call can block indefinitely due to resource
+#        contention. Instrument both client and server to pinpoint where the
+#        stall originates.
 def test_concurrent_read_write_stress(client):
     """
     Stress test with multiple threads performing concurrent reads and writes.
@@ -107,6 +109,9 @@ def test_concurrent_read_write_stress(client):
     with lock:
         items_to_verify = list(written_data.items())
 
+    # FIXME: On older hardware this call can block indefinitely due to resource
+    #        contention. Instrument both client and server to pinpoint where the
+    #        stall originates.
     for key, expected_value in items_to_verify:
         read_value = client.read(key)
         assert (
