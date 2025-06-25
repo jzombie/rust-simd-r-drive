@@ -26,6 +26,16 @@ impl BaseDataStoreWsClient {
 
         let ws_client = runtime.block_on(async { WsClient::new(ws_address).await });
 
+        // TODO: Implement
+        // ws_client.on_state_change(move |new_state| {
+        //     // This code will run every time the connection state changes.
+        //     println!("[Callback] Transport state changed to: {:?}", new_state);
+
+        //     // Update the shared state variable.
+        //     let mut state = state_clone.lock().unwrap();
+        //     *state = new_state;
+        // });
+
         Ok(Self {
             ws_client: Arc::new(ws_client),
             runtime,

@@ -20,6 +20,20 @@ impl WsClient {
 
         Self { rpc_client }
     }
+
+    // TODO: Implement
+    // Registers a callback to be executed whenever the underlying transport state changes.
+    //
+    // # Arguments
+    // * `handler`: A closure that takes a `TransportState` enum and will be called
+    //   on events like `Connected` or `Disconnected`.
+    // pub fn on_state_change<F>(&self, handler: F)
+    // where
+    //     F: Fn(TransportState) + Send + Sync + 'static,
+    // {
+    //     // This is the key: simply delegate the call to the underlying rpc_client.
+    //     self.rpc_client.set_state_change_handler(handler);
+    // }
 }
 
 #[async_trait::async_trait]
