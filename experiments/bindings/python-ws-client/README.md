@@ -1,6 +1,8 @@
-# SIMD R Drive (Net Client Python Bindings)
+# SIMD R Drive WebSocket Client
 
--- Placeholder; In Development --
+**Work in progress.**
+
+Prototype WebSocket bindings for [SIMD R Drive](https://crates.io/crates/simd-r-drive), a high-performance, append-only single-file-container storage engine for Rust.
 
 ## License
 

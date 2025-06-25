@@ -1,6 +1,6 @@
 [workspace.package]
 authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
-version = "0.7.0-alpha"
+version = "0.8.0-alpha"
 edition = "2024"
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
@@ -22,9 +22,9 @@ publish.workspace = true # Inherit from workspace
 
 [workspace.dependencies]
 # Intra-workspace crates
-simd-r-drive = { path = ".", version = "0.7.0-alpha" }
-simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.7.0-alpha" }
-simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.7.0-alpha" }
+simd-r-drive = { path = ".", version = "0.8.0-alpha" }
+simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.8.0-alpha" }
+simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.8.0-alpha" }
 
 [dependencies]
 async-trait = "0.1.88"

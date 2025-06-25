@@ -1,5 +1,5 @@
-use muxio_rpc_service_caller::prebuffered::RpcCallPrebuffered;
-use muxio_tokio_rpc_client::RpcClient;
+use muxio_rpc_service_caller::{RpcServiceCallerInterface, prebuffered::RpcCallPrebuffered};
+use muxio_tokio_rpc_client::{RpcClient, RpcTransportState};
 use simd_r_drive::{
     DataStore, EntryMetadata,
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
@@ -8,17 +8,26 @@ use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Read,
     ReadRequestParams, Write, WriteRequestParams,
 };
-use std::io::{Error, Result};
+use std::io::Result;
 
 pub struct WsClient {
     rpc_client: RpcClient,
 }
 
 impl WsClient {
-    pub async fn new(websocket_address: &str) -> Self {
-        let rpc_client = RpcClient::new(&format!("ws://{}/ws", websocket_address)).await;
+    pub async fn new(websocket_address: &str) -> Result<Self> {
+        let rpc_client = RpcClient::new(&format!("ws://{}/ws", websocket_address)).await?;
 
-        Self { rpc_client }
+        Ok(Self { rpc_client })
+    }
+
+    /// Sets a callback that will be invoked with the current `RpcTransportState`
+    /// whenever the WebSocket connection status changes.
+    pub fn set_state_change_handler(
+        &self,
+        handler: impl Fn(RpcTransportState) + Send + Sync + 'static,
+    ) {
+        self.rpc_client.set_state_change_handler(handler);
     }
 }
 
@@ -38,8 +47,7 @@ impl AsyncDataStoreWriter for WsClient {
         )
         .await?;
 
-        resp.result
-            .ok_or_else(|| Error::other("no offset returned"))
+        Ok(resp.tail_offset)
     }
 
     async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
@@ -54,7 +62,7 @@ impl AsyncDataStoreWriter for WsClient {
         )
         .await?;
 
-        Ok(resp.result)
+        Ok(resp.tail_offset)
     }
 
     async fn rename_entry(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {
@@ -98,7 +106,7 @@ impl AsyncDataStoreReader for WsClient {
         )
         .await?;
 
-        Ok(batch_read_result.results)
+        Ok(batch_read_result.entries)
     }
 
     async fn read_metadata(&self, _key: &[u8]) -> Result<Option<EntryMetadata>> {

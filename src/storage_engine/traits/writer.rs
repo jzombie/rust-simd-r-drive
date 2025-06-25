@@ -70,6 +70,7 @@ pub trait DataStoreWriter {
     /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
     fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64>;
 
+    // TODO: Rename to `rename`
     /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
     ///
     /// This function:
@@ -91,6 +92,7 @@ pub trait DataStoreWriter {
     /// - Attempting to rename a key to itself will return an error.
     fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64>;
 
+    // TODO: Rename to `copy`
     /// Copies an entry to a **different storage container**.
     ///
     /// This function:
@@ -111,6 +113,7 @@ pub trait DataStoreWriter {
     /// - This operation does **not** delete the original entry.
     fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64>;
 
+    // TODO: Rename to `move`
     /// Moves an entry from the current storage to a **different storage container**.
     ///
     /// This function:
@@ -131,6 +134,7 @@ pub trait DataStoreWriter {
     ///   the append-only structure.
     fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64>;
 
+    // TODO: Rename to `delete`
     /// Deletes a key by appending a **null byte marker**.
     ///
     /// The storage engine is **append-only**, so keys cannot be removed directly.
@@ -214,6 +218,7 @@ pub trait AsyncDataStoreWriter {
     /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
     async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64>;
 
+    // TODO: Rename to `rename`
     /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
     ///
     /// This function:
@@ -235,6 +240,7 @@ pub trait AsyncDataStoreWriter {
     /// - Attempting to rename a key to itself will return an error.
     async fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64>;
 
+    // TODO: Rename to `copy`
     /// Copies an entry to a **different storage container**.
     ///
     /// This function:
@@ -255,6 +261,7 @@ pub trait AsyncDataStoreWriter {
     /// - This operation does **not** delete the original entry.
     async fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64>;
 
+    // TODO: Rename to `move`
     /// Moves an entry from the current storage to a **different storage container**.
     ///
     /// This function:
@@ -275,6 +282,7 @@ pub trait AsyncDataStoreWriter {
     ///   the append-only structure.
     async fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64>;
 
+    // TODO: Rename to `delete`
     /// Deletes a key by appending a **null byte marker**.
     ///
     /// The storage engine is **append-only**, so keys cannot be removed directly.

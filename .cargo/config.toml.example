@@ -1,0 +1,5 @@
+[patch.crates-io]
+muxio-rpc-service-caller = { path = "../rust-muxio/extensions/muxio-rpc-service-caller" }
+muxio-tokio-rpc-client = { path = "../rust-muxio/extensions/muxio-tokio-rpc-client" }
+muxio-tokio-rpc-server = { path = "../rust-muxio/extensions/muxio-tokio-rpc-server" }
+muxio-rpc-service = { path = "../rust-muxio/extensions/muxio-rpc-service" }

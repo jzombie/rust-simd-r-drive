@@ -54,7 +54,7 @@ async fn main() -> std::io::Result<()> {
                 let store_mutex = Arc::clone(&write_store);
                 async move {
                     let resp = task::spawn_blocking(move || {
-                        let req = Write::decode_request(&bytes)?;
+                        let params = Write::decode_request(&bytes)?;
 
                         // Acquire exclusive write lock.
                         //
@@ -63,10 +63,8 @@ async fn main() -> std::io::Result<()> {
                         //
                         // Tokio's blocking_write ensures the thread isn't stalled.
                         let store = store_mutex.blocking_write();
-                        let result = store.write(&req.key, &req.payload); // TODO: Apply error handling
-                        let resp = Write::encode_response(WriteResponseParams {
-                            result: result.ok(),
-                        })?;
+                        let tail_offset = store.write(&params.key, &params.payload)?;
+                        let resp = Write::encode_response(WriteResponseParams { tail_offset })?;
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await
@@ -92,9 +90,9 @@ async fn main() -> std::io::Result<()> {
                             .iter()
                             .map(|(k, v)| (k.as_slice(), v.as_slice()))
                             .collect();
-                        let result = store.batch_write(&borrowed_entries)?;
+                        let tail_offset = store.batch_write(&borrowed_entries)?;
                         let resp =
-                            BatchWrite::encode_response(BatchWriteResponseParams { result })?;
+                            BatchWrite::encode_response(BatchWriteResponseParams { tail_offset })?;
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await
@@ -161,13 +159,13 @@ async fn main() -> std::io::Result<()> {
                         //    Each handle is turned into Option<Vec<u8>> so the resulting
                         //    response owns its bytes and is independent of the mmap.
                         //
-                        let results: Vec<Option<Vec<u8>>> = handles
+                        let entries: Vec<Option<Vec<u8>>> = handles
                             .into_iter()
                             .map(|opt| opt.map(|h| h.as_slice().to_vec()))
                             .collect();
 
                         // ── 4. Marshal the response frame ───────────────────────────────
-                        let resp = BatchRead::encode_response(BatchReadResponseParams { results })?;
+                        let resp = BatchRead::encode_response(BatchReadResponseParams { entries })?;
 
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })

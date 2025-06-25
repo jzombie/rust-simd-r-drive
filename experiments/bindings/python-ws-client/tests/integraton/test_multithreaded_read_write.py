@@ -26,7 +26,6 @@ def client():
             f"Failed to connect to the WebSocket server at {SERVER_ADDR}. Is it running? Error: {e}"
         )
 
-
 def test_concurrent_read_write_stress(client):
     """
     Stress test with multiple threads performing concurrent reads and writes.
