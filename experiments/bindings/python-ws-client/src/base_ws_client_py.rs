@@ -1,3 +1,4 @@
+use crate::{ConnectionError, TimeoutError};
 use pyo3::exceptions::PyIOError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
@@ -5,12 +6,16 @@ use simd_r_drive_ws_client::{
     AsyncDataStoreReader, AsyncDataStoreWriter, RpcTransportState, WsClient,
 };
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use tokio::runtime::{Builder, Runtime};
+use tokio::time::timeout;
 
-#[pyclass(subclass)] // Note: `subclass` allows this to be subclassed
+#[pyclass(subclass)]
 pub struct BaseDataStoreWsClient {
     ws_client: Arc<WsClient>,
     runtime: Arc<Runtime>,
+    is_connected: Arc<AtomicBool>,
 }
 
 #[pymethods]
@@ -26,44 +31,66 @@ impl BaseDataStoreWsClient {
                 })?,
         );
 
-        let ws_client = runtime.block_on(async { WsClient::new(ws_address).await })?;
+        let ws_client = runtime
+            .block_on(async { WsClient::new(ws_address).await })
+            .map_err(|e| PyIOError::new_err(e.to_string()))?;
+
+        let is_connected_clone = Arc::new(AtomicBool::new(true));
+        let is_connected_for_handler = is_connected_clone.clone();
 
         ws_client.set_state_change_handler(move |new_state: RpcTransportState| {
-            // TODO: Handle
-            // This code will run every time the connection state changes
             tracing::info!("[Callback] Transport state changed to: {:?}", new_state);
+            if new_state == RpcTransportState::Disconnected {
+                is_connected_for_handler.store(false, Ordering::SeqCst);
+            }
         });
 
         Ok(Self {
             ws_client: Arc::new(ws_client),
             runtime,
+            is_connected: is_connected_clone,
         })
     }
 
+    fn check_connection(&self) -> PyResult<()> {
+        if !self.is_connected.load(Ordering::SeqCst) {
+            return Err(ConnectionError::new_err("The client is disconnected."));
+        }
+        Ok(())
+    }
+
+    // --- All public methods are now blocking again, but with timeouts ---
+
     #[pyo3(name = "write")]
     fn py_write(&self, key: Vec<u8>, payload: Vec<u8>) -> PyResult<()> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
         self.runtime.block_on(async {
-            self.ws_client
-                .write(&key, &payload)
-                .await
-                .map_err(|e| PyIOError::new_err(e.to_string()))
-                .map(|_tail_offset| ())
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.write(&key, &payload)).await {
+                Ok(Ok(_)) => Ok(()),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("Write operation timed out.")),
+            }
         })
     }
 
     #[pyo3(name = "batch_write")]
     fn py_batch_write(&self, entries: Vec<(Vec<u8>, Vec<u8>)>) -> PyResult<()> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
         let converted: Vec<(&[u8], &[u8])> = entries
             .iter()
             .map(|(k, v)| (k.as_slice(), v.as_slice()))
             .collect();
 
         self.runtime.block_on(async {
-            self.ws_client
-                .batch_write(&converted)
-                .await
-                .map_err(|e| PyIOError::new_err(e.to_string()))
-                .map(|_tail_offset| ())
+            match timeout(Duration::from_secs(60), client.batch_write(&converted)).await {
+                Ok(Ok(_)) => Ok(()),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("Batch write operation timed out.")),
+            }
         })
     }
 
@@ -74,24 +101,35 @@ impl BaseDataStoreWsClient {
     // fn py_read_numpy<'py>(&self, py: Python<'py>, key: Vec<u8>) -> PyResult<Option<&'py PyArray<u8, numpy::Ix1>>> {
     #[pyo3(name = "read")]
     fn py_read(&self, key: Vec<u8>) -> PyResult<Option<PyObject>> {
-        let maybe_bytes = self
-            .runtime
-            .block_on(async { self.ws_client.read(&key).await })
-            .map_err(|e| PyIOError::new_err(e.to_string()))?;
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        let maybe_bytes = self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.read(&key)).await {
+                Ok(Ok(data)) => Ok(data),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("Read operation timed out.")),
+            }
+        })?;
 
         Python::with_gil(|py| Ok(maybe_bytes.map(|bytes| PyBytes::new(py, &bytes).into())))
     }
 
     #[pyo3(name = "batch_read")]
     fn py_batch_read(&self, keys: Vec<Vec<u8>>) -> PyResult<Vec<Option<PyObject>>> {
-        // Keep the buffers alive for the async call.
-        let key_bufs = keys;
-        let key_slices: Vec<&[u8]> = key_bufs.iter().map(|k| k.as_slice()).collect();
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+        let key_slices: Vec<&[u8]> = keys.iter().map(|k| k.as_slice()).collect();
 
-        let results = self
-            .runtime
-            .block_on(async { self.ws_client.batch_read(&key_slices).await })
-            .map_err(|e| PyIOError::new_err(e.to_string()))?;
+        let results = self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(60), client.batch_read(&key_slices)).await {
+                Ok(Ok(data)) => Ok(data),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("Batch read operation timed out.")),
+            }
+        })?;
 
         Python::with_gil(|py| {
             Ok(results
