@@ -12,5 +12,5 @@ publish.workspace = true # Inherit from workspace
 
 [dependencies]
 bitcode = "0.6.6"
-muxio-rpc-service = "0.7.0-alpha"
+muxio-rpc-service = "0.8.0-alpha"
 

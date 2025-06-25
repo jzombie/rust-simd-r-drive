@@ -646,7 +646,7 @@ dependencies = [
 
 [[package]]
 name = "muxio"
-version = "0.7.0-alpha"
+version = "0.8.0-alpha"
 dependencies = [
  "chrono",
  "once_cell",
@@ -655,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service"
-version = "0.7.0-alpha"
+version = "0.8.0-alpha"
 dependencies = [
  "async-trait",
  "futures",
@@ -666,7 +666,7 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service-caller"
-version = "0.7.0-alpha"
+version = "0.8.0-alpha"
 dependencies = [
  "async-trait",
  "futures",
@@ -677,7 +677,7 @@ dependencies = [
 
 [[package]]
 name = "muxio-tokio-rpc-client"
-version = "0.7.0-alpha"
+version = "0.8.0-alpha"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1657,4 +1657,4 @@ dependencies = [
 
 [[patch.unused]]
 name = "muxio-tokio-rpc-server"
-version = "0.7.0-alpha"
+version = "0.8.0-alpha"
