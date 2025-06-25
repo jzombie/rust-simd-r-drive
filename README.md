@@ -1,9 +1,4 @@
-# SIMD R Drive
-
-[![made-with-rust][rust-logo]][rust-src-page]
-[![crates.io][crates-badge]][crates-page]
-[![Documentation][docs-badge]][docs-page]
-[![MIT licensed][license-badge]][license-page]
+# SIMD R Drive [![made-with-rust][rust-logo]][rust-src-page] [![crates.io][crates-badge]][crates-page] [![Documentation][docs-badge]][docs-page] [![MIT licensed][license-badge]][license-page]
 
 **Work in progress.**
 
