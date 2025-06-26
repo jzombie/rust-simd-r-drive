@@ -11,6 +11,11 @@ use std::time::Duration;
 use tokio::runtime::{Builder, Runtime};
 use tokio::time::timeout;
 
+// TODO: Borrow configuration props from MySQL
+// connection_timeout=10,  # Timeout for the connection attempt (in seconds)
+// read_timeout=30,        # Timeout for waiting for response from server (in seconds)
+// write_timeout=30        # Timeout for sending data to server (in seconds)
+
 #[pyclass(subclass)]
 pub struct BaseDataStoreWsClient {
     ws_client: Arc<WsClient>,
