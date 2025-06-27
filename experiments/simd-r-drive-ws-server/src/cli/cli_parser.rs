@@ -2,7 +2,6 @@ use crate::cli::HELP_TEMPLATE;
 use clap::CommandFactory;
 use clap::Parser;
 use clap::error::ErrorKind;
-use std::net::SocketAddr;
 use std::path::PathBuf;
 
 /// CLI for starting the SIMD R Drive RPC server
@@ -22,14 +21,23 @@ pub struct Cli {
     )]
     pub storage: PathBuf,
 
-    /// Address to bind the RPC server to. Defaults to 127.0.0.1 with a random port.
+    /// The host address to bind the RPC server to.
     #[arg(
         long,
-        value_name = "ADDR",
-        default_value = "127.0.0.1:0",
-        help = "Socket address to listen on, e.g. 127.0.0.1:7000"
+        value_name = "HOST",
+        default_value = "127.0.0.1",
+        help = "Host address to listen on (e.g., 127.0.0.1, 0.0.0.0, localhost)"
     )]
-    pub listen: SocketAddr,
+    pub host: String,
+
+    /// The port to bind the RPC server to.
+    #[arg(
+        long,
+        value_name = "PORT",
+        default_value_t = 0,
+        help = "Port to listen on [default: a random free port]"
+    )]
+    pub port: u16,
 }
 
 impl Cli {
