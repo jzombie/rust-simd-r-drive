@@ -31,16 +31,19 @@ def test_is_empty(client):
 
     assert client.is_empty()
     assert len(client) == 0
+    assert client.file_size() == 0
     
     client.write(b"testing", b"123")
 
     assert client.is_empty() == False
     assert len(client) == 1
+    assert client.file_size() > 0
 
     client.delete(b"testing")
 
     assert client.is_empty()
     assert len(client) == 0
+    assert (client.file_size() > 0), f"File size expected to still be above 0 after key deletion"
 
 def test_simple_read_write(client):
     """Tests a simple write operation followed by a read."""

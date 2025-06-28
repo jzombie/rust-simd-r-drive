@@ -136,6 +136,15 @@ class DataStoreWsClient:
         """
         ...
 
+    def file_size(self) -> int:
+        """
+        Returns the current file size on disk (including those of deleted entries).
+    
+        Returns:
+            int: File size in bytes.
+        """
+        ...
+
 @final
 class NamespaceHasher:
     """

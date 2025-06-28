@@ -18,3 +18,6 @@ pub use len::*;
 
 mod is_empty;
 pub use is_empty::*;
+
+mod file_size;
+pub use file_size::*;

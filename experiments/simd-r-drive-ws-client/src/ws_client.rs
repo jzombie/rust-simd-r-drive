@@ -6,8 +6,8 @@ use simd_r_drive::{
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Delete,
-    DeleteRequestParams, IsEmpty, IsEmptyRequestParams, Len, LenRequestParams, Read,
-    ReadRequestParams, Write, WriteRequestParams,
+    DeleteRequestParams, FileSize, FileSizeRequestParams, IsEmpty, IsEmptyRequestParams, Len,
+    LenRequestParams, Read, ReadRequestParams, Write, WriteRequestParams,
 };
 use std::io::Result;
 
@@ -131,6 +131,8 @@ impl AsyncDataStoreReader for WsClient {
     }
 
     async fn file_size(&self) -> Result<u64> {
-        unimplemented!("`file_size` is not currently implemented");
+        let response_params = FileSize::call(&self.rpc_client, FileSizeRequestParams {}).await?;
+
+        Ok(response_params.file_size)
     }
 }

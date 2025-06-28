@@ -191,4 +191,19 @@ impl BaseDataStoreWsClient {
             }
         })
     }
+
+    #[pyo3(name = "file_size")]
+    fn py_file_size(&self) -> PyResult<(u64)> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.file_size()).await {
+                Ok(Ok(file_size)) => Ok(file_size),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("`file_size` operation timed out.")),
+            }
+        })
+    }
 }
