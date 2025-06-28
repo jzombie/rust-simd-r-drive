@@ -12,12 +12,13 @@ class DataStoreWsClient:
     key/value pairs, streaming writes, and zero-copy reads.
     """
 
-    def __init__(self, ws_addr: str) -> None:
+    def __init__(self, host: str, port: int) -> None:
         """
         Connects to a SIMD R Drive server.
 
         Args:
-            ws_addr (str): The WebSocket address of the SIMD R Drive server.
+            host (str): The hostname or IP address of the server to connect to.
+            port (int): The TCP port of the server.
         """
         ...
 

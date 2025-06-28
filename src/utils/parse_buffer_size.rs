@@ -47,11 +47,11 @@ pub fn parse_buffer_size(size_str: &str) -> Result<usize, String> {
         "k" | "kb" => 1024,
         "m" | "mb" => 1024 * 1024,
         "g" | "gb" => 1024 * 1024 * 1024,
-        _ => return Err(format!("Invalid buffer size unit: {}", unit_part)),
+        _ => return Err(format!("Invalid buffer size unit: {unit_part}")),
     };
 
     num_part
         .parse::<usize>()
         .map(|n| n * multiplier)
-        .map_err(|_| format!("Failed to parse buffer size: {}", size_str))
+        .map_err(|_| format!("Failed to parse buffer size: {size_str}"))
 }

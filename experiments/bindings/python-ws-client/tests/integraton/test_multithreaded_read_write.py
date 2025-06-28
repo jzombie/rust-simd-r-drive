@@ -7,7 +7,8 @@ import random
 import secrets
 
 # Server address, configurable via environment variable
-SERVER_ADDR = os.environ.get("TEST_SERVER_ADDR", "127.0.0.1:34129")
+SERVER_HOST = os.environ.get("TEST_SERVER_HOST", "127.0.0.1")
+SERVER_PORT = int(os.environ.get("TEST_SERVER_PORT", 34129))
 
 
 @pytest.fixture(scope="module")
@@ -19,11 +20,11 @@ def client():
     # Allow some time for the server to start up.
     time.sleep(2)
     try:
-        ws_client = DataStoreWsClient(SERVER_ADDR)
+        ws_client = DataStoreWsClient(SERVER_HOST, SERVER_PORT)
         yield ws_client
     except Exception as e:
         pytest.fail(
-            f"Failed to connect to the WebSocket server at {SERVER_ADDR}. Is it running? Error: {e}"
+            f"Failed to connect to the WebSocket server at {SERVER_HOST}. Is it running? Error: {e}"
         )
 
 def test_concurrent_read_write_stress(client):
@@ -47,7 +48,7 @@ def test_concurrent_read_write_stress(client):
         # Each worker creates its own client connection to simulate concurrent users.
         local_client = None
         try:
-            local_client = DataStoreWsClient(SERVER_ADDR)
+            local_client = DataStoreWsClient(SERVER_HOST, SERVER_PORT)
             for i in range(OPERATIONS_PER_THREAD):
                 # Randomly choose between writing and reading
                 if (

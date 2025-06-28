@@ -22,8 +22,7 @@ fn test_import_directory_and_verify_contents() {
 
     assert!(
         source_dir.exists(),
-        "Test source directory does not exist: {:?}",
-        source_dir
+        "Test source directory does not exist: {source_dir:?}",
     );
 
     let (_dir, storage) = create_temp_storage();
@@ -44,8 +43,7 @@ fn test_import_directory_and_verify_contents() {
 
         assert!(
             original_path.exists(),
-            "Original file missing for key: {:?}",
-            original_path
+            "Original file missing for key: {original_path:?}",
         );
 
         let mut expected = Vec::new();
@@ -57,8 +55,7 @@ fn test_import_directory_and_verify_contents() {
         assert_eq!(
             actual.as_slice(),
             expected.as_slice(),
-            "Mismatch in stored content for key {:?}",
-            key_str
+            "Mismatch in stored content for key {key_str:?}",
         );
     }
 }
@@ -71,8 +68,7 @@ fn test_import_without_namespace() {
 
     assert!(
         source_dir.exists(),
-        "Expected test source directory to exist: {:?}",
-        source_dir
+        "Expected test source directory to exist: {source_dir:?}",
     );
 
     let (_dir, storage) = create_temp_storage();

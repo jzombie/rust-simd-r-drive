@@ -15,8 +15,8 @@ pub struct WsClient {
 }
 
 impl WsClient {
-    pub async fn new(websocket_address: &str) -> Result<Self> {
-        let rpc_client = RpcClient::new(&format!("ws://{}/ws", websocket_address)).await?;
+    pub async fn new(host: &str, port: u16) -> Result<Self> {
+        let rpc_client = RpcClient::new(host, port).await?;
 
         Ok(Self { rpc_client })
     }

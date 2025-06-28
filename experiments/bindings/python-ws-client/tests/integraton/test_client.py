@@ -5,7 +5,8 @@ import os
 import secrets
 
 # Server address, configurable via environment variable
-SERVER_ADDR = os.environ.get("TEST_SERVER_ADDR", "127.0.0.1:34129")
+SERVER_HOST = os.environ.get("TEST_SERVER_HOST", "127.0.0.1")
+SERVER_PORT = int(os.environ.get("TEST_SERVER_PORT", 34129))
 
 
 @pytest.fixture(scope="module")
@@ -17,11 +18,11 @@ def client():
     # Allow some time for the server to start up.
     time.sleep(2)
     try:
-        ws_client = DataStoreWsClient(SERVER_ADDR)
+        ws_client = DataStoreWsClient(SERVER_HOST, SERVER_PORT)
         yield ws_client
     except Exception as e:
         pytest.fail(
-            f"Failed to connect to the WebSocket server at {SERVER_ADDR}. Is it running? Error: {e}"
+            f"Failed to connect to the WebSocket server at {SERVER_HOST}. Is it running? Error: {e}"
         )
 
 
@@ -123,9 +124,9 @@ def test_large_batch_write(client):
 def test_batch_read_with_missing_key(client):
     """
     Verifies that batch_read:
-    – returns payloads for existing keys,
-    – returns None for keys that are absent,
-    – preserves order (results[i] matches keys[i]).
+    - returns payloads for existing keys,
+    - returns None for keys that are absent,
+    - preserves order (results[i] matches keys[i]).
     """
     # --- Arrange ----------------------------------------------------------
     entries = [

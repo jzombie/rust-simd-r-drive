@@ -72,8 +72,7 @@ async fn concurrent_slow_streamed_write_test() {
                 .expect("Failed to write stream!");
 
             eprintln!(
-                "[Task {}] Finished writing stream {:?} ({} bytes written)",
-                i, key, bytes_written
+                "[Task {i}] Finished writing stream {key:?} ({bytes_written} bytes written)",
             );
         }));
     }
@@ -95,14 +94,12 @@ async fn concurrent_slow_streamed_write_test() {
         // really difficult to figure out the error, hence the `all_values_match`
         assert!(
             all_values_match,
-            "Stream {:?} data mismatch: contents do not match",
-            key
+            "Stream {key:?} data mismatch: contents do not match",
         );
 
         assert!(
             length_match,
-            "Stream {:?} length mismatch: expected {} but got {}",
-            key,
+            "Stream {key:?} length mismatch: expected {} but got {}",
             expected_data.len(),
             retrieved.len()
         );
@@ -127,13 +124,13 @@ async fn concurrent_write_test() {
         let storage_clone = Arc::clone(&storage);
         tasks.push(tokio::spawn(async move {
             for i in 0..num_writes {
-                let key = format!("thread{}_key{}", thread_id, i).into_bytes();
-                let value = format!("thread{}_value{}", thread_id, i).into_bytes();
+                let key = format!("thread{thread_id}_key{i}").into_bytes();
+                let value = format!("thread{thread_id}_value{i}").into_bytes();
 
                 // Directly call the method without attempting to mutate the Arc
                 storage_clone.write(&key, &value).unwrap();
 
-                eprintln!("[Thread {}] Wrote: {:?} -> {:?}", thread_id, key, value);
+                eprintln!("[Thread {thread_id}] Wrote: {key:?} -> {value:?}");
                 tokio::time::sleep(Duration::from_millis(5)).await; // Simulate delays
             }
         }));
@@ -147,8 +144,8 @@ async fn concurrent_write_test() {
     // Final Check: Ensure all written keys exist
     for thread_id in 0..thread_count {
         for i in 0..num_writes {
-            let key = format!("thread{}_key{}", thread_id, i).into_bytes();
-            let value = format!("thread{}_value{}", thread_id, i).into_bytes();
+            let key = format!("thread{thread_id}_key{i}").into_bytes();
+            let value = format!("thread{thread_id}_value{i}").into_bytes();
 
             let stored_value = storage.read(&key).unwrap();
             eprintln!(
@@ -183,7 +180,7 @@ async fn interleaved_read_write_test() {
         // Step 1: Write initial data
         let value_a1 = b"value_from_A1";
         storage_clone_a.write(key, value_a1).unwrap();
-        eprintln!("[Thread A] Wrote: {:?}", value_a1);
+        eprintln!("[Thread A] Wrote: {value_a1:?}");
 
         // Step 2: Notify Thread B that it can read now
         notify_a_clone.notify_waiters();
@@ -207,13 +204,13 @@ async fn interleaved_read_write_test() {
         notify_a_clone.notified().await;
 
         let result = storage_clone_b.read(key).unwrap();
-        eprintln!("[Thread B] Read initial value: {:?}", result);
+        eprintln!("[Thread B] Read initial value: {result:?}");
         assert_eq!(result.as_deref(), Some(b"value_from_A1".as_ref()));
 
         // Step 4: Write new data
         let value_b = b"value_from_B";
         storage_clone_b.write(key, value_b).unwrap();
-        eprintln!("[Thread B] Wrote: {:?}", value_b);
+        eprintln!("[Thread B] Wrote: {value_b:?}");
 
         // Step 6: Notify Thread A that it can now read the updated value
         notify_b_clone.notify_waiters();
@@ -227,6 +224,6 @@ async fn interleaved_read_write_test() {
 
     // Final Check: Ensure storage contains the latest value
     let final_value = storage.read(b"shared_key").unwrap();
-    eprintln!("[Main] FINAL VALUE: {:?}", final_value);
+    eprintln!("[Main] FINAL VALUE: {final_value:?}");
     assert_eq!(final_value.as_deref(), Some(b"value_from_B".as_ref()));
 }

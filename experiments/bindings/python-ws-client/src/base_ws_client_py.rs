@@ -11,6 +11,11 @@ use std::time::Duration;
 use tokio::runtime::{Builder, Runtime};
 use tokio::time::timeout;
 
+// TODO: Borrow configuration props from MySQL
+// connection_timeout=10,  # Timeout for the connection attempt (in seconds)
+// read_timeout=30,        # Timeout for waiting for response from server (in seconds)
+// write_timeout=30        # Timeout for sending data to server (in seconds)
+
 #[pyclass(subclass)]
 pub struct BaseDataStoreWsClient {
     ws_client: Arc<WsClient>,
@@ -21,7 +26,7 @@ pub struct BaseDataStoreWsClient {
 #[pymethods]
 impl BaseDataStoreWsClient {
     #[new]
-    fn new(_py: Python<'_>, ws_address: &str) -> PyResult<Self> {
+    fn new(_py: Python<'_>, host: &str, port: u16) -> PyResult<Self> {
         let runtime = Arc::new(
             Builder::new_multi_thread()
                 .enable_all()
@@ -32,7 +37,7 @@ impl BaseDataStoreWsClient {
         );
 
         let ws_client = runtime
-            .block_on(async { WsClient::new(ws_address).await })
+            .block_on(async { WsClient::new(host, port).await })
             .map_err(|e| PyIOError::new_err(e.to_string()))?;
 
         let is_connected_clone = Arc::new(AtomicBool::new(true));

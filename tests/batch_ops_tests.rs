@@ -66,8 +66,7 @@ fn test_batch_write_and_batch_read() {
         assert_eq!(
             got.as_slice(),
             *expected_val,
-            "payload mismatch for key {:?}",
-            expected_key
+            "payload mismatch for key {expected_key:?}",
         );
     }
 }
