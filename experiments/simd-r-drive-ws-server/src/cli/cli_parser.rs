@@ -35,6 +35,7 @@ pub struct Cli {
         long,
         value_name = "PORT",
         default_value_t = 0,
+        hide_default_value = true, // Override `clap` default with a custom one
         help = "Port to listen on [default: a random free port]"
     )]
     pub port: u16,
