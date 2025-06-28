@@ -31,7 +31,7 @@ mod tests {
 
         // Step 2: Copy the entry to the target storage
         source_storage
-            .copy_entry(key, &target_storage)
+            .copy(key, &target_storage)
             .expect("Failed to copy entry");
 
         // Step 3: Ensure the original entry still exists in the source
@@ -74,7 +74,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_entry_to_self_fails() {
+    fn test_copy_to_self_fails() {
         let (_dir, storage) = create_temp_storage();
 
         let key = b"self_copy_key";
@@ -84,7 +84,7 @@ mod tests {
         storage.write(key, payload).expect("Failed to append entry");
 
         // Step 2: Attempt to copy the entry to the same storage
-        let result = storage.copy_entry(key, &storage);
+        let result = storage.copy(key, &storage);
 
         // Step 3: Ensure the operation fails with the expected error
         assert!(
@@ -100,7 +100,7 @@ mod tests {
     }
 
     #[test]
-    fn test_move_entry_between_storages() {
+    fn test_transfer_entry_between_storages() {
         let (_dir1, source_storage) = create_temp_storage();
         let (_dir2, target_storage) = create_temp_storage();
 
@@ -114,7 +114,7 @@ mod tests {
 
         // Step 2: Move the entry to the target storage
         source_storage
-            .move_entry(key, &target_storage)
+            .transfer(key, &target_storage)
             .expect("Failed to move entry");
 
         // Step 3: Ensure the original entry no longer exists in the source
@@ -205,7 +205,7 @@ mod tests {
         assert_eq!(count_before_delete, 2);
 
         // Delete entry for key1
-        storage.delete_entry(key1).expect("Failed to delete entry");
+        storage.delete(key1).expect("Failed to delete entry");
 
         // Verify count is reduced
         let count_after_delete = storage.count().unwrap();
@@ -244,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rename_entry() {
+    fn test_rename() {
         let (_dir, storage) = create_temp_storage();
 
         let old_key = b"old_key";
@@ -258,7 +258,7 @@ mod tests {
 
         // Step 2: Rename the entry
         storage
-            .rename_entry(old_key, new_key)
+            .rename(old_key, new_key)
             .expect("Failed to rename entry");
 
         // Step 3: Ensure the new key exists and has the same data
@@ -290,7 +290,7 @@ mod tests {
         storage.write(key, payload).expect("Failed to append entry");
 
         // Step 2: Attempt to rename the key to itself
-        let result = storage.rename_entry(key, key);
+        let result = storage.rename(key, key);
 
         // Step 3: Ensure the operation fails with the expected error
         assert!(

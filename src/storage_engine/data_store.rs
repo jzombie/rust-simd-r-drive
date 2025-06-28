@@ -540,9 +540,9 @@ impl DataStore {
     /// - `Err(std::io::Error)`: If a write operation fails.
     ///
     /// # Notes:
-    /// - This is a **low-level function** used by `copy_entry` and related operations.
+    /// - This is a **low-level function** used by `copy` and related operations.
     /// - The `entry` remains **unchanged** in the original storage.
-    fn copy_entry_handle(&self, entry: &EntryHandle, target: &DataStore) -> Result<u64> {
+    fn copy_handle(&self, entry: &EntryHandle, target: &DataStore) -> Result<u64> {
         let mut entry_stream = EntryStream::from(entry.clone_arc());
         target.write_stream_with_key_hash(entry.key_hash(), &mut entry_stream)
     }
@@ -578,7 +578,7 @@ impl DataStore {
         let mut compacted_data_size: u64 = 0;
 
         for entry in self.iter_entries() {
-            let new_tail_offset = self.copy_entry_handle(&entry, &compacted_storage)?;
+            let new_tail_offset = self.copy_handle(&entry, &compacted_storage)?;
             let stored_metadata_offset = new_tail_offset - METADATA_SIZE as u64;
             index_pairs.push((entry.key_hash(), stored_metadata_offset));
             compacted_data_size += entry.size_with_metadata() as u64;
@@ -693,7 +693,7 @@ impl DataStoreWriter for DataStore {
         self.batch_write_hashed_payloads(hashed_entries, false)
     }
 
-    fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
+    fn rename(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
         if old_key == new_key {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -708,16 +708,16 @@ impl DataStoreWriter for DataStore {
 
         self.write_stream(new_key, &mut old_entry_stream)?;
 
-        let new_offset = self.delete_entry(old_key)?;
+        let new_offset = self.delete(old_key)?;
         Ok(new_offset)
     }
 
-    fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+    fn copy(&self, key: &[u8], target: &DataStore) -> Result<u64> {
         if self.path == target.path {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!(
-                    "Cannot copy entry to the same storage ({:?}). Use `rename_entry` instead.",
+                    "Cannot copy entry to the same storage ({:?}). Use `rename` instead.",
                     self.path
                 ),
             ));
@@ -729,15 +729,15 @@ impl DataStoreWriter for DataStore {
                 format!("Key not found: {:?}", String::from_utf8_lossy(key)),
             )
         })?;
-        self.copy_entry_handle(&entry_handle, target)
+        self.copy_handle(&entry_handle, target)
     }
 
-    fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
-        self.copy_entry(key, target)?;
-        self.delete_entry(key)
+    fn transfer(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+        self.copy(key, target)?;
+        self.delete(key)
     }
 
-    fn delete_entry(&self, key: &[u8]) -> Result<u64> {
+    fn delete(&self, key: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
     }

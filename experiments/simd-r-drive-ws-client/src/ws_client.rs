@@ -65,20 +65,20 @@ impl AsyncDataStoreWriter for WsClient {
         Ok(resp.tail_offset)
     }
 
-    async fn rename_entry(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {
-        unimplemented!("`rename_entry` is not currently implemented");
+    async fn rename(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {
+        unimplemented!("`rename` is not currently implemented");
     }
 
-    async fn copy_entry(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
-        unimplemented!("`copy_entry` is not currently implemented");
+    async fn copy(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
+        unimplemented!("`copy` is not currently implemented");
     }
 
-    async fn move_entry(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
-        unimplemented!("`move_entry` is not currently implemented");
+    async fn transfer(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
+        unimplemented!("`transfer` is not currently implemented");
     }
 
-    async fn delete_entry(&self, _key: &[u8]) -> Result<u64> {
-        unimplemented!("`delete_entry` is not currently implemented");
+    async fn delete(&self, _key: &[u8]) -> Result<u64> {
+        unimplemented!("`delete` is not currently implemented");
     }
 }
 

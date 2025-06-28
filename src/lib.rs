@@ -57,7 +57,7 @@
 //! assert_eq!(entry_handle.as_slice(), b"A new value");
 //!
 //! // Delete an entry
-//! storage.delete_entry(b"key3").unwrap();
+//! storage.delete(b"key3").unwrap();
 //! let entry_handle = storage.read(b"key3").unwrap();
 //! assert!(entry_handle.is_none());
 //! ```
