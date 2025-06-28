@@ -853,6 +853,7 @@ impl DataStoreReader for DataStore {
         Ok(self.read(key)?.map(|entry| entry.metadata().clone()))
     }
 
+    // TODO: Use atomic count and don't loop through each entry!
     fn count(&self) -> Result<usize> {
         Ok(self.iter_entries().count())
     }

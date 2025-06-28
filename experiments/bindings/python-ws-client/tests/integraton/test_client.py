@@ -54,17 +54,28 @@ def test_simple_read_write(client):
 
 
 def test_batch_write_and_read(client):
-    """Tests a batch write operation followed by individual reads."""
+    """Tests a batch write operation followed by individual reads and count verification."""
     entries = [
-        (b"batch-key-1", b"value-alpha"),
-        (b"batch-key-2", b"value-beta"),
-        (b"batch-key-3", b"value-gamma"),
+        (f"batch-key-{secrets.token_hex(4)}".encode(), b"value-alpha"),
+        (f"batch-key-{secrets.token_hex(4)}".encode(), b"value-beta"),
+        (f"batch-key-{secrets.token_hex(4)}".encode(), b"value-gamma"),
     ]
 
     try:
+        print("\n--- Starting batch write and count test ---")
+        initial_count = client.count()
+        print(f"Initial count: {initial_count}")
+
         print("Attempting to perform a batch write...")
         client.batch_write(entries)
         print("Batch write operation completed.")
+
+        # Verify count increased correctly
+        new_count = client.count()
+        print(f"New count: {new_count}")
+        assert new_count == initial_count + len(
+            entries
+        ), f"FAIL: Count should be {initial_count + len(entries)}, but is {new_count}."
 
         print("Verifying batch write by reading each key...")
         for key, value in entries:
@@ -76,7 +87,7 @@ def test_batch_write_and_read(client):
                 read_value == value
             ), f"FAIL: Value mismatch for key '{key.decode()}'."
 
-        print("SUCCESS: Batch write test passed.")
+        print("SUCCESS: Batch write and count test passed.")
 
     except Exception as e:
         pytest.fail(f"An exception occurred during the batch write test: {e}")
@@ -228,57 +239,124 @@ def test_batch_read_structured_list_of_dicts(client):
     print("SUCCESS: batch_read_structured with a list of dictionaries passed.")
 
 
+def test_count_simple(client):
+    """Tests the basic increment/decrement behavior of the count() method."""
+    print("\n--- Starting simple count test ---")
+    key1 = f"count-key-{secrets.token_hex(4)}".encode()
+    key2 = f"count-key-{secrets.token_hex(4)}".encode()
+
+    # 1. Initial state
+    initial_count = client.count()
+    print(f"Initial count: {initial_count}")
+
+    # 2. Add a new key
+    client.write(key1, b"count-data-1")
+    assert client.count() == initial_count + 1, "Count should increment after first write"
+    assert client.count() == len(client)
+    print(f"Count after one write: {client.count()}")
+
+    # 3. Update an existing key
+    client.write(key1, b"count-data-1-updated")
+    assert client.count() == initial_count + 1, "Count should not change after an update"
+    assert client.count() == len(client)
+    print(f"Count after update: {client.count()}")
+
+    # 4. Add a second key
+    client.write(key2, b"count-data-2")
+    assert client.count() == initial_count + 2, "Count should increment after second write"
+    assert client.count() == len(client)
+    print(f"Count after second write: {client.count()}")
+
+    # 5. Delete a key
+    client.delete(key1)
+    assert client.count() == initial_count + 1, "Count should decrement after delete"
+    assert client.count() == len(client)
+    print(f"Count after one delete: {client.count()}")
+
+    # 6. Delete a non-existent key
+    client.delete(key1) # Already deleted
+    assert client.count() == initial_count + 1, "Count should not change when deleting a non-existent key"
+    assert client.count() == len(client)
+    print(f"Count after deleting a non-existent key: {client.count()}")
+    
+    # 7. Delete the final key
+    client.delete(key2)
+    assert client.count() == initial_count, "Count should return to initial after all deletes"
+    assert client.count() == len(client)
+    print(f"Final count: {client.count()}")
+    
+    print("SUCCESS: Simple count test passed.")
+
+
 def test_delete_key(client):
-    """Tests that deleting a key makes it non-existent for reads."""
+    """Tests that deleting a key makes it non-existent and decrements the count."""
     key = b"key-to-be-deleted"
     value = b"some-data-to-remove"
-    print("\n--- Starting delete handling test ---")
+    print("\n--- Starting delete handling and count test ---")
 
-    # Arrange: Write a key, and verify it exists.
-    print(f"Writing key '{key.decode()}' for deletion test.")
+    # Arrange: Write a key, and verify it exists and count is correct.
+    initial_count = client.count()
+    print(f"Writing key '{key.decode()}' for deletion test. Initial count: {initial_count}")
     client.write(key, value)
+    
+    assert client.count() == initial_count + 1, "FAIL: Count did not increment after write"
     initial_read = client.read(key)
     assert initial_read == value, "Pre-condition failed: Key was not written correctly before delete."
-    print("Key confirmed to exist before deletion.")
+    print(f"Key confirmed to exist. Count is now {client.count()}")
 
     # Act: Delete the key.
     print(f"Deleting key '{key.decode()}'.")
     client.delete(key)
 
-    # Assert: The key should no longer exist.
+    # Assert: The key should no longer exist and the count should be restored.
     final_read = client.read(key)
     print(f"Read after delete returned: {final_read}")
     assert final_read is None, "FAIL: Reading a deleted key should return None."
-    print("SUCCESS: Delete handling test passed.")
+    
+    final_count = client.count()
+    print(f"Final count: {final_count}")
+    assert final_count == initial_count, "FAIL: Count did not decrement after delete"
+    
+    print("SUCCESS: Delete handling and count test passed.")
 
 
 def test_delete_with_batch_read(client):
     """
-    Tests that a deleted key is correctly handled as `None` in a batch_read.
+    Tests that a deleted key is correctly handled as `None` in a batch_read and count is updated.
     """
-    print("\n--- Starting delete with batch_read test ---")
+    print("\n--- Starting delete with batch_read and count test ---")
     # Arrange: Write a set of keys.
     entries = [
-        (b"dbr-1", b"value-one"),
-        (b"dbr-to-delete", b"this-should-vanish"),
-        (b"dbr-3", b"value-three"),
+        (f"dbr-{secrets.token_hex(4)}".encode(), b"value-one"),
+        (f"dbr-{secrets.token_hex(4)}".encode(), b"this-should-vanish"),
+        (f"dbr-{secrets.token_hex(4)}".encode(), b"value-three"),
     ]
-    key_to_delete = b"dbr-to-delete"
-    
-    print("Writing initial batch for delete test...")
+    keys_to_fetch = [key for key, _ in entries]
+    key_to_delete = keys_to_fetch[1]
+
+    initial_count = client.count()
+    print(f"Writing initial batch for delete test. Initial count: {initial_count}")
     client.batch_write(entries)
+    
+    count_after_write = client.count()
+    assert count_after_write == initial_count + len(entries), "FAIL: Count did not increment correctly after batch write"
+    print(f"Count after batch write: {count_after_write}")
 
     # Act: Delete one of the keys from the batch.
     print(f"Deleting key '{key_to_delete.decode()}'.")
     client.delete(key_to_delete)
 
-    # Assert: Perform a batch_read and check for None in the deleted key's slot.
-    keys_to_fetch = [key for key, _ in entries]
+    # Assert count
+    count_after_delete = client.count()
+    assert count_after_delete == count_after_write - 1, "FAIL: Count did not decrement after delete"
+    print(f"Count after delete: {count_after_delete}")
+
+    # Assert batch_read correctness
     print(f"Performing batch_read on keys: {[k.decode() for k in keys_to_fetch]}")
     results = client.batch_read(keys_to_fetch)
     
-    expected_results = [b"value-one", None, b"value-three"]
+    expected_results = [entries[0][1], None, entries[2][1]]
     
     assert results == expected_results, \
         f"FAIL: batch_read did not correctly handle the deleted key. Expected {expected_results}, but got {results}."
-    print("SUCCESS: Delete with batch_read test passed.")
+    print("SUCCESS: Delete with batch_read and count test passed.")

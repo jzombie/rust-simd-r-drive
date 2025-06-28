@@ -20,25 +20,25 @@ impl RpcMethodPrebuffered for BatchWrite {
     type Input = BatchWriteRequestParams;
     type Output = BatchWriteResponseParams;
 
-    fn encode_request(write_request_params: Self::Input) -> Result<Vec<u8>, io::Error> {
-        Ok(bitcode::encode(&write_request_params))
+    fn encode_request(request_params: Self::Input) -> Result<Vec<u8>, io::Error> {
+        Ok(bitcode::encode(&request_params))
     }
 
     fn decode_request(bytes: &[u8]) -> Result<Self::Input, io::Error> {
-        let req_params = bitcode::decode::<Self::Input>(bytes)
+        let request_params = bitcode::decode::<Self::Input>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        Ok(req_params)
+        Ok(request_params)
     }
 
-    fn encode_response(result: Self::Output) -> Result<Vec<u8>, io::Error> {
-        Ok(bitcode::encode(&result))
+    fn encode_response(response_params: Self::Output) -> Result<Vec<u8>, io::Error> {
+        Ok(bitcode::encode(&response_params))
     }
 
-    fn decode_response(bytes: &[u8]) -> Result<Self::Output, io::Error> {
-        let resp_params = bitcode::decode::<Self::Output>(bytes)
+    fn decode_response(response_bytes: &[u8]) -> Result<Self::Output, io::Error> {
+        let response_params = bitcode::decode::<Self::Output>(response_bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        Ok(resp_params)
+        Ok(response_params)
     }
 }

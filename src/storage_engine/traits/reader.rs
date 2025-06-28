@@ -62,12 +62,15 @@ pub trait DataStoreReader {
     /// - `Err(std::io::Error)`: On I/O failure.
     fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>>;
 
+    // TODO: Consider renaming to `len`
     /// Counts **active** (non-deleted) key-value pairs in the storage.
     ///
     /// # Returns:
     /// - `Ok(active_count)`: Total active entries.
     /// - `Err(std::io::Error)`: On I/O failure.
-    fn count(&self) -> Result<usize>;
+    fn count(&self) -> Result<usize>; // TODO: Use `u64`
+
+    // TODO: Consider adding `is_empty`
 
     /// Returns the current file size on disk (including those of deleted entries).
     ///
@@ -139,12 +142,15 @@ pub trait AsyncDataStoreReader {
     /// - `Err(std::io::Error)`: On I/O failure.
     async fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>>;
 
+    // TODO: Consider renaming to `len`
     /// Counts **active** (non-deleted) key-value pairs in the storage.
     ///
     /// # Returns:
     /// - `Ok(active_count)`: Total active entries.
     /// - `Err(std::io::Error)`: On I/O failure.
-    async fn count(&self) -> Result<usize>;
+    async fn count(&self) -> Result<usize>; // TODO: Use `u64`
+
+    // TODO: Consider adding `is_empty`
 
     /// Returns the current file size on disk (including those of deleted entries).
     ///

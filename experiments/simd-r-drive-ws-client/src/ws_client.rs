@@ -5,8 +5,9 @@ use simd_r_drive::{
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Delete,
-    DeleteRequestParams, Read, ReadRequestParams, Write, WriteRequestParams,
+    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Count,
+    CountRequestParams, Delete, DeleteRequestParams, Read, ReadRequestParams, Write,
+    WriteRequestParams,
 };
 use std::io::Result;
 
@@ -38,7 +39,7 @@ impl AsyncDataStoreWriter for WsClient {
     }
 
     async fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
-        let resp = Write::call(
+        let response_params = Write::call(
             &self.rpc_client,
             WriteRequestParams {
                 key: key.to_vec(),
@@ -47,11 +48,11 @@ impl AsyncDataStoreWriter for WsClient {
         )
         .await?;
 
-        Ok(resp.tail_offset)
+        Ok(response_params.tail_offset)
     }
 
     async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
-        let resp = BatchWrite::call(
+        let response_params = BatchWrite::call(
             &self.rpc_client,
             BatchWriteRequestParams {
                 entries: entries
@@ -62,7 +63,7 @@ impl AsyncDataStoreWriter for WsClient {
         )
         .await?;
 
-        Ok(resp.tail_offset)
+        Ok(response_params.tail_offset)
     }
 
     async fn rename(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {
@@ -91,9 +92,10 @@ impl AsyncDataStoreReader for WsClient {
     type EntryHandleType = Vec<u8>;
 
     async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>> {
-        let resp = Read::call(&self.rpc_client, ReadRequestParams { key: key.to_vec() }).await?;
+        let response_params =
+            Read::call(&self.rpc_client, ReadRequestParams { key: key.to_vec() }).await?;
 
-        Ok(resp.entry_payload)
+        Ok(response_params.entry_payload)
     }
 
     async fn read_last_entry(&self) -> Result<Option<Self::EntryHandleType>> {
@@ -117,7 +119,9 @@ impl AsyncDataStoreReader for WsClient {
     }
 
     async fn count(&self) -> Result<usize> {
-        unimplemented!("`count` is not currently implemented");
+        let response_params = Count::call(&self.rpc_client, CountRequestParams {}).await?;
+
+        Ok(response_params.total_entries)
     }
 
     async fn get_storage_size(&self) -> Result<u64> {

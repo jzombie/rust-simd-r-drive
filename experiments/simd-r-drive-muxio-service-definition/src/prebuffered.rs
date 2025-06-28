@@ -12,3 +12,6 @@ pub use write::*;
 
 mod delete;
 pub use delete::*;
+
+mod count;
+pub use count::*;

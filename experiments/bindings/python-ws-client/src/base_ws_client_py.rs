@@ -11,6 +11,8 @@ use std::time::Duration;
 use tokio::runtime::{Builder, Runtime};
 use tokio::time::timeout;
 
+// TODO: Move timeout handling into inner client
+
 // TODO: Borrow configuration props from MySQL
 // connection_timeout=10,  # Timeout for the connection attempt (in seconds)
 // read_timeout=30,        # Timeout for waiting for response from server (in seconds)
@@ -110,7 +112,7 @@ impl BaseDataStoreWsClient {
         let maybe_bytes = self.runtime.block_on(async {
             // TODO: Don't hardcode timeout
             match timeout(Duration::from_secs(30), client.read(&key)).await {
-                Ok(Ok(data)) => Ok(data),
+                Ok(Ok(entry_payload)) => Ok(entry_payload),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
                 Err(_) => Err(TimeoutError::new_err("Read operation timed out.")),
             }
@@ -128,7 +130,7 @@ impl BaseDataStoreWsClient {
         let results = self.runtime.block_on(async {
             // TODO: Don't hardcode timeout
             match timeout(Duration::from_secs(60), client.batch_read(&key_slices)).await {
-                Ok(Ok(data)) => Ok(data),
+                Ok(Ok(entries_payloads)) => Ok(entries_payloads),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
                 Err(_) => Err(TimeoutError::new_err("Batch read operation timed out.")),
             }
@@ -155,5 +157,30 @@ impl BaseDataStoreWsClient {
                 Err(_) => Err(TimeoutError::new_err("Delete operation timed out.")),
             }
         })
+    }
+
+    // TODO: Use `u64` return type
+    #[pyo3(name = "count")]
+    fn py_count(&self) -> PyResult<(usize)> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.count()).await {
+                Ok(Ok(total_entries)) => Ok(total_entries),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("Count operation timed out.")),
+            }
+        })
+    }
+
+    // TODO: Use `u64` return type
+    /// Implements the `len()` built-in for Python.
+    ///
+    /// This allows you to call `len(store)` to get the number of active entries.
+    /// It assumes the underlying Rust client has a `len()` method.
+    fn __len__(&self) -> PyResult<usize> {
+        self.py_count()
     }
 }
