@@ -69,7 +69,7 @@ mod tests {
 
         for (i, payload) in payloads.iter().enumerate() {
             storage
-                .write(format!("key{}", i).as_bytes(), payload.as_slice())
+                .write(format!("key{i}").as_bytes(), payload.as_slice())
                 .expect("Failed to append entry");
         }
 

@@ -131,7 +131,7 @@ mod tests {
         let size_before = std::fs::metadata(&path)
             .expect("Failed to get metadata")
             .len();
-        eprintln!("File size before compaction: {}", size_before);
+        eprintln!("File size before compaction: {size_before}");
 
         // Step 3: Compact Storage
         eprintln!("Starting compaction...");
@@ -141,7 +141,7 @@ mod tests {
         let size_after = std::fs::metadata(&path)
             .expect("Failed to get metadata")
             .len();
-        eprintln!("File size after compaction: {}", size_after);
+        eprintln!("File size after compaction: {size_after}");
 
         assert!(
             size_after < size_before,

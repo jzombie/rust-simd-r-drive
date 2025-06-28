@@ -33,7 +33,7 @@ pub fn execute_command(cli: &Cli) {
                 .map(parse_buffer_size)
                 .transpose()
                 .unwrap_or_else(|err| {
-                    eprintln!("{}", err);
+                    eprintln!("{err}");
                     std::process::exit(1);
                 })
                 .unwrap_or(64 * 1024); // Default to 64KB
@@ -74,11 +74,11 @@ pub fn execute_command(cli: &Cli) {
                     }
                 }
                 Ok(None) => {
-                    eprintln!("Error: Key '{}' not found", key);
+                    eprintln!("Error: Key '{key}' not found");
                     std::process::exit(1);
                 }
                 Err(e) => {
-                    eprintln!("Error: {:?}", e);
+                    eprintln!("Error: {e:?}");
                     std::process::exit(1);
                 }
             }
@@ -98,7 +98,7 @@ pub fn execute_command(cli: &Cli) {
                 let mut stdin_reader = io::stdin().lock();
 
                 if let Err(err) = storage.write_stream(key_as_bytes, &mut stdin_reader) {
-                    eprintln!("Failed to write streamed stdin data: {}", err);
+                    eprintln!("Failed to write streamed stdin data: {err}");
                     std::process::exit(1);
                 }
             } else {
@@ -107,7 +107,7 @@ pub fn execute_command(cli: &Cli) {
                 std::process::exit(1);
             }
 
-            println!("Stored '{}'", key);
+            println!("Stored '{key}'");
         }
 
         Commands::Copy { key, target } => {
@@ -119,12 +119,12 @@ pub fn execute_command(cli: &Cli) {
             source_storage
                 .copy_entry(key.as_bytes(), &target_storage)
                 .map_err(|err| {
-                    eprintln!("Could not copy entry. Received error: {}", err);
+                    eprintln!("Could not copy entry. Received error: {err}");
                     std::process::exit(1);
                 })
                 .ok(); // Ignore the success case
 
-            println!("Copied key '{}' to {:?}", key, target);
+            println!("Copied key '{key}' to {target:?}");
         }
 
         Commands::Move { key, target } => {
@@ -136,12 +136,12 @@ pub fn execute_command(cli: &Cli) {
             source_storage
                 .move_entry(key.as_bytes(), &target_storage)
                 .map_err(|err| {
-                    eprintln!("Could not copy entry. Received error: {}", err);
+                    eprintln!("Could not copy entry. Received error: {err}");
                     std::process::exit(1);
                 })
                 .ok(); // Ignore the success case
 
-            println!("Moved key '{}' to {:?}", key, target);
+            println!("Moved key '{key}' to {target:?}");
         }
 
         Commands::Rename { old_key, new_key } => {
@@ -151,12 +151,12 @@ pub fn execute_command(cli: &Cli) {
             storage
                 .rename_entry(old_key.as_bytes(), new_key.as_bytes())
                 .map_err(|err| {
-                    eprintln!("Could not rename entry. Received error: {}", err);
+                    eprintln!("Could not rename entry. Received error: {err}");
                     std::process::exit(1);
                 })
                 .ok(); // Ignore the success case
 
-            println!("Renamed key '{}' to {}", old_key, new_key);
+            println!("Renamed key '{old_key}' to {new_key}");
         }
 
         Commands::Delete { key } => {
@@ -165,7 +165,7 @@ pub fn execute_command(cli: &Cli) {
             storage
                 .delete_entry(key.as_bytes())
                 .expect("Failed to delete entry");
-            eprintln!("Deleted key '{}'", key);
+            eprintln!("Deleted key '{key}'");
         }
 
         Commands::Compact => {
@@ -173,7 +173,7 @@ pub fn execute_command(cli: &Cli) {
                 DataStore::open_existing(&cli.storage).expect("Failed to open storage");
             println!("Starting compaction...");
             if let Err(e) = storage.compact() {
-                eprintln!("Compaction failed: {}", e);
+                eprintln!("Compaction failed: {e}");
                 std::process::exit(1);
             }
             println!("Compaction completed successfully.");
@@ -214,11 +214,11 @@ pub fn execute_command(cli: &Cli) {
                     println!("{:=<50}", ""); // Footer Line
                 }
                 Ok(None) => {
-                    eprintln!("Error: Key '{}' not found", key);
+                    eprintln!("Error: Key '{key}' not found");
                     std::process::exit(1);
                 }
                 Err(e) => {
-                    eprintln!("Error: {:?}", e);
+                    eprintln!("Error: {e:?}");
                     std::process::exit(1);
                 }
             }

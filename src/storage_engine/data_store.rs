@@ -547,6 +547,7 @@ impl DataStore {
         target.write_stream_with_key_hash(entry.key_hash(), &mut entry_stream)
     }
 
+    // TODO: Determine thread count *before* running this OR [somehow] make it thread safe.
     /// Compacts the storage by keeping only the latest version of each key.
     ///
     /// # ⚠️ WARNING:
@@ -596,12 +597,11 @@ impl DataStore {
             let mut file_guard = compacted_storage
                 .file
                 .write()
-                .map_err(|e| std::io::Error::other(format!("Lock poisoned: {}", e)))?;
+                .map_err(|e| std::io::Error::other(format!("Lock poisoned: {e}")))?;
             file_guard.flush()?;
         } else {
             info!(
-                "Compaction would increase file size (data w/ indexing: {}). Skipping static index generation.",
-                compacted_data_size
+                "Compaction would increase file size (data w/ indexing: {compacted_data_size}). Skipping static index generation.",
             );
         }
 
