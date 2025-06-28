@@ -30,6 +30,31 @@ mod tests {
     }
 
     #[test]
+    fn test_exists_checks_key_presence() {
+        let (_dir, storage) = create_temp_storage();
+
+        let key = b"exists_key".as_slice();
+        let payload = b"some payload".as_slice();
+
+        // 1. Key should NOT exist before any write.
+        assert!(
+            !storage.exists(key).unwrap(),
+            "Key unexpectedly exists before write"
+        );
+
+        // 2. After write, key should exist.
+        storage.write(key, payload).expect("Failed to write entry");
+        assert!(storage.exists(key).unwrap(), "Key should exist after write");
+
+        // 3. After delete, key should no longer exist.
+        storage.delete(key).expect("Failed to delete entry");
+        assert!(
+            !storage.exists(key).unwrap(),
+            "Key should not exist after delete"
+        );
+    }
+
+    #[test]
     fn test_append_and_read_last_entry() {
         let (_dir, storage) = create_temp_storage();
 

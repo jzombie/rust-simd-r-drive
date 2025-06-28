@@ -135,6 +135,6 @@ impl DataStore {
     }
 
     fn exists(&self, key: &[u8]) -> PyResult<bool> {
-        Ok(self.inner.lock().unwrap().read(key)?.is_some())
+        Ok(self.inner.lock().unwrap().exists(key)?)
     }
 }

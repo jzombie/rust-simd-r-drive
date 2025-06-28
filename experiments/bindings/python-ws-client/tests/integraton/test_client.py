@@ -33,13 +33,16 @@ def test_is_empty(client):
     assert len(client) == 0
     assert client.file_size() == 0
     
+    assert client.exists(b"testing") == False
     client.write(b"testing", b"123")
+    assert client.exists(b"testing") == True
 
     assert client.is_empty() == False
     assert len(client) == 1
     assert client.file_size() > 0
 
     client.delete(b"testing")
+    assert client.exists(b"testing") == False
 
     assert client.is_empty()
     assert len(client) == 0

@@ -99,6 +99,21 @@ impl BaseDataStoreWsClient {
         })
     }
 
+    #[pyo3(name = "exists")]
+    fn py_exists(&self, key: Vec<u8>) -> PyResult<bool> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.exists(&key)).await {
+                Ok(Ok(exists)) => Ok(exists),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("`exists` operation timed out.")),
+            }
+        })
+    }
+
     // TODO: I am *considering* renaming this to `read_prebuffered` since its operation differs from the underlying storage engine
     // TODO: Consider exposing an alternate form of `EntryHandle` here, like the Rust side.
     // The caveat is that this approach will still need to be fully read and not work with a streamer.

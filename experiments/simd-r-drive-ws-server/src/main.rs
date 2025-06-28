@@ -13,8 +13,9 @@ use simd_r_drive::{
 
 use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, Delete,
-    DeleteResponseParams, FileSize, FileSizeResponseParams, IsEmpty, IsEmptyResponseParams, Len,
-    LenResponseParams, Read, ReadResponseParams, Write, WriteResponseParams,
+    DeleteResponseParams, Exists, ExistsResponseParams, FileSize, FileSizeResponseParams, IsEmpty,
+    IsEmptyResponseParams, Len, LenResponseParams, Read, ReadResponseParams, Write,
+    WriteResponseParams,
 };
 mod cli;
 use crate::cli::Cli;
@@ -50,6 +51,7 @@ async fn main() -> std::io::Result<()> {
     let len_store = Arc::clone(&store);
     let is_empty_store = Arc::clone(&store);
     let file_size_store = Arc::clone(&store);
+    let exists_store = Arc::clone(&store);
 
     let _ = join!(
         endpoint.register_prebuffered(Write::METHOD_ID, {
@@ -204,6 +206,24 @@ async fn main() -> std::io::Result<()> {
                         let file_size = store.file_size()?;
                         let response_bytes =
                             FileSize::encode_response(FileSizeResponseParams { file_size })?;
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
+                    })
+                    .await
+                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    Ok(resp)
+                }
+            }
+        }),
+        endpoint.register_prebuffered(Exists::METHOD_ID, {
+            move |_, bytes: Vec<u8>| {
+                let store_mutex = Arc::clone(&exists_store);
+                async move {
+                    let resp = task::spawn_blocking(move || {
+                        let params = Exists::decode_request(&bytes)?;
+                        let store = store_mutex.blocking_read();
+                        let exists = store.exists(&params.key)?;
+                        let response_bytes =
+                            Exists::encode_response(ExistsResponseParams { exists })?;
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await

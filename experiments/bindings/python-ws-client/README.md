@@ -4,6 +4,10 @@
 
 Prototype WebSocket bindings for [SIMD R Drive](https://crates.io/crates/simd-r-drive), a high-performance, append-only single-file-container storage engine for Rust.
 
+## Requirements
+- **Python ≥ 3.10** (CPython)
+- Works on Linux, macOS, and Windows
+
 ## License
 
 Licensed under the [Apache-2.0 License](https://github.com/jzombie/rust-simd-r-drive/blob/main/experiments/bindings/python-ws-client/LICENSE).

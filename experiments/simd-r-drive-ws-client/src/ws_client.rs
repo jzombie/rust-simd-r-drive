@@ -6,8 +6,9 @@ use simd_r_drive::{
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Delete,
-    DeleteRequestParams, FileSize, FileSizeRequestParams, IsEmpty, IsEmptyRequestParams, Len,
-    LenRequestParams, Read, ReadRequestParams, Write, WriteRequestParams,
+    DeleteRequestParams, Exists, ExistsRequestParams, FileSize, FileSizeRequestParams, IsEmpty,
+    IsEmptyRequestParams, Len, LenRequestParams, Read, ReadRequestParams, Write,
+    WriteRequestParams,
 };
 use std::io::Result;
 
@@ -90,6 +91,13 @@ impl AsyncDataStoreWriter for WsClient {
 impl AsyncDataStoreReader for WsClient {
     // FIXME: This is a workaround until properly implementing a stream-able handle
     type EntryHandleType = Vec<u8>;
+
+    async fn exists(&self, key: &[u8]) -> Result<bool> {
+        let response_params =
+            Exists::call(&self.rpc_client, ExistsRequestParams { key: key.to_vec() }).await?;
+
+        Ok(response_params.exists)
+    }
 
     async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>> {
         let response_params =

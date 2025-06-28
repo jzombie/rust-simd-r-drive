@@ -48,6 +48,18 @@ class DataStoreWsClient:
         """
         ...
 
+    def exists(self, key: bytes) -> bool:
+        """
+        Checks whether a key currently exists in the store.
+
+        Args:
+            key (bytes): The **binary key** to check.
+
+        Returns:
+            bool: Whether the key exists and is active.
+        """
+        ...
+
     def read(self, key: bytes) -> Optional[bytes]:
         """
         Reads the value for a given key.
