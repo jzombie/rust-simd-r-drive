@@ -25,6 +25,6 @@ pub fn format_bytes(bytes: u64) -> String {
         b if b >= GB => format!("{:.2} GB", b as f64 / GB as f64),
         b if b >= MB => format!("{:.2} MB", b as f64 / MB as f64),
         b if b >= KB => format!("{:.2} KB", b as f64 / KB as f64),
-        _ => format!("{} bytes", bytes),
+        _ => format!("{bytes} bytes"),
     }
 }

@@ -959,9 +959,7 @@ dependencies = [
 
 [[package]]
 name = "muxio"
-version = "0.8.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "438fae9dabf5fced61fc02c8220dfd3d32f4c3fe920fb86a2948633a0bbaeb1c"
+version = "0.9.0-alpha"
 dependencies = [
  "chrono",
  "once_cell",
@@ -970,9 +968,7 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service"
-version = "0.8.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aaaaa655085a8524e405ace03657c518f7ed39ae4af40a5424f466b9180ca9e5"
+version = "0.9.0-alpha"
 dependencies = [
  "async-trait",
  "futures",
@@ -983,9 +979,7 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service-caller"
-version = "0.8.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "061ca0a702e645d7d48867c36ed64b7e98eb1398a3c7fb2eef1dc63a990ec309"
+version = "0.9.0-alpha"
 dependencies = [
  "async-trait",
  "futures",
@@ -996,9 +990,7 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service-endpoint"
-version = "0.8.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a531065063b4568f4c4bba14f461f58dde86a89c44f3f1d2b4e155614602f6b3"
+version = "0.9.0-alpha"
 dependencies = [
  "async-trait",
  "futures",
@@ -1011,9 +1003,7 @@ dependencies = [
 
 [[package]]
 name = "muxio-tokio-rpc-client"
-version = "0.8.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0718e9399969c331e8f4ef2e8db9778b319f47cee541517b0192216a273554ea"
+version = "0.9.0-alpha"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1029,9 +1019,7 @@ dependencies = [
 
 [[package]]
 name = "muxio-tokio-rpc-server"
-version = "0.8.0-alpha"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bf8cd76c1daac24a233e5bf5c3d55e4dcbf5cdaa8c7df37f6bf02381a37f7b0"
+version = "0.9.0-alpha"
 dependencies = [
  "async-trait",
  "axum",
@@ -1497,7 +1485,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.8.0-alpha"
+version = "0.9.0-alpha"
 dependencies = [
  "async-trait",
  "bincode",
@@ -1522,7 +1510,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-extensions"
-version = "0.8.0-alpha"
+version = "0.9.0-alpha"
 dependencies = [
  "bincode",
  "doc-comment",
@@ -1534,7 +1522,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-muxio-service-definition"
-version = "0.8.0-alpha"
+version = "0.9.0-alpha"
 dependencies = [
  "bitcode",
  "muxio-rpc-service",
@@ -1542,7 +1530,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-client"
-version = "0.8.0-alpha"
+version = "0.9.0-alpha"
 dependencies = [
  "async-trait",
  "muxio-rpc-service",
@@ -1556,7 +1544,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-server"
-version = "0.8.0-alpha"
+version = "0.9.0-alpha"
 dependencies = [
  "clap",
  "indoc",

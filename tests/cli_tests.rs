@@ -25,11 +25,7 @@ fn test_write_and_read() {
         .output()
         .expect("Failed to execute process");
 
-    assert!(
-        output.status.success(),
-        "Write command failed: {:?}",
-        output
-    );
+    assert!(output.status.success(), "Write command failed: {output:?}",);
 
     // Read the value back
     let output = Command::new("cargo")
@@ -38,12 +34,7 @@ fn test_write_and_read() {
         .expect("Failed to execute process");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(
-        stdout.trim(),
-        "hello",
-        "Unexpected read output: {:?}",
-        stdout
-    );
+    assert_eq!(stdout.trim(), "hello", "Unexpected read output: {stdout:?}",);
 
     // Cleanup
     fs::remove_file(TEST_STORAGE).ok();
@@ -69,8 +60,7 @@ fn test_write_without_value() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("No value provided"),
-        "Unexpected error message: {:?}",
-        stderr
+        "Unexpected error message: {stderr:?}",
     );
 
     fs::remove_file(TEST_STORAGE).ok(); // Cleanup
@@ -110,8 +100,7 @@ fn test_read_nonexistent_key() {
     assert!(
         stderr.trim().contains("Key 'nonexistent_key' not found")
             || stderr.trim().contains("Failed to open storage"),
-        "Unexpected error output: {:?}",
-        stderr
+        "Unexpected error output: {stderr:?}",
     );
 
     fs::remove_file(TEST_STORAGE).ok();
@@ -142,11 +131,7 @@ fn test_read_with_buffer_size() {
         .wait_with_output()
         .expect("Failed to wait on child process");
 
-    assert!(
-        output.status.success(),
-        "Write command failed: {:?}",
-        output
-    );
+    assert!(output.status.success(), "Write command failed: {output:?}",);
 
     // Read the value back with a 64KB buffer size
     let output = Command::new("cargo")
@@ -163,7 +148,7 @@ fn test_read_with_buffer_size() {
         .output()
         .expect("Failed to execute process");
 
-    assert!(output.status.success(), "Read command failed: {:?}", output);
+    assert!(output.status.success(), "Read command failed: {output:?}",);
 
     let stdout = output.stdout;
     assert_eq!(
@@ -200,11 +185,7 @@ fn test_copy_key() {
         ])
         .output()
         .expect("Failed to execute process");
-    assert!(
-        output.status.success(),
-        "Write command failed: {:?}",
-        output
-    );
+    assert!(output.status.success(), "Write command failed: {output:?}",);
 
     // Copy the key to target storage
     let output = Command::new("cargo")
@@ -219,7 +200,7 @@ fn test_copy_key() {
         ])
         .output()
         .expect("Failed to execute process");
-    assert!(output.status.success(), "Copy command failed: {:?}", output);
+    assert!(output.status.success(), "Copy command failed: {output:?}",);
 
     // Read from target storage
     let output = Command::new("cargo")
@@ -230,8 +211,7 @@ fn test_copy_key() {
     assert_eq!(
         stdout.trim(),
         "copy_test",
-        "Unexpected read output: {:?}",
-        stdout
+        "Unexpected read output: {stdout:?}",
     );
 
     fs::remove_file(TEST_STORAGE).ok();
@@ -256,11 +236,7 @@ fn test_rename_key() {
         ])
         .output()
         .expect("Failed to execute process");
-    assert!(
-        output.status.success(),
-        "Write command failed: {:?}",
-        output
-    );
+    assert!(output.status.success(), "Write command failed: {output:?}",);
 
     // Rename the key
     let output = Command::new("cargo")
@@ -275,11 +251,7 @@ fn test_rename_key() {
         ])
         .output()
         .expect("Failed to execute process");
-    assert!(
-        output.status.success(),
-        "Rename command failed: {:?}",
-        output
-    );
+    assert!(output.status.success(), "Rename command failed: {output:?}",);
 
     // Ensure old key doesn't exist
     let output = Command::new("cargo")
@@ -297,8 +269,7 @@ fn test_rename_key() {
     assert_eq!(
         stdout.trim(),
         "rename_test",
-        "Unexpected read output: {:?}",
-        stdout
+        "Unexpected read output: {stdout:?}",
     );
 
     fs::remove_file(TEST_STORAGE).ok();
@@ -322,22 +293,14 @@ fn test_delete_key() {
         ])
         .output()
         .expect("Failed to execute process");
-    assert!(
-        output.status.success(),
-        "Write command failed: {:?}",
-        output
-    );
+    assert!(output.status.success(), "Write command failed: {output:?}",);
 
     // Delete the key
     let output = Command::new("cargo")
         .args(["run", "--quiet", "--", TEST_STORAGE, "delete", "delete_key"])
         .output()
         .expect("Failed to execute process");
-    assert!(
-        output.status.success(),
-        "Delete command failed: {:?}",
-        output
-    );
+    assert!(output.status.success(), "Delete command failed: {output:?}",);
 
     // Ensure key doesn't exist
     let output = Command::new("cargo")
@@ -368,11 +331,7 @@ fn test_metadata() {
         .output()
         .expect("Failed to execute process");
 
-    assert!(
-        output.status.success(),
-        "Write command failed: {:?}",
-        output
-    );
+    assert!(output.status.success(), "Write command failed: {output:?}",);
 
     // Retrieve metadata for the key
     let output = Command::new("cargo")
@@ -383,58 +342,47 @@ fn test_metadata() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         stdout.contains("METADATA SUMMARY"),
-        "Metadata output invalid: {:?}",
-        stdout
+        "Metadata output invalid: {stdout:?}",
     );
     assert!(
         stdout.contains("ENTRY FOR:"),
-        "Metadata missing ENTRY FOR: {:?}",
-        stdout
+        "Metadata missing ENTRY FOR: {stdout:?}",
     );
     assert!(
         stdout.contains("test_key"),
-        "Metadata does not contain key: {:?}",
-        stdout
+        "Metadata does not contain key: {stdout:?}",
     );
     assert!(
         stdout.contains("PAYLOAD SIZE:"),
-        "Metadata missing payload size: {:?}",
-        stdout
+        "Metadata missing payload size: {stdout:?}",
     );
     assert!(
         stdout.contains("TOTAL SIZE (W/ METADATA):"),
-        "Metadata missing total size: {:?}",
-        stdout
+        "Metadata missing total size: {stdout:?}",
     );
     assert!(
         stdout.contains("OFFSET RANGE:"),
-        "Metadata missing offset range: {:?}",
-        stdout
+        "Metadata missing offset range: {stdout:?}",
     );
     assert!(
         stdout.contains("MEMORY ADDRESS:"),
-        "Metadata missing memory address: {:?}",
-        stdout
+        "Metadata missing memory address: {stdout:?}",
     );
     assert!(
         stdout.contains("KEY HASH:"),
-        "Metadata missing key hash: {:?}",
-        stdout
+        "Metadata missing key hash: {stdout:?}",
     );
     assert!(
         stdout.contains("CHECKSUM:"),
-        "Metadata missing checksum: {:?}",
-        stdout
+        "Metadata missing checksum: {stdout:?}",
     );
     assert!(
         stdout.contains("CHECKSUM VALIDITY:"),
-        "Metadata missing checksum validity: {:?}",
-        stdout
+        "Metadata missing checksum validity: {stdout:?}",
     );
     assert!(
         stdout.contains("STORED METADATA:"),
-        "Metadata missing stored metadata: {:?}",
-        stdout
+        "Metadata missing stored metadata: {stdout:?}",
     );
 
     fs::remove_file(TEST_STORAGE).ok(); // Cleanup
@@ -457,28 +405,23 @@ fn test_info() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         stdout.contains("STORAGE INFO"),
-        "Info output invalid: {:?}",
-        stdout
+        "Info output invalid: {stdout:?}",
     );
     assert!(
         stdout.contains("STORAGE FILE:"),
-        "Info missing storage file: {:?}",
-        stdout
+        "Info missing storage file: {stdout:?}",
     );
     assert!(
         stdout.contains("TOTAL SIZE:"),
-        "Info missing total size: {:?}",
-        stdout
+        "Info missing total size: {stdout:?}",
     );
     assert!(
         stdout.contains("ACTIVE ENTRIES:"),
-        "Info missing active entries: {:?}",
-        stdout
+        "Info missing active entries: {stdout:?}",
     );
     assert!(
         stdout.contains("COMPACTION SAVINGS:"),
-        "Info missing compaction savings: {:?}",
-        stdout
+        "Info missing compaction savings: {stdout:?}",
     );
 
     fs::remove_file(TEST_STORAGE).ok(); // Cleanup

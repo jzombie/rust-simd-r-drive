@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use tokio::join;
-use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tokio::task;
 use tracing::info;
@@ -26,8 +25,6 @@ async fn main() -> std::io::Result<()> {
     tracing_subscriber::fmt().with_env_filter("info").init();
 
     let store_path = args.storage;
-    let listener = TcpListener::bind(args.listen).await?;
-    let addr = listener.local_addr()?;
 
     // Wrap the DataStore in a tokio::RwLock to support:
     // - multiple concurrent readers
@@ -178,10 +175,8 @@ async fn main() -> std::io::Result<()> {
         }),
     );
 
-    info!(address = %addr, "MAIN: RPC Server listening.");
-
-    Arc::new(rpc_server)
-        .serve_with_listener(listener)
+    rpc_server
+        .serve_on(&args.host, args.port)
         .await
         .map_err(std::io::Error::other)?;
 

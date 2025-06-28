@@ -121,7 +121,7 @@ mod tests {
         } // Storage goes out of scope here, ensuring file is closed
 
         let file_size_before = metadata(&path).expect("Failed to get metadata").len();
-        eprintln!("File size before corruption: {}", file_size_before);
+        eprintln!("File size before corruption: {file_size_before}");
 
         // Step 2: Simulate corruption by writing partial data
         {
@@ -141,7 +141,7 @@ mod tests {
         }
 
         let file_size_after = metadata(&path).expect("Failed to get metadata").len();
-        eprintln!("File size after corruption: {}", file_size_after);
+        eprintln!("File size after corruption: {file_size_after}");
 
         // Skipping the following tests on Windows due to memory-mapped file restrictions.
         //
@@ -165,7 +165,7 @@ mod tests {
                 //  Check that the recovered file size matches the original before corruption
                 let file_size_after_recovery =
                     metadata(&path).expect("Failed to get metadata").len();
-                eprintln!("File size after recovery: {}", file_size_after_recovery);
+                eprintln!("File size after recovery: {file_size_after_recovery}");
 
                 assert_eq!(
                     file_size_after_recovery, file_size_before,

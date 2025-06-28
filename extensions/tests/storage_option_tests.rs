@@ -176,8 +176,7 @@ mod tests {
 
         assert!(
             matches!(retrieved, Err(ref e) if e.kind() == ErrorKind::NotFound),
-            "Expected `ErrorKind::NotFound` when reading a non-existent key, got: {:?}",
-            retrieved
+            "Expected `ErrorKind::NotFound` when reading a non-existent key, got: {retrieved:?}",
         );
     }
 
@@ -216,8 +215,7 @@ mod tests {
 
             assert_eq!(
                 &retrieved, expected,
-                "Mismatch between written and retrieved data for key {:?}",
-                key
+                "Mismatch between written and retrieved data for key {key:?}",
             );
         }
     }

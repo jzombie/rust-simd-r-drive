@@ -1,6 +1,6 @@
 [project]
 name = "simd-r-drive-py"
-version = "0.8.0-alpha"
+version = "0.9.0-alpha"
 description = "SIMD-optimized append-only schema-less storage engine. Key-based binary storage in a single-file storage container."
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"

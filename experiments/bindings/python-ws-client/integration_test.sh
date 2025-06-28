@@ -10,7 +10,8 @@ EXPERIMENTS_DIR_REL_PATH="../../"
 # Server and test settings
 SERVER_PACKAGE_NAME="simd-r-drive-ws-server"
 STORAGE_FILE="/tmp/simd-r-drive-pytest-storage.bin"
-SERVER_ADDR="127.0.0.1:34129"
+SERVER_HOST="127.0.0.1"
+SERVER_PORT=34129
 SERVER_PID=""
 
 # --- Cleanup Function ---
@@ -49,7 +50,7 @@ echo "--> Starting server in background mode..."
 set -m
 # Use 'cargo run' to start the server, which is more reliable than a direct path.
 # The '--' separates cargo's arguments from the application's arguments.
-cargo run --package "$SERVER_PACKAGE_NAME" -- "$STORAGE_FILE" --listen "$SERVER_ADDR" &
+cargo run --package "$SERVER_PACKAGE_NAME" -- "$STORAGE_FILE" --host "$SERVER_HOST" --port "$SERVER_PORT" &
 SERVER_PID=$!
 set +m
 echo "Server process started with PID: $SERVER_PID."
@@ -79,7 +80,8 @@ pwd
 
 echo "--> Running pytest..."
 # Export the server address so the Python test script can use it
-export TEST_SERVER_ADDR=$SERVER_ADDR
+export TEST_SERVER_HOST=$SERVER_HOST
+export TEST_SERVER_PORT=$SERVER_PORT
 # Run pytest using the virtual environment's executable
 uv run pytest -v -s
 
