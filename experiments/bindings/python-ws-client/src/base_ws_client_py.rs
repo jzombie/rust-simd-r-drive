@@ -11,6 +11,8 @@ use std::time::Duration;
 use tokio::runtime::{Builder, Runtime};
 use tokio::time::timeout;
 
+// TODO: Move timeout handling into inner client
+
 // TODO: Borrow configuration props from MySQL
 // connection_timeout=10,  # Timeout for the connection attempt (in seconds)
 // read_timeout=30,        # Timeout for waiting for response from server (in seconds)
@@ -64,8 +66,6 @@ impl BaseDataStoreWsClient {
         Ok(())
     }
 
-    // --- All public methods are now blocking again, but with timeouts ---
-
     #[pyo3(name = "write")]
     fn py_write(&self, key: Vec<u8>, payload: Vec<u8>) -> PyResult<()> {
         self.check_connection()?;
@@ -76,7 +76,7 @@ impl BaseDataStoreWsClient {
             match timeout(Duration::from_secs(30), client.write(&key, &payload)).await {
                 Ok(Ok(_)) => Ok(()),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Write operation timed out.")),
+                Err(_) => Err(TimeoutError::new_err("`write` operation timed out.")),
             }
         })
     }
@@ -94,7 +94,7 @@ impl BaseDataStoreWsClient {
             match timeout(Duration::from_secs(60), client.batch_write(&converted)).await {
                 Ok(Ok(_)) => Ok(()),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Batch write operation timed out.")),
+                Err(_) => Err(TimeoutError::new_err("`batch_write` operation timed out.")),
             }
         })
     }
@@ -112,9 +112,9 @@ impl BaseDataStoreWsClient {
         let maybe_bytes = self.runtime.block_on(async {
             // TODO: Don't hardcode timeout
             match timeout(Duration::from_secs(30), client.read(&key)).await {
-                Ok(Ok(data)) => Ok(data),
+                Ok(Ok(entry_payload)) => Ok(entry_payload),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Read operation timed out.")),
+                Err(_) => Err(TimeoutError::new_err("`read` operation timed out.")),
             }
         })?;
 
@@ -130,9 +130,9 @@ impl BaseDataStoreWsClient {
         let results = self.runtime.block_on(async {
             // TODO: Don't hardcode timeout
             match timeout(Duration::from_secs(60), client.batch_read(&key_slices)).await {
-                Ok(Ok(data)) => Ok(data),
+                Ok(Ok(entries_payloads)) => Ok(entries_payloads),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Batch read operation timed out.")),
+                Err(_) => Err(TimeoutError::new_err("`batch_read` operation timed out.")),
             }
         })?;
 
@@ -141,6 +141,69 @@ impl BaseDataStoreWsClient {
                 .into_iter()
                 .map(|opt| opt.map(|bytes| PyBytes::new(py, &bytes).into()))
                 .collect())
+        })
+    }
+
+    #[pyo3(name = "delete")]
+    fn py_delete(&self, key: Vec<u8>) -> PyResult<()> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.delete(&key)).await {
+                Ok(Ok(_)) => Ok(()),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("`delete` operation timed out.")),
+            }
+        })
+    }
+
+    /// Implements the `len()` built-in for Python.
+    ///
+    /// This allows you to call `len(store)` to get the number of active entries.
+    /// It assumes the underlying Rust client has a `len()` method.
+    fn __len__(&self) -> PyResult<usize> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.len()).await {
+                Ok(Ok(total_entries)) => Ok(total_entries),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("`len` operation timed out.")),
+            }
+        })
+    }
+
+    #[pyo3(name = "is_empty")]
+    fn py_is_empty(&self) -> PyResult<(bool)> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.is_empty()).await {
+                Ok(Ok(is_empty)) => Ok(is_empty),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("`is_empty` operation timed out.")),
+            }
+        })
+    }
+
+    #[pyo3(name = "file_size")]
+    fn py_file_size(&self) -> PyResult<(u64)> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.file_size()).await {
+                Ok(Ok(file_size)) => Ok(file_size),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("`file_size` operation timed out.")),
+            }
         })
     }
 }

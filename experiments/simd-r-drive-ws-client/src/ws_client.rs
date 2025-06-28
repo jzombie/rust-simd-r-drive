@@ -5,8 +5,9 @@ use simd_r_drive::{
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Read,
-    ReadRequestParams, Write, WriteRequestParams,
+    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Delete,
+    DeleteRequestParams, FileSize, FileSizeRequestParams, IsEmpty, IsEmptyRequestParams, Len,
+    LenRequestParams, Read, ReadRequestParams, Write, WriteRequestParams,
 };
 use std::io::Result;
 
@@ -38,7 +39,7 @@ impl AsyncDataStoreWriter for WsClient {
     }
 
     async fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
-        let resp = Write::call(
+        let response_params = Write::call(
             &self.rpc_client,
             WriteRequestParams {
                 key: key.to_vec(),
@@ -47,11 +48,11 @@ impl AsyncDataStoreWriter for WsClient {
         )
         .await?;
 
-        Ok(resp.tail_offset)
+        Ok(response_params.tail_offset)
     }
 
     async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
-        let resp = BatchWrite::call(
+        let response_params = BatchWrite::call(
             &self.rpc_client,
             BatchWriteRequestParams {
                 entries: entries
@@ -62,35 +63,39 @@ impl AsyncDataStoreWriter for WsClient {
         )
         .await?;
 
+        Ok(response_params.tail_offset)
+    }
+
+    async fn rename(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {
+        unimplemented!("`rename` is not currently implemented");
+    }
+
+    async fn copy(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
+        unimplemented!("`copy` is not currently implemented");
+    }
+
+    async fn transfer(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
+        unimplemented!("`transfer` is not currently implemented");
+    }
+
+    async fn delete(&self, key: &[u8]) -> Result<u64> {
+        let resp =
+            Delete::call(&self.rpc_client, DeleteRequestParams { key: key.to_vec() }).await?;
+
         Ok(resp.tail_offset)
-    }
-
-    async fn rename_entry(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {
-        unimplemented!("`rename_entry` is not currently implemented");
-    }
-
-    async fn copy_entry(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
-        unimplemented!("`copy_entry` is not currently implemented");
-    }
-
-    async fn move_entry(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
-        unimplemented!("`move_entry` is not currently implemented");
-    }
-
-    async fn delete_entry(&self, _key: &[u8]) -> Result<u64> {
-        unimplemented!("`delete_entry` is not currently implemented");
     }
 }
 
 #[async_trait::async_trait]
 impl AsyncDataStoreReader for WsClient {
-    // TODO: This is a workaround until properly implementing a stream-able handle
+    // FIXME: This is a workaround until properly implementing a stream-able handle
     type EntryHandleType = Vec<u8>;
 
     async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>> {
-        let resp = Read::call(&self.rpc_client, ReadRequestParams { key: key.to_vec() }).await?;
+        let response_params =
+            Read::call(&self.rpc_client, ReadRequestParams { key: key.to_vec() }).await?;
 
-        Ok(resp.result)
+        Ok(response_params.entry_payload)
     }
 
     async fn read_last_entry(&self) -> Result<Option<Self::EntryHandleType>> {
@@ -106,18 +111,28 @@ impl AsyncDataStoreReader for WsClient {
         )
         .await?;
 
-        Ok(batch_read_result.entries)
+        Ok(batch_read_result.entries_payloads)
     }
 
     async fn read_metadata(&self, _key: &[u8]) -> Result<Option<EntryMetadata>> {
         unimplemented!("`read_metadata` is not currently implemented");
     }
 
-    async fn count(&self) -> Result<usize> {
-        unimplemented!("`count` is not currently implemented");
+    async fn len(&self) -> Result<usize> {
+        let response_params = Len::call(&self.rpc_client, LenRequestParams {}).await?;
+
+        Ok(response_params.total_entries)
     }
 
-    async fn get_storage_size(&self) -> Result<u64> {
-        unimplemented!("`get_storage_size` is not currently implemented");
+    async fn is_empty(&self) -> Result<bool> {
+        let response_params = IsEmpty::call(&self.rpc_client, IsEmptyRequestParams {}).await?;
+
+        Ok(response_params.is_empty)
+    }
+
+    async fn file_size(&self) -> Result<u64> {
+        let response_params = FileSize::call(&self.rpc_client, FileSizeRequestParams {}).await?;
+
+        Ok(response_params.file_size)
     }
 }

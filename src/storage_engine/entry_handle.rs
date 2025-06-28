@@ -133,7 +133,7 @@ impl EntryHandle {
     ///
     /// # Returns
     /// - The size of the payload plus metadata in bytes.
-    pub fn size_with_metadata(&self) -> usize {
+    pub fn file_size(&self) -> usize {
         self.range.len() + METADATA_SIZE
     }
 

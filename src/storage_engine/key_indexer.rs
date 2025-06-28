@@ -65,4 +65,19 @@ impl KeyIndexer {
     pub fn get(&self, key_hash: &u64) -> Option<&u64> {
         self.index.get(key_hash)
     }
+
+    #[inline]
+    pub fn remove(&mut self, key_hash: &u64) -> Option<u64> {
+        self.index.remove(key_hash)
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.index.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.index.is_empty()
+    }
 }

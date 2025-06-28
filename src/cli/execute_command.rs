@@ -117,7 +117,7 @@ pub fn execute_command(cli: &Cli) {
             let target_storage = DataStore::open(target).expect("Failed to open target storage");
 
             source_storage
-                .copy_entry(key.as_bytes(), &target_storage)
+                .copy(key.as_bytes(), &target_storage)
                 .map_err(|err| {
                     eprintln!("Could not copy entry. Received error: {err}");
                     std::process::exit(1);
@@ -134,7 +134,7 @@ pub fn execute_command(cli: &Cli) {
             let target_storage = DataStore::open(target).expect("Failed to open target storage");
 
             source_storage
-                .move_entry(key.as_bytes(), &target_storage)
+                .transfer(key.as_bytes(), &target_storage)
                 .map_err(|err| {
                     eprintln!("Could not copy entry. Received error: {err}");
                     std::process::exit(1);
@@ -149,7 +149,7 @@ pub fn execute_command(cli: &Cli) {
                 DataStore::open_existing(&cli.storage).expect("Failed to open source storage");
 
             storage
-                .rename_entry(old_key.as_bytes(), new_key.as_bytes())
+                .rename(old_key.as_bytes(), new_key.as_bytes())
                 .map_err(|err| {
                     eprintln!("Could not rename entry. Received error: {err}");
                     std::process::exit(1);
@@ -163,7 +163,7 @@ pub fn execute_command(cli: &Cli) {
             let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
 
             storage
-                .delete_entry(key.as_bytes())
+                .delete(key.as_bytes())
                 .expect("Failed to delete entry");
             eprintln!("Deleted key '{key}'");
         }
@@ -192,7 +192,7 @@ pub fn execute_command(cli: &Cli) {
                     println!(
                         "{:<25} {} bytes",
                         "TOTAL SIZE (W/ METADATA):",
-                        entry.size_with_metadata()
+                        entry.file_size()
                     );
                     println!("{:<25} {:?}", "OFFSET RANGE:", entry.offset_range());
                     println!("{:<25} {:?}", "MEMORY ADDRESS:", entry.address_range());
@@ -228,13 +228,13 @@ pub fn execute_command(cli: &Cli) {
             let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
 
             // Retrieve storage file size
-            let storage_size = storage.get_storage_size().unwrap_or(0);
+            let storage_size = storage.file_size().unwrap_or(0);
 
             // Get compaction savings estimate
             let savings_estimate = storage.estimate_compaction_savings();
 
             // Count active entries
-            let entry_count = storage.count();
+            let entry_count = storage.len();
 
             println!("\n{:=^50}", " STORAGE INFO ");
             println!("{:<25} {:?}", "STORAGE FILE:", cli.storage);

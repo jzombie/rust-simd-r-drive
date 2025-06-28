@@ -100,7 +100,7 @@ impl StorageCacheExt for DataStore {
                     .as_secs();
 
                 if now >= expiration_timestamp {
-                    self.delete_entry(&namespaced_key).ok(); // Remove expired entry
+                    self.delete(&namespaced_key).ok(); // Remove expired entry
                     return Ok(None);
                 }
 

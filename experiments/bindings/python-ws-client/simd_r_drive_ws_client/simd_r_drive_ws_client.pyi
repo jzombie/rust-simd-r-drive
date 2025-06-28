@@ -77,20 +77,18 @@ class DataStoreWsClient:
             key is not present.
         """
         ...
-    #
-    #
-    # TODO: Integrate
-    # def delete(self, key: bytes) -> None:
-    #     """
-    #     Marks the key as deleted (logically removes it).
 
-    #     This operation does not physically remove the data but appends a tombstone
-    #     entry to mark the key as deleted.
+    def delete(self, key: bytes) -> None:
+        """
+        Marks the key as deleted (logically removes it).
 
-    #     Args:
-    #         key (bytes): The key to mark as deleted.
-    #     """
-    #     ...
+        This operation does not physically remove the data but appends a tombstone
+        entry to mark the key as deleted.
+
+        Args:
+            key (bytes): The key to mark as deleted.
+        """
+        ...
 
     # def exists(self, key: bytes) -> bool:
     #     """
@@ -119,6 +117,33 @@ class DataStoreWsClient:
     #         bool: True if the key exists, False otherwise.
     #     """
     #     return self.exists(key)
+
+    def __len__(self) -> int:
+        """
+        Returns the total number of active entries in the store.
+
+        Returns:
+            int: The total number of active entries in the store.
+        """
+        ...
+
+    def is_empty(self) -> bool:
+        """
+        Determines if the store is empty or has no active keys.
+
+        Returns:
+            bool: Whether or not the store has any active keys.
+        """
+        ...
+
+    def file_size(self) -> int:
+        """
+        Returns the current file size on disk (including those of deleted entries).
+    
+        Returns:
+            int: File size in bytes.
+        """
+        ...
 
 @final
 class NamespaceHasher:

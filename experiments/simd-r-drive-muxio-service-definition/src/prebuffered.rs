@@ -9,3 +9,15 @@ pub use batch_write::*;
 
 mod write;
 pub use write::*;
+
+mod delete;
+pub use delete::*;
+
+mod len;
+pub use len::*;
+
+mod is_empty;
+pub use is_empty::*;
+
+mod file_size;
+pub use file_size::*;

@@ -115,7 +115,7 @@ mod tests {
             Some(&temp_payload2[..])
         );
 
-        storage.delete_entry(key7).unwrap();
+        storage.delete(key7).unwrap();
 
         assert_eq!(storage.read(key7).unwrap().as_deref(), None);
 

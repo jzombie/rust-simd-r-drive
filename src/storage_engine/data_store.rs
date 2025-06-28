@@ -189,6 +189,7 @@ impl DataStore {
         write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
         key_hash_offsets: &[(u64, u64)],
         tail_offset: u64,
+        deleted_keys: Option<&HashSet<u64>>,
     ) -> std::io::Result<()> {
         let new_mmap = Self::init_mmap(write_guard)?;
         let mut mmap_guard = self.mmap.lock().unwrap();
@@ -198,7 +199,14 @@ impl DataStore {
             .map_err(|_| std::io::Error::other("Failed to acquire index lock"))?;
 
         for (key_hash, offset) in key_hash_offsets.iter() {
-            key_indexer_guard.insert(*key_hash, *offset);
+            if deleted_keys
+                .as_ref()
+                .is_some_and(|set| set.contains(key_hash))
+            {
+                key_indexer_guard.remove(key_hash);
+            } else {
+                key_indexer_guard.insert(*key_hash, *offset);
+            }
         }
 
         *mmap_guard = Arc::new(new_mmap);
@@ -366,6 +374,7 @@ impl DataStore {
             &file,
             &[(key_hash, tail_offset - METADATA_SIZE as u64)],
             tail_offset,
+            None,
         )?;
         Ok(tail_offset)
     }
@@ -432,12 +441,18 @@ impl DataStore {
         let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
 
         let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(hashed_payloads.len());
+        let mut deleted_keys: HashSet<u64> = HashSet::new();
+
         for (key_hash, payload) in hashed_payloads {
-            if !allow_null_bytes && payload == NULL_BYTE {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "NULL-byte payloads cannot be written directly.",
-                ));
+            if payload == NULL_BYTE {
+                if !allow_null_bytes {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "NULL-byte payloads cannot be written directly.",
+                    ));
+                }
+
+                deleted_keys.insert(key_hash);
             }
 
             if payload.is_empty() {
@@ -468,7 +483,7 @@ impl DataStore {
         file.write_all(&buffer)?;
         file.flush()?;
 
-        self.reindex(&file, &key_hash_offsets, tail_offset)?;
+        self.reindex(&file, &key_hash_offsets, tail_offset, Some(&deleted_keys))?;
 
         Ok(self.tail_offset.load(Ordering::Acquire))
     }
@@ -540,9 +555,9 @@ impl DataStore {
     /// - `Err(std::io::Error)`: If a write operation fails.
     ///
     /// # Notes:
-    /// - This is a **low-level function** used by `copy_entry` and related operations.
+    /// - This is a **low-level function** used by `copy` and related operations.
     /// - The `entry` remains **unchanged** in the original storage.
-    fn copy_entry_handle(&self, entry: &EntryHandle, target: &DataStore) -> Result<u64> {
+    fn copy_handle(&self, entry: &EntryHandle, target: &DataStore) -> Result<u64> {
         let mut entry_stream = EntryStream::from(entry.clone_arc());
         target.write_stream_with_key_hash(entry.key_hash(), &mut entry_stream)
     }
@@ -578,13 +593,13 @@ impl DataStore {
         let mut compacted_data_size: u64 = 0;
 
         for entry in self.iter_entries() {
-            let new_tail_offset = self.copy_entry_handle(&entry, &compacted_storage)?;
+            let new_tail_offset = self.copy_handle(&entry, &compacted_storage)?;
             let stored_metadata_offset = new_tail_offset - METADATA_SIZE as u64;
             index_pairs.push((entry.key_hash(), stored_metadata_offset));
-            compacted_data_size += entry.size_with_metadata() as u64;
+            compacted_data_size += entry.file_size() as u64;
         }
 
-        let size_before = self.get_storage_size()?;
+        let size_before = self.file_size()?;
 
         // Note: The current implementation should never increase space, but if an additional indexer
         // is ever used, this may change.
@@ -624,13 +639,13 @@ impl DataStore {
     /// - Ignores older versions of keys to estimate the **optimized** storage footprint.
     /// - Returns the **difference** between the total file size and the estimated compacted size.
     pub fn estimate_compaction_savings(&self) -> u64 {
-        let total_size = self.get_storage_size().unwrap_or(0);
+        let total_size = self.file_size().unwrap_or(0);
         let mut unique_entry_size: u64 = 0;
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
 
         for entry in self.iter_entries() {
             if seen_keys.insert(entry.key_hash()) {
-                unique_entry_size += entry.size_with_metadata() as u64;
+                unique_entry_size += entry.file_size() as u64;
             }
         }
         total_size.saturating_sub(unique_entry_size)
@@ -693,7 +708,7 @@ impl DataStoreWriter for DataStore {
         self.batch_write_hashed_payloads(hashed_entries, false)
     }
 
-    fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
+    fn rename(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
         if old_key == new_key {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -708,16 +723,16 @@ impl DataStoreWriter for DataStore {
 
         self.write_stream(new_key, &mut old_entry_stream)?;
 
-        let new_offset = self.delete_entry(old_key)?;
+        let new_offset = self.delete(old_key)?;
         Ok(new_offset)
     }
 
-    fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+    fn copy(&self, key: &[u8], target: &DataStore) -> Result<u64> {
         if self.path == target.path {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!(
-                    "Cannot copy entry to the same storage ({:?}). Use `rename_entry` instead.",
+                    "Cannot copy entry to the same storage ({:?}). Use `rename` instead.",
                     self.path
                 ),
             ));
@@ -729,15 +744,15 @@ impl DataStoreWriter for DataStore {
                 format!("Key not found: {:?}", String::from_utf8_lossy(key)),
             )
         })?;
-        self.copy_entry_handle(&entry_handle, target)
+        self.copy_handle(&entry_handle, target)
     }
 
-    fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64> {
-        self.copy_entry(key, target)?;
-        self.delete_entry(key)
+    fn transfer(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+        self.copy(key, target)?;
+        self.delete(key)
     }
 
-    fn delete_entry(&self, key: &[u8]) -> Result<u64> {
+    fn delete(&self, key: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
     }
@@ -816,7 +831,7 @@ impl DataStoreReader for DataStore {
         let key_indexer_guard = self
             .key_indexer
             .read()
-            .map_err(|_| Error::other("Key-index lock poisoned during batch_read"))?;
+            .map_err(|_| Error::other("Key-index lock poisoned during `batch_read`"))?;
         let hashes = compute_hash_batch(keys);
 
         let results = hashes
@@ -853,11 +868,22 @@ impl DataStoreReader for DataStore {
         Ok(self.read(key)?.map(|entry| entry.metadata().clone()))
     }
 
-    fn count(&self) -> Result<usize> {
-        Ok(self.iter_entries().count())
+    fn len(&self) -> Result<usize> {
+        let read_guard = self
+            .key_indexer
+            .read()
+            .map_err(|_| Error::other("Key-index lock poisoned during `len`"))?;
+
+        Ok(read_guard.len())
     }
 
-    fn get_storage_size(&self) -> Result<u64> {
+    fn is_empty(&self) -> Result<bool> {
+        let len = self.len()?;
+
+        Ok(len == 0)
+    }
+
+    fn file_size(&self) -> Result<u64> {
         std::fs::metadata(&self.path).map(|meta| meta.len())
     }
 }

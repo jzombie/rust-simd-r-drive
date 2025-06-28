@@ -120,7 +120,7 @@ fn test_batch_write_rejects_empty_payload_among_many() {
     assert!(storage.read(b"k1").unwrap().is_none());
     assert!(storage.read(b"k2").unwrap().is_none());
     assert_eq!(
-        storage.count().unwrap(),
+        storage.len().unwrap(),
         0,
         "no entries should have been written"
     );

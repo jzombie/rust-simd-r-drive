@@ -125,7 +125,7 @@ impl DataStore {
         self.inner
             .lock()
             .unwrap()
-            .delete_entry(key)
+            .delete(key)
             .map(|_| ())
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
     }

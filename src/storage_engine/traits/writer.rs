@@ -70,7 +70,6 @@ pub trait DataStoreWriter {
     /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
     fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64>;
 
-    // TODO: Rename to `rename`
     /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
     ///
     /// This function:
@@ -90,9 +89,8 @@ pub trait DataStoreWriter {
     /// - This operation **does not modify** the original entry but instead appends a new copy.
     /// - The old key is **logically deleted** via an append-only tombstone.
     /// - Attempting to rename a key to itself will return an error.
-    fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64>;
+    fn rename(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64>;
 
-    // TODO: Rename to `copy`
     /// Copies an entry to a **different storage container**.
     ///
     /// This function:
@@ -109,11 +107,10 @@ pub trait DataStoreWriter {
     ///   or if attempting to copy to the same storage.
     ///
     /// # Notes:
-    /// - Copying within the **same** storage is unnecessary; use `rename_entry` instead.
+    /// - Copying within the **same** storage is unnecessary; use `rename` instead.
     /// - This operation does **not** delete the original entry.
-    fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64>;
+    fn copy(&self, key: &[u8], target: &DataStore) -> Result<u64>;
 
-    // TODO: Rename to `move`
     /// Moves an entry from the current storage to a **different storage container**.
     ///
     /// This function:
@@ -129,12 +126,11 @@ pub trait DataStoreWriter {
     /// - `Err(std::io::Error)`: If the key is not found, or if the copy/delete operation fails.
     ///
     /// # Notes:
-    /// - Moving an entry within the **same** storage is unnecessary; use `rename_entry` instead.
+    /// - Moving an entry within the **same** storage is unnecessary; use `rename` instead.
     /// - The original entry is **logically deleted** by appending a tombstone, maintaining
     ///   the append-only structure.
-    fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64>;
+    fn transfer(&self, key: &[u8], target: &DataStore) -> Result<u64>;
 
-    // TODO: Rename to `delete`
     /// Deletes a key by appending a **null byte marker**.
     ///
     /// The storage engine is **append-only**, so keys cannot be removed directly.
@@ -145,7 +141,7 @@ pub trait DataStoreWriter {
     ///
     /// # Returns:
     /// - The **new file offset** where the delete marker was appended.
-    fn delete_entry(&self, key: &[u8]) -> Result<u64>;
+    fn delete(&self, key: &[u8]) -> Result<u64>;
 }
 
 #[async_trait::async_trait]
@@ -218,7 +214,6 @@ pub trait AsyncDataStoreWriter {
     /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
     async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64>;
 
-    // TODO: Rename to `rename`
     /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
     ///
     /// This function:
@@ -238,9 +233,8 @@ pub trait AsyncDataStoreWriter {
     /// - This operation **does not modify** the original entry but instead appends a new copy.
     /// - The old key is **logically deleted** via an append-only tombstone.
     /// - Attempting to rename a key to itself will return an error.
-    async fn rename_entry(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64>;
+    async fn rename(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64>;
 
-    // TODO: Rename to `copy`
     /// Copies an entry to a **different storage container**.
     ///
     /// This function:
@@ -257,11 +251,10 @@ pub trait AsyncDataStoreWriter {
     ///   or if attempting to copy to the same storage.
     ///
     /// # Notes:
-    /// - Copying within the **same** storage is unnecessary; use `rename_entry` instead.
+    /// - Copying within the **same** storage is unnecessary; use `rename` instead.
     /// - This operation does **not** delete the original entry.
-    async fn copy_entry(&self, key: &[u8], target: &DataStore) -> Result<u64>;
+    async fn copy(&self, key: &[u8], target: &DataStore) -> Result<u64>;
 
-    // TODO: Rename to `move`
     /// Moves an entry from the current storage to a **different storage container**.
     ///
     /// This function:
@@ -277,12 +270,11 @@ pub trait AsyncDataStoreWriter {
     /// - `Err(std::io::Error)`: If the key is not found, or if the copy/delete operation fails.
     ///
     /// # Notes:
-    /// - Moving an entry within the **same** storage is unnecessary; use `rename_entry` instead.
+    /// - Moving an entry within the **same** storage is unnecessary; use `rename` instead.
     /// - The original entry is **logically deleted** by appending a tombstone, maintaining
     ///   the append-only structure.
-    async fn move_entry(&self, key: &[u8], target: &DataStore) -> Result<u64>;
+    async fn transfer(&self, key: &[u8], target: &DataStore) -> Result<u64>;
 
-    // TODO: Rename to `delete`
     /// Deletes a key by appending a **null byte marker**.
     ///
     /// The storage engine is **append-only**, so keys cannot be removed directly.
@@ -293,5 +285,5 @@ pub trait AsyncDataStoreWriter {
     ///
     /// # Returns:
     /// - The **new file offset** where the delete marker was appended.
-    async fn delete_entry(&self, key: &[u8]) -> Result<u64>;
+    async fn delete(&self, key: &[u8]) -> Result<u64>;
 }

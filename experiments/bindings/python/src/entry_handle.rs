@@ -19,8 +19,8 @@ impl EntryHandle {
     }
 
     #[getter]
-    fn size_with_metadata(&self) -> usize {
-        self.inner.size_with_metadata()
+    fn file_size(&self) -> usize {
+        self.inner.file_size()
     }
 
     #[getter]

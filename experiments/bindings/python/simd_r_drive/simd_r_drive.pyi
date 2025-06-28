@@ -130,14 +130,14 @@ class EntryHandle:
         ...
 
     @property
-    def size_with_metadata(self) -> int:
+    def file_size(self) -> int:
         """
         Property: Returns the total size of the entry, including metadata.
 
         This method includes the metadata overhead (e.g., checksum, key hash) in the total size, providing
         the complete size of the entry including both data and associated metadata.
 
-        Both `size_with_metadata` and `size` access the value directly from the memory-mapped file, so they do not
+        Both `file_size` and `size` access the value directly from the memory-mapped file, so they do not
         require the data to be loaded into RAM.
 
         Returns:
