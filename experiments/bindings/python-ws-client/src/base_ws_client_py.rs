@@ -114,6 +114,12 @@ impl BaseDataStoreWsClient {
         })
     }
 
+    /// Implements the `key in store` containment check.
+    #[pyo3(name = "__contains__")]
+    fn py_contains(&self, key: Vec<u8>) -> PyResult<bool> {
+        self.py_exists(key)
+    }
+
     // TODO: I am *considering* renaming this to `read_prebuffered` since its operation differs from the underlying storage engine
     // TODO: Consider exposing an alternate form of `EntryHandle` here, like the Rust side.
     // The caveat is that this approach will still need to be fully read and not work with a streamer.
@@ -178,7 +184,8 @@ impl BaseDataStoreWsClient {
     ///
     /// This allows you to call `len(store)` to get the number of active entries.
     /// It assumes the underlying Rust client has a `len()` method.
-    fn __len__(&self) -> PyResult<usize> {
+    #[pyo3(name = "__len__")]
+    fn py_len(&self) -> PyResult<usize> {
         self.check_connection()?;
         let client = self.ws_client.clone();
 
