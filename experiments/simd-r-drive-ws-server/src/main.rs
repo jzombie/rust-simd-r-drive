@@ -113,12 +113,10 @@ async fn main() -> std::io::Result<()> {
                         // We extract the data into memory immediately,
                         // and then drop the read lock to maximize concurrency.
                         let store = store_mutex.blocking_read();
-                        let result_data = store
+                        let entry_payload = store
                             .read(&req.key)?
                             .map(|handle| handle.as_slice().to_vec());
-                        let resp = Read::encode_response(ReadResponseParams {
-                            result: result_data,
-                        })?;
+                        let resp = Read::encode_response(ReadResponseParams { entry_payload })?;
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })
                     .await
@@ -156,13 +154,15 @@ async fn main() -> std::io::Result<()> {
                         //    Each handle is turned into Option<Vec<u8>> so the resulting
                         //    response owns its bytes and is independent of the mmap.
                         //
-                        let entries: Vec<Option<Vec<u8>>> = handles
+                        let entries_payloads: Vec<Option<Vec<u8>>> = handles
                             .into_iter()
                             .map(|opt| opt.map(|h| h.as_slice().to_vec()))
                             .collect();
 
                         // ── 4. Marshal the response frame ───────────────────────────────
-                        let resp = BatchRead::encode_response(BatchReadResponseParams { entries })?;
+                        let resp = BatchRead::encode_response(BatchReadResponseParams {
+                            entries_payloads,
+                        })?;
 
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
                     })

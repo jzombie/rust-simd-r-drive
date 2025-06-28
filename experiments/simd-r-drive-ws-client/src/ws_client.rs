@@ -90,7 +90,7 @@ impl AsyncDataStoreReader for WsClient {
     async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>> {
         let resp = Read::call(&self.rpc_client, ReadRequestParams { key: key.to_vec() }).await?;
 
-        Ok(resp.result)
+        Ok(resp.entry_payload)
     }
 
     async fn read_last_entry(&self) -> Result<Option<Self::EntryHandleType>> {
@@ -106,7 +106,7 @@ impl AsyncDataStoreReader for WsClient {
         )
         .await?;
 
-        Ok(batch_read_result.entries)
+        Ok(batch_read_result.entries_payloads)
     }
 
     async fn read_metadata(&self, _key: &[u8]) -> Result<Option<EntryMetadata>> {
