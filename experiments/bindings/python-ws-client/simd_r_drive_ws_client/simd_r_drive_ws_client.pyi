@@ -127,6 +127,15 @@ class DataStoreWsClient:
         """
         ...
 
+    def is_empty(self) -> bool:
+        """
+        Determines if the store is empty or has no active keys.
+
+        Returns:
+            bool: Whether or not the store has any active keys.
+        """
+        ...
+
 @final
 class NamespaceHasher:
     """

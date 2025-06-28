@@ -76,7 +76,7 @@ impl BaseDataStoreWsClient {
             match timeout(Duration::from_secs(30), client.write(&key, &payload)).await {
                 Ok(Ok(_)) => Ok(()),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Write operation timed out.")),
+                Err(_) => Err(TimeoutError::new_err("`write` operation timed out.")),
             }
         })
     }
@@ -94,7 +94,7 @@ impl BaseDataStoreWsClient {
             match timeout(Duration::from_secs(60), client.batch_write(&converted)).await {
                 Ok(Ok(_)) => Ok(()),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Batch write operation timed out.")),
+                Err(_) => Err(TimeoutError::new_err("`batch_write` operation timed out.")),
             }
         })
     }
@@ -114,7 +114,7 @@ impl BaseDataStoreWsClient {
             match timeout(Duration::from_secs(30), client.read(&key)).await {
                 Ok(Ok(entry_payload)) => Ok(entry_payload),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Read operation timed out.")),
+                Err(_) => Err(TimeoutError::new_err("`read` operation timed out.")),
             }
         })?;
 
@@ -132,7 +132,7 @@ impl BaseDataStoreWsClient {
             match timeout(Duration::from_secs(60), client.batch_read(&key_slices)).await {
                 Ok(Ok(entries_payloads)) => Ok(entries_payloads),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Batch read operation timed out.")),
+                Err(_) => Err(TimeoutError::new_err("`batch_read` operation timed out.")),
             }
         })?;
 
@@ -154,7 +154,7 @@ impl BaseDataStoreWsClient {
             match timeout(Duration::from_secs(30), client.delete(&key)).await {
                 Ok(Ok(_)) => Ok(()),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Delete operation timed out.")),
+                Err(_) => Err(TimeoutError::new_err("`delete` operation timed out.")),
             }
         })
     }
@@ -172,7 +172,22 @@ impl BaseDataStoreWsClient {
             match timeout(Duration::from_secs(30), client.len()).await {
                 Ok(Ok(total_entries)) => Ok(total_entries),
                 Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Len operation timed out.")),
+                Err(_) => Err(TimeoutError::new_err("`len` operation timed out.")),
+            }
+        })
+    }
+
+    #[pyo3(name = "is_empty")]
+    fn py_is_empty(&self) -> PyResult<(bool)> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.is_empty()).await {
+                Ok(Ok(is_empty)) => Ok(is_empty),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("`is_empty` operation timed out.")),
             }
         })
     }

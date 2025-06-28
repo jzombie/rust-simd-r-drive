@@ -69,7 +69,12 @@ pub trait DataStoreReader {
     /// - `Err(std::io::Error)`: On I/O failure.
     fn len(&self) -> Result<usize>;
 
-    // TODO: Consider adding `is_empty`
+    /// Determines if the store is empty or has no active keys.
+    ///
+    /// # Returns:
+    /// - `Ok(bool)`: Whether or not the store has any active keys.
+    /// - `Err(std::io::Error)`: On I/O failure.
+    fn is_empty(&self) -> Result<bool>;
 
     /// Returns the current file size on disk (including those of deleted entries).
     ///
@@ -148,7 +153,12 @@ pub trait AsyncDataStoreReader {
     /// - `Err(std::io::Error)`: On I/O failure.
     async fn len(&self) -> Result<usize>;
 
-    // TODO: Consider adding `is_empty`
+    /// Determines if the store is empty or has no active keys.
+    ///
+    /// # Returns:
+    /// - `Ok(bool)`: Whether or not the store has any active keys.
+    /// - `Err(std::io::Error)`: On I/O failure.
+    async fn is_empty(&self) -> Result<bool>;
 
     /// Returns the current file size on disk (including those of deleted entries).
     ///

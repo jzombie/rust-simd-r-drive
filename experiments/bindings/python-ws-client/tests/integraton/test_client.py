@@ -25,6 +25,22 @@ def client():
             f"Failed to connect to the WebSocket server at {SERVER_HOST}. Is it running? Error: {e}"
         )
 
+@pytest.mark.order(1)
+def test_is_empty(client):
+    # TODO: Alternatively, implement a `clear` method?
+
+    assert client.is_empty()
+    assert len(client) == 0
+    
+    client.write(b"testing", b"123")
+
+    assert client.is_empty() == False
+    assert len(client) == 1
+
+    client.delete(b"testing")
+
+    assert client.is_empty()
+    assert len(client) == 0
 
 def test_simple_read_write(client):
     """Tests a simple write operation followed by a read."""

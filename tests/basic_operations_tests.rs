@@ -17,6 +17,19 @@ mod tests {
     }
 
     #[test]
+    fn test_emptiness_check() {
+        let (_dir, storage) = create_temp_storage();
+
+        assert!(storage.is_empty().unwrap());
+
+        let key = b"test_key".as_slice();
+        let payload = b"Hello, world!".as_slice();
+        storage.write(key, payload).expect("Failed to append entry");
+
+        assert!(!storage.is_empty().unwrap());
+    }
+
+    #[test]
     fn test_append_and_read_last_entry() {
         let (_dir, storage) = create_temp_storage();
 

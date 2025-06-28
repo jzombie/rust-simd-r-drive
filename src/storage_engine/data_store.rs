@@ -877,6 +877,12 @@ impl DataStoreReader for DataStore {
         Ok(read_guard.len())
     }
 
+    fn is_empty(&self) -> Result<bool> {
+        let len = self.len()?;
+
+        Ok(len == 0)
+    }
+
     fn get_storage_size(&self) -> Result<u64> {
         std::fs::metadata(&self.path).map(|meta| meta.len())
     }
