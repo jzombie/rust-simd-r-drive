@@ -35,6 +35,8 @@ pip install maturin
 maturin develop --release -m experiments/bindings/python-ws-client/Cargo.toml
 ```
 
+See the [CI build recipe](https://github.com/jzombie/rust-simd-r-drive/blob/main/.github/workflows/python-net-release.yml) for additional information.
+
 ## Quick Start
 
 ```python
