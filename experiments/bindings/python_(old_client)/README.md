@@ -1,6 +1,6 @@
 # SIMD R Drive (Python Bindings)
 
-**Note: This client has been superseded by: https://github.com/jzombie/rust-simd-r-drive/tree/main/experiments/bindings/python-ws-client**
+**Note: Due to platform compatibility and multithreading issues, this has been superseded by [SIMD R Drive WebSocket Client](https://pypi.org/project/simd-r-drive-ws-client/).**
 
 **Experimental Python bindings for [SIMD R Drive](https://crates.io/crates/simd-r-drive)** — a high-performance, schema-less storage engine using a single-file storage container optimized for zero-copy binary access, written in [Rust](https://www.rust-lang.org/).
 
