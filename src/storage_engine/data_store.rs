@@ -199,8 +199,9 @@ impl DataStore {
             .map_err(|_| std::io::Error::other("Failed to acquire index lock"))?;
 
         for (key_hash, offset) in key_hash_offsets.iter() {
-            if let Some(deleted_keys) = deleted_keys
-                && deleted_keys.contains(key_hash)
+            if deleted_keys
+                .as_ref()
+                .map_or(false, |set| set.contains(key_hash))
             {
                 key_indexer_guard.remove(key_hash);
             } else {
