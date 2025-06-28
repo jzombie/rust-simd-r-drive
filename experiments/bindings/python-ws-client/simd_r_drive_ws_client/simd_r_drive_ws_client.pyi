@@ -48,6 +48,32 @@ class DataStoreWsClient:
         """
         ...
 
+    def exists(self, key: bytes) -> bool:
+        """
+        Checks whether a key currently exists in the store.
+
+        Args:
+            key (bytes): The **binary key** to check.
+
+        Returns:
+            bool: Whether the key exists and is active.
+        """
+        ...
+
+    def __contains__(self, key: bytes) -> bool:
+        """
+        Allows usage of the `in` operator to check key existence.
+
+        This method provides an interface to use `key in store` to check if the key exists in the datastore.
+
+       Args:
+            key (bytes): The **binary key** to check.
+
+        Returns:
+            bool: Whether the key exists and is active.
+        """
+        ...
+
     def read(self, key: bytes) -> Optional[bytes]:
         """
         Reads the value for a given key.
@@ -89,34 +115,6 @@ class DataStoreWsClient:
             key (bytes): The key to mark as deleted.
         """
         ...
-
-    # def exists(self, key: bytes) -> bool:
-    #     """
-    #     Returns True if the key is present in the store.
-
-    #     This method checks whether the key exists and has not been deleted.
-
-    #     Args:
-    #         key (bytes): The key to check.
-
-    #     Returns:
-    #         bool: True if the key exists, False otherwise.
-    #     """
-    #     ...
-
-    # def __contains__(self, key: bytes) -> bool:
-    #     """
-    #     Allows usage of the `in` operator to check key existence.
-
-    #     This method provides an interface to use `key in store` to check if the key exists in the datastore.
-
-    #     Args:
-    #         key (bytes): The key to check.
-
-    #     Returns:
-    #         bool: True if the key exists, False otherwise.
-    #     """
-    #     return self.exists(key)
 
     def __len__(self) -> int:
         """

@@ -21,3 +21,6 @@ pub use is_empty::*;
 
 mod file_size;
 pub use file_size::*;
+
+mod exists;
+pub use exists::*;

@@ -5,10 +5,10 @@ on:
     tags:
       - "python-v*"
     paths:
-      - "experiments/bindings/python/**"
+      - "experiments/bindings/python_(old_client)/**"
   pull_request:
     paths:
-      - "experiments/bindings/python/**"
+      - "experiments/bindings/python_(old_client)/**"
 
 jobs:
   build:
@@ -17,7 +17,7 @@ jobs:
     env:
       # This was opted for instead of using `working-directory`, which breaks
       # tools like `maturin` and `cibuildwheel` that expect the workspace root.
-      PYTHON_BINDING_DIR: experiments/bindings/python
+      PYTHON_BINDING_DIR: experiments/bindings/python_(old_client)
     strategy:
       matrix:
         include:

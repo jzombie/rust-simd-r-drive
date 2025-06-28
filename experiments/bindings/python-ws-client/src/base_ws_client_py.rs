@@ -99,6 +99,27 @@ impl BaseDataStoreWsClient {
         })
     }
 
+    #[pyo3(name = "exists")]
+    fn py_exists(&self, key: Vec<u8>) -> PyResult<bool> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.exists(&key)).await {
+                Ok(Ok(exists)) => Ok(exists),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("`exists` operation timed out.")),
+            }
+        })
+    }
+
+    /// Implements the `key in store` containment check.
+    #[pyo3(name = "__contains__")]
+    fn py_contains(&self, key: Vec<u8>) -> PyResult<bool> {
+        self.py_exists(key)
+    }
+
     // TODO: I am *considering* renaming this to `read_prebuffered` since its operation differs from the underlying storage engine
     // TODO: Consider exposing an alternate form of `EntryHandle` here, like the Rust side.
     // The caveat is that this approach will still need to be fully read and not work with a streamer.
@@ -163,7 +184,8 @@ impl BaseDataStoreWsClient {
     ///
     /// This allows you to call `len(store)` to get the number of active entries.
     /// It assumes the underlying Rust client has a `len()` method.
-    fn __len__(&self) -> PyResult<usize> {
+    #[pyo3(name = "__len__")]
+    fn py_len(&self) -> PyResult<usize> {
         self.check_connection()?;
         let client = self.ws_client.clone();
 
@@ -178,7 +200,7 @@ impl BaseDataStoreWsClient {
     }
 
     #[pyo3(name = "is_empty")]
-    fn py_is_empty(&self) -> PyResult<(bool)> {
+    fn py_is_empty(&self) -> PyResult<bool> {
         self.check_connection()?;
         let client = self.ws_client.clone();
 
@@ -193,7 +215,7 @@ impl BaseDataStoreWsClient {
     }
 
     #[pyo3(name = "file_size")]
-    fn py_file_size(&self) -> PyResult<(u64)> {
+    fn py_file_size(&self) -> PyResult<u64> {
         self.check_connection()?;
         let client = self.ws_client.clone();
 

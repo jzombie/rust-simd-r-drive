@@ -13,8 +13,9 @@ use simd_r_drive::{
 
 use simd_r_drive_muxio_service_definition::prebuffered::{
     BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, Delete,
-    DeleteResponseParams, FileSize, FileSizeResponseParams, IsEmpty, IsEmptyResponseParams, Len,
-    LenResponseParams, Read, ReadResponseParams, Write, WriteResponseParams,
+    DeleteResponseParams, Exists, ExistsResponseParams, FileSize, FileSizeResponseParams, IsEmpty,
+    IsEmptyResponseParams, Len, LenResponseParams, Read, ReadResponseParams, Write,
+    WriteResponseParams,
 };
 mod cli;
 use crate::cli::Cli;
@@ -41,20 +42,20 @@ async fn main() -> std::io::Result<()> {
     let rpc_server = RpcServer::new();
     let endpoint = rpc_server.endpoint();
 
-    // TODO: Rename with consistency; `delete_store` sounds like it deletes the entire store
-    let write_store = Arc::clone(&store);
-    let batch_write_store = Arc::clone(&store);
-    let read_store = Arc::clone(&store);
-    let batch_read_store = Arc::clone(&store);
-    let delete_store = Arc::clone(&store);
-    let len_store = Arc::clone(&store);
-    let is_empty_store = Arc::clone(&store);
-    let file_size_store = Arc::clone(&store);
+    let arc_write = Arc::clone(&store);
+    let arc_batch_write = Arc::clone(&store);
+    let arc_read = Arc::clone(&store);
+    let arc_batch_read = Arc::clone(&store);
+    let arc_delete = Arc::clone(&store);
+    let arc_len = Arc::clone(&store);
+    let arc_empty = Arc::clone(&store);
+    let arc_file_size = Arc::clone(&store);
+    let arc_exists = Arc::clone(&store);
 
     let _ = join!(
         endpoint.register_prebuffered(Write::METHOD_ID, {
             move |_, bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&write_store);
+                let store_mutex = Arc::clone(&arc_write);
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let params = Write::decode_request(&bytes)?;
@@ -65,14 +66,14 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`write` task: {e}")))??;
                     Ok(resp)
                 }
             }
         }),
         endpoint.register_prebuffered(BatchWrite::METHOD_ID, {
             move |_, bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&batch_write_store);
+                let store_mutex = Arc::clone(&arc_batch_write);
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let params = BatchWrite::decode_request(&bytes)?;
@@ -88,14 +89,14 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("batch task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`batch_write` task: {e}")))??;
                     Ok(resp)
                 }
             }
         }),
         endpoint.register_prebuffered(Read::METHOD_ID, {
             move |_, bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&read_store);
+                let store_mutex = Arc::clone(&arc_read);
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let params = Read::decode_request(&bytes)?;
@@ -108,14 +109,14 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("read task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`read` task: {e}")))??;
                     Ok(resp)
                 }
             }
         }),
         endpoint.register_prebuffered(BatchRead::METHOD_ID, {
             move |_, bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&batch_read_store);
+                let store_mutex = Arc::clone(&arc_batch_read);
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let params = BatchRead::decode_request(&bytes)?;
@@ -137,7 +138,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("batch read task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`batch_read` task: {e}")))??;
 
                     Ok(resp)
                 }
@@ -145,7 +146,7 @@ async fn main() -> std::io::Result<()> {
         }),
         endpoint.register_prebuffered(Delete::METHOD_ID, {
             move |_, bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&delete_store);
+                let store_mutex = Arc::clone(&arc_delete);
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let params = Delete::decode_request(&bytes)?;
@@ -156,14 +157,14 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`delete` task: {e}")))??;
                     Ok(resp)
                 }
             }
         }),
         endpoint.register_prebuffered(Len::METHOD_ID, {
             move |_, _bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&len_store);
+                let store_mutex = Arc::clone(&arc_len);
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let store = store_mutex.blocking_read();
@@ -173,14 +174,14 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`len` task: {e}")))??;
                     Ok(resp)
                 }
             }
         }),
         endpoint.register_prebuffered(IsEmpty::METHOD_ID, {
             move |_, _bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&is_empty_store);
+                let store_mutex = Arc::clone(&arc_empty);
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let store = store_mutex.blocking_read();
@@ -190,14 +191,14 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`is_empty` task: {e}")))??;
                     Ok(resp)
                 }
             }
         }),
         endpoint.register_prebuffered(FileSize::METHOD_ID, {
             move |_, _bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&file_size_store);
+                let store_mutex = Arc::clone(&arc_file_size);
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let store = store_mutex.blocking_read();
@@ -207,7 +208,25 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`file_size` task: {e}")))??;
+                    Ok(resp)
+                }
+            }
+        }),
+        endpoint.register_prebuffered(Exists::METHOD_ID, {
+            move |_, bytes: Vec<u8>| {
+                let store_mutex = Arc::clone(&arc_exists);
+                async move {
+                    let resp = task::spawn_blocking(move || {
+                        let params = Exists::decode_request(&bytes)?;
+                        let store = store_mutex.blocking_read();
+                        let exists = store.exists(&params.key)?;
+                        let response_bytes =
+                            Exists::encode_response(ExistsResponseParams { exists })?;
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
+                    })
+                    .await
+                    .map_err(|e| std::io::Error::other(format!("`exists` task: {e}")))??;
                     Ok(resp)
                 }
             }

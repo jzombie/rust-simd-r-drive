@@ -761,6 +761,10 @@ impl DataStoreWriter for DataStore {
 impl DataStoreReader for DataStore {
     type EntryHandleType = EntryHandle;
 
+    fn exists(&self, key: &[u8]) -> Result<bool> {
+        Ok(self.read(key)?.is_some())
+    }
+
     fn read(&self, key: &[u8]) -> Result<Option<EntryHandle>> {
         let key_hash = compute_hash(key);
         let key_indexer_guard = self

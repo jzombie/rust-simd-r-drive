@@ -4,6 +4,22 @@ use std::io::Result;
 pub trait DataStoreReader {
     type EntryHandleType;
 
+    /// Checks whether a key currently exists in the store.
+    ///
+    /// This is a **constant‑time** lookup against the in‑memory
+    /// [`crate::storage_engine::KeyIndexer`] map.  
+    /// A key is considered to *exist* only if it is present **and not marked
+    /// as deleted**.
+    ///
+    /// # Parameters
+    /// - `key`: The **binary key** to check.
+    ///
+    /// # Returns
+    /// - `Ok(true)`: Key exists and is active.  
+    /// - `Ok(false)`: Key is absent or has been deleted.  
+    /// - `Err(std::io::Error)`: On I/O failure.
+    fn exists(&self, key: &[u8]) -> Result<bool>;
+
     /// Retrieves the most recent value associated with a given key.
     ///
     /// This method **efficiently looks up a key** using a fast in-memory index,
@@ -87,6 +103,22 @@ pub trait DataStoreReader {
 #[async_trait::async_trait]
 pub trait AsyncDataStoreReader {
     type EntryHandleType;
+
+    /// Checks whether a key currently exists in the store.
+    ///
+    /// This is a **constant‑time** lookup against the in‑memory
+    /// [`crate::storage_engine::KeyIndexer`] map.  
+    /// A key is considered to *exist* only if it is present **and not marked
+    /// as deleted**.
+    ///
+    /// # Parameters
+    /// - `key`: The **binary key** to check.
+    ///
+    /// # Returns
+    /// - `Ok(true)`: Key exists and is active.  
+    /// - `Ok(false)`: Key is absent or has been deleted.  
+    /// - `Err(std::io::Error)`: On I/O failure.
+    async fn exists(&self, key: &[u8]) -> Result<bool>;
 
     /// Retrieves the most recent value associated with a given key.
     ///
