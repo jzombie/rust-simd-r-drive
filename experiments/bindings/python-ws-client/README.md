@@ -11,7 +11,7 @@
 
 Prototype WebSocket bindings for [`SIMD R Drive`](https://crates.io/crates/simd-r-drive),
 a high‑performance, append‑only, single‑file storage engine written in Rust.
-The bindings are implemented in Rust (via **PyO3**) and packaged with
+The bindings are implemented in Rust (via [PyO3](https://github.com/PyO3/pyo3)) and packaged with
 [maturin](https://github.com/PyO3/maturin).
 
 ## Requirements
