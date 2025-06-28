@@ -12,8 +12,8 @@ use simd_r_drive::{
 };
 
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, Count,
-    CountResponseParams, Delete, DeleteResponseParams, Read, ReadResponseParams, Write,
+    BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, Delete,
+    DeleteResponseParams, Len, LenResponseParams, Read, ReadResponseParams, Write,
     WriteResponseParams,
 };
 mod cli;
@@ -47,7 +47,7 @@ async fn main() -> std::io::Result<()> {
     let read_store = Arc::clone(&store);
     let batch_read_store = Arc::clone(&store);
     let delete_store = Arc::clone(&store);
-    let count_store = Arc::clone(&store);
+    let len_store = Arc::clone(&store);
 
     let _ = join!(
         endpoint.register_prebuffered(Write::METHOD_ID, {
@@ -159,15 +159,15 @@ async fn main() -> std::io::Result<()> {
                 }
             }
         }),
-        endpoint.register_prebuffered(Count::METHOD_ID, {
+        endpoint.register_prebuffered(Len::METHOD_ID, {
             move |_, _bytes: Vec<u8>| {
-                let store_mutex = Arc::clone(&count_store);
+                let store_mutex = Arc::clone(&len_store);
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let store = store_mutex.blocking_read();
-                        let total_entries = store.count()?;
+                        let total_entries = store.len()?;
                         let response_bytes =
-                            Count::encode_response(CountResponseParams { total_entries })?;
+                            Len::encode_response(LenResponseParams { total_entries })?;
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await

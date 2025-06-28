@@ -63,7 +63,7 @@ def test_batch_write_and_read(client):
 
     try:
         print("\n--- Starting batch write and count test ---")
-        initial_count = client.count()
+        initial_count = len(client)
         print(f"Initial count: {initial_count}")
 
         print("Attempting to perform a batch write...")
@@ -71,7 +71,7 @@ def test_batch_write_and_read(client):
         print("Batch write operation completed.")
 
         # Verify count increased correctly
-        new_count = client.count()
+        new_count = len(client)
         print(f"New count: {new_count}")
         assert new_count == initial_count + len(
             entries
@@ -240,50 +240,44 @@ def test_batch_read_structured_list_of_dicts(client):
 
 
 def test_count_simple(client):
-    """Tests the basic increment/decrement behavior of the count() method."""
+    """Tests the basic increment/decrement behavior of the entry count detection."""
     print("\n--- Starting simple count test ---")
     key1 = f"count-key-{secrets.token_hex(4)}".encode()
     key2 = f"count-key-{secrets.token_hex(4)}".encode()
 
     # 1. Initial state
-    initial_count = client.count()
+    initial_count = len(client)
     print(f"Initial count: {initial_count}")
 
     # 2. Add a new key
     client.write(key1, b"count-data-1")
-    assert client.count() == initial_count + 1, "Count should increment after first write"
-    assert client.count() == len(client)
-    print(f"Count after one write: {client.count()}")
+    assert len(client) == initial_count + 1, "Count should increment after first write"
+    print(f"Count after one write: {len(client)}")
 
     # 3. Update an existing key
     client.write(key1, b"count-data-1-updated")
-    assert client.count() == initial_count + 1, "Count should not change after an update"
-    assert client.count() == len(client)
-    print(f"Count after update: {client.count()}")
+    assert len(client)  == initial_count + 1, "Count should not change after an update"
+    print(f"Count after update: {len(client)}")
 
     # 4. Add a second key
     client.write(key2, b"count-data-2")
-    assert client.count() == initial_count + 2, "Count should increment after second write"
-    assert client.count() == len(client)
-    print(f"Count after second write: {client.count()}")
+    assert len(client) == initial_count + 2, "Count should increment after second write"
+    print(f"Count after second write: {len(client)}")
 
     # 5. Delete a key
     client.delete(key1)
-    assert client.count() == initial_count + 1, "Count should decrement after delete"
-    assert client.count() == len(client)
-    print(f"Count after one delete: {client.count()}")
+    assert len(client) == initial_count + 1, "Count should decrement after delete"
+    print(f"Count after one delete: {len(client)}")
 
     # 6. Delete a non-existent key
     client.delete(key1) # Already deleted
-    assert client.count() == initial_count + 1, "Count should not change when deleting a non-existent key"
-    assert client.count() == len(client)
-    print(f"Count after deleting a non-existent key: {client.count()}")
+    assert len(client) == initial_count + 1, "Count should not change when deleting a non-existent key"
+    print(f"Count after deleting a non-existent key: {len(client)}")
     
     # 7. Delete the final key
     client.delete(key2)
-    assert client.count() == initial_count, "Count should return to initial after all deletes"
-    assert client.count() == len(client)
-    print(f"Final count: {client.count()}")
+    assert len(client) == initial_count, "Count should return to initial after all deletes"
+    print(f"Final count: {len(client)}")
     
     print("SUCCESS: Simple count test passed.")
 
@@ -295,14 +289,14 @@ def test_delete_key(client):
     print("\n--- Starting delete handling and count test ---")
 
     # Arrange: Write a key, and verify it exists and count is correct.
-    initial_count = client.count()
+    initial_count = len(client)
     print(f"Writing key '{key.decode()}' for deletion test. Initial count: {initial_count}")
     client.write(key, value)
     
-    assert client.count() == initial_count + 1, "FAIL: Count did not increment after write"
+    assert len(client) == initial_count + 1, "FAIL: Count did not increment after write"
     initial_read = client.read(key)
     assert initial_read == value, "Pre-condition failed: Key was not written correctly before delete."
-    print(f"Key confirmed to exist. Count is now {client.count()}")
+    print(f"Key confirmed to exist. Count is now {len(client)}")
 
     # Act: Delete the key.
     print(f"Deleting key '{key.decode()}'.")
@@ -313,7 +307,7 @@ def test_delete_key(client):
     print(f"Read after delete returned: {final_read}")
     assert final_read is None, "FAIL: Reading a deleted key should return None."
     
-    final_count = client.count()
+    final_count = len(client)
     print(f"Final count: {final_count}")
     assert final_count == initial_count, "FAIL: Count did not decrement after delete"
     
@@ -334,11 +328,11 @@ def test_delete_with_batch_read(client):
     keys_to_fetch = [key for key, _ in entries]
     key_to_delete = keys_to_fetch[1]
 
-    initial_count = client.count()
+    initial_count = len(client)
     print(f"Writing initial batch for delete test. Initial count: {initial_count}")
     client.batch_write(entries)
     
-    count_after_write = client.count()
+    count_after_write = len(client)
     assert count_after_write == initial_count + len(entries), "FAIL: Count did not increment correctly after batch write"
     print(f"Count after batch write: {count_after_write}")
 
@@ -347,7 +341,7 @@ def test_delete_with_batch_read(client):
     client.delete(key_to_delete)
 
     # Assert count
-    count_after_delete = client.count()
+    count_after_delete = len(client)
     assert count_after_delete == count_after_write - 1, "FAIL: Count did not decrement after delete"
     print(f"Count after delete: {count_after_delete}")
 

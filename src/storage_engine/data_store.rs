@@ -867,11 +867,11 @@ impl DataStoreReader for DataStore {
         Ok(self.read(key)?.map(|entry| entry.metadata().clone()))
     }
 
-    fn count(&self) -> Result<usize> {
+    fn len(&self) -> Result<usize> {
         let read_guard = self
             .key_indexer
             .read()
-            .map_err(|_| Error::other("Key-index lock poisoned during `count`"))?;
+            .map_err(|_| Error::other("Key-index lock poisoned during `len`"))?;
 
         Ok(read_guard.len())
     }

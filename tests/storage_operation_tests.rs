@@ -200,7 +200,7 @@ mod tests {
             Some(updated_payload2)
         );
 
-        let count_before_delete = storage.count().unwrap();
+        let count_before_delete = storage.len().unwrap();
 
         assert_eq!(count_before_delete, 2);
 
@@ -208,7 +208,7 @@ mod tests {
         storage.delete(key1).expect("Failed to delete entry");
 
         // Verify count is reduced
-        let count_after_delete = storage.count().unwrap();
+        let count_after_delete = storage.len().unwrap();
         assert_eq!(
             count_after_delete,
             count_before_delete - 1,

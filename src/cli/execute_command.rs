@@ -234,7 +234,7 @@ pub fn execute_command(cli: &Cli) {
             let savings_estimate = storage.estimate_compaction_savings();
 
             // Count active entries
-            let entry_count = storage.count();
+            let entry_count = storage.len();
 
             println!("\n{:=^50}", " STORAGE INFO ");
             println!("{:<25} {:?}", "STORAGE FILE:", cli.storage);

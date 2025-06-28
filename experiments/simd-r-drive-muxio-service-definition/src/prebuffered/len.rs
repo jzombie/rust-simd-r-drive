@@ -3,20 +3,20 @@ use muxio_rpc_service::{prebuffered::RpcMethodPrebuffered, rpc_method_id};
 use std::io;
 
 #[derive(Encode, Decode, PartialEq, Debug)]
-pub struct CountRequestParams {}
+pub struct LenRequestParams {}
 
 #[derive(Encode, Decode, PartialEq, Debug)]
-pub struct CountResponseParams {
+pub struct LenResponseParams {
     pub total_entries: usize,
 }
 
-pub struct Count;
+pub struct Len;
 
-impl RpcMethodPrebuffered for Count {
-    const METHOD_ID: u64 = rpc_method_id!("count");
+impl RpcMethodPrebuffered for Len {
+    const METHOD_ID: u64 = rpc_method_id!("len");
 
-    type Input = CountRequestParams;
-    type Output = CountResponseParams;
+    type Input = LenRequestParams;
+    type Output = LenResponseParams;
 
     fn encode_request(request_params: Self::Input) -> Result<Vec<u8>, io::Error> {
         Ok(bitcode::encode(&request_params))

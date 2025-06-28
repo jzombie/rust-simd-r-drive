@@ -5,9 +5,8 @@ use simd_r_drive::{
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Count,
-    CountRequestParams, Delete, DeleteRequestParams, Read, ReadRequestParams, Write,
-    WriteRequestParams,
+    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Delete,
+    DeleteRequestParams, Len, LenRequestParams, Read, ReadRequestParams, Write, WriteRequestParams,
 };
 use std::io::Result;
 
@@ -118,8 +117,8 @@ impl AsyncDataStoreReader for WsClient {
         unimplemented!("`read_metadata` is not currently implemented");
     }
 
-    async fn count(&self) -> Result<usize> {
-        let response_params = Count::call(&self.rpc_client, CountRequestParams {}).await?;
+    async fn len(&self) -> Result<usize> {
+        let response_params = Len::call(&self.rpc_client, LenRequestParams {}).await?;
 
         Ok(response_params.total_entries)
     }

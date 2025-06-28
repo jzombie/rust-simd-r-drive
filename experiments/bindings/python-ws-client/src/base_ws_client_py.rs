@@ -159,28 +159,21 @@ impl BaseDataStoreWsClient {
         })
     }
 
-    // TODO: Use `u64` return type
-    #[pyo3(name = "count")]
-    fn py_count(&self) -> PyResult<(usize)> {
-        self.check_connection()?;
-        let client = self.ws_client.clone();
-
-        self.runtime.block_on(async {
-            // TODO: Don't hardcode timeout
-            match timeout(Duration::from_secs(30), client.count()).await {
-                Ok(Ok(total_entries)) => Ok(total_entries),
-                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
-                Err(_) => Err(TimeoutError::new_err("Count operation timed out.")),
-            }
-        })
-    }
-
-    // TODO: Use `u64` return type
     /// Implements the `len()` built-in for Python.
     ///
     /// This allows you to call `len(store)` to get the number of active entries.
     /// It assumes the underlying Rust client has a `len()` method.
     fn __len__(&self) -> PyResult<usize> {
-        self.py_count()
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.len()).await {
+                Ok(Ok(total_entries)) => Ok(total_entries),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("Len operation timed out.")),
+            }
+        })
     }
 }

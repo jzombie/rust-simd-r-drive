@@ -118,16 +118,6 @@ class DataStoreWsClient:
     #     """
     #     return self.exists(key)
 
-    def count(self) -> int:
-        """
-        Returns the total number of active entries in the store.
-
-        Returns:
-            int: The total number of active entries in the store.
-        """
-        ...
-
-
     def __len__(self) -> int:
         """
         Returns the total number of active entries in the store.
