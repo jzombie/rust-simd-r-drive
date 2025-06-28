@@ -64,8 +64,6 @@ impl BaseDataStoreWsClient {
         Ok(())
     }
 
-    // --- All public methods are now blocking again, but with timeouts ---
-
     #[pyo3(name = "write")]
     fn py_write(&self, key: Vec<u8>, payload: Vec<u8>) -> PyResult<()> {
         self.check_connection()?;
@@ -141,6 +139,21 @@ impl BaseDataStoreWsClient {
                 .into_iter()
                 .map(|opt| opt.map(|bytes| PyBytes::new(py, &bytes).into()))
                 .collect())
+        })
+    }
+
+    #[pyo3(name = "delete")]
+    fn py_delete(&self, key: Vec<u8>) -> PyResult<()> {
+        self.check_connection()?;
+        let client = self.ws_client.clone();
+
+        self.runtime.block_on(async {
+            // TODO: Don't hardcode timeout
+            match timeout(Duration::from_secs(30), client.delete(&key)).await {
+                Ok(Ok(_)) => Ok(()),
+                Ok(Err(e)) => Err(PyIOError::new_err(e.to_string())),
+                Err(_) => Err(TimeoutError::new_err("Delete operation timed out.")),
+            }
         })
     }
 }

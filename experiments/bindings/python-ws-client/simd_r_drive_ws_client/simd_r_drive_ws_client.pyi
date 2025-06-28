@@ -77,20 +77,18 @@ class DataStoreWsClient:
             key is not present.
         """
         ...
-    #
-    #
-    # TODO: Integrate
-    # def delete(self, key: bytes) -> None:
-    #     """
-    #     Marks the key as deleted (logically removes it).
 
-    #     This operation does not physically remove the data but appends a tombstone
-    #     entry to mark the key as deleted.
+    def delete(self, key: bytes) -> None:
+        """
+        Marks the key as deleted (logically removes it).
 
-    #     Args:
-    #         key (bytes): The key to mark as deleted.
-    #     """
-    #     ...
+        This operation does not physically remove the data but appends a tombstone
+        entry to mark the key as deleted.
+
+        Args:
+            key (bytes): The key to mark as deleted.
+        """
+        ...
 
     # def exists(self, key: bytes) -> bool:
     #     """

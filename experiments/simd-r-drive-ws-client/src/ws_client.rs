@@ -5,8 +5,8 @@ use simd_r_drive::{
     traits::{AsyncDataStoreReader, AsyncDataStoreWriter},
 };
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Read,
-    ReadRequestParams, Write, WriteRequestParams,
+    BatchRead, BatchReadRequestParams, BatchWrite, BatchWriteRequestParams, Delete,
+    DeleteRequestParams, Read, ReadRequestParams, Write, WriteRequestParams,
 };
 use std::io::Result;
 
@@ -73,12 +73,15 @@ impl AsyncDataStoreWriter for WsClient {
         unimplemented!("`copy` is not currently implemented");
     }
 
-    async fn transfer(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
+    async fn transfer(&self, key: &[u8], _target: &DataStore) -> Result<u64> {
         unimplemented!("`transfer` is not currently implemented");
     }
 
-    async fn delete(&self, _key: &[u8]) -> Result<u64> {
-        unimplemented!("`delete` is not currently implemented");
+    async fn delete(&self, key: &[u8]) -> Result<u64> {
+        let resp =
+            Delete::call(&self.rpc_client, DeleteRequestParams { key: key.to_vec() }).await?;
+
+        Ok(resp.tail_offset)
     }
 }
 

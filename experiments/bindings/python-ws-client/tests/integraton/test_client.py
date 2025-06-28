@@ -226,3 +226,59 @@ def test_batch_read_structured_list_of_dicts(client):
         result == expected_result
     ), "The hydrated list of dictionaries does not match the expected result"
     print("SUCCESS: batch_read_structured with a list of dictionaries passed.")
+
+
+def test_delete_key(client):
+    """Tests that deleting a key makes it non-existent for reads."""
+    key = b"key-to-be-deleted"
+    value = b"some-data-to-remove"
+    print("\n--- Starting delete handling test ---")
+
+    # Arrange: Write a key, and verify it exists.
+    print(f"Writing key '{key.decode()}' for deletion test.")
+    client.write(key, value)
+    initial_read = client.read(key)
+    assert initial_read == value, "Pre-condition failed: Key was not written correctly before delete."
+    print("Key confirmed to exist before deletion.")
+
+    # Act: Delete the key.
+    print(f"Deleting key '{key.decode()}'.")
+    client.delete(key)
+
+    # Assert: The key should no longer exist.
+    final_read = client.read(key)
+    print(f"Read after delete returned: {final_read}")
+    assert final_read is None, "FAIL: Reading a deleted key should return None."
+    print("SUCCESS: Delete handling test passed.")
+
+
+def test_delete_with_batch_read(client):
+    """
+    Tests that a deleted key is correctly handled as `None` in a batch_read.
+    """
+    print("\n--- Starting delete with batch_read test ---")
+    # Arrange: Write a set of keys.
+    entries = [
+        (b"dbr-1", b"value-one"),
+        (b"dbr-to-delete", b"this-should-vanish"),
+        (b"dbr-3", b"value-three"),
+    ]
+    key_to_delete = b"dbr-to-delete"
+    
+    print("Writing initial batch for delete test...")
+    client.batch_write(entries)
+
+    # Act: Delete one of the keys from the batch.
+    print(f"Deleting key '{key_to_delete.decode()}'.")
+    client.delete(key_to_delete)
+
+    # Assert: Perform a batch_read and check for None in the deleted key's slot.
+    keys_to_fetch = [key for key, _ in entries]
+    print(f"Performing batch_read on keys: {[k.decode() for k in keys_to_fetch]}")
+    results = client.batch_read(keys_to_fetch)
+    
+    expected_results = [b"value-one", None, b"value-three"]
+    
+    assert results == expected_results, \
+        f"FAIL: batch_read did not correctly handle the deleted key. Expected {expected_results}, but got {results}."
+    print("SUCCESS: Delete with batch_read test passed.")

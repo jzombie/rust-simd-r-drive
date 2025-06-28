@@ -12,8 +12,8 @@ use simd_r_drive::{
 };
 
 use simd_r_drive_muxio_service_definition::prebuffered::{
-    BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, Read,
-    ReadResponseParams, Write, WriteResponseParams,
+    BatchRead, BatchReadResponseParams, BatchWrite, BatchWriteResponseParams, Delete,
+    DeleteResponseParams, Read, ReadResponseParams, Write, WriteResponseParams,
 };
 mod cli;
 use crate::cli::Cli;
@@ -40,10 +40,12 @@ async fn main() -> std::io::Result<()> {
     let rpc_server = RpcServer::new();
     let endpoint = rpc_server.endpoint();
 
+    // TODO: Rename with consistency; `delete_store` sounds like it deletes the entire store
     let write_store = Arc::clone(&store);
     let batch_write_store = Arc::clone(&store);
     let read_store = Arc::clone(&store);
     let batch_read_store = Arc::clone(&store);
+    let delete_store = Arc::clone(&store);
 
     let _ = join!(
         endpoint.register_prebuffered(Write::METHOD_ID, {
@@ -52,17 +54,11 @@ async fn main() -> std::io::Result<()> {
                 async move {
                     let resp = task::spawn_blocking(move || {
                         let params = Write::decode_request(&bytes)?;
-
-                        // Acquire exclusive write lock.
-                        //
-                        // This blocks all concurrent readers and writers
-                        // until the mutation is complete.
-                        //
-                        // Tokio's blocking_write ensures the thread isn't stalled.
                         let store = store_mutex.blocking_write();
                         let tail_offset = store.write(&params.key, &params.payload)?;
-                        let resp = Write::encode_response(WriteResponseParams { tail_offset })?;
-                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
+                        let response_bytes =
+                            Write::encode_response(WriteResponseParams { tail_offset })?;
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
                     .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
@@ -75,22 +71,17 @@ async fn main() -> std::io::Result<()> {
                 let store_mutex = Arc::clone(&batch_write_store);
                 async move {
                     let resp = task::spawn_blocking(move || {
-                        let req = BatchWrite::decode_request(&bytes)?;
-
-                        // Acquire exclusive lock for batch write.
-                        //
-                        // Like Write, this prevents all concurrent access
-                        // while the batch mutation occurs.
+                        let params = BatchWrite::decode_request(&bytes)?;
                         let store = store_mutex.blocking_write();
-                        let borrowed_entries: Vec<(&[u8], &[u8])> = req
+                        let borrowed_entries: Vec<(&[u8], &[u8])> = params
                             .entries
                             .iter()
                             .map(|(k, v)| (k.as_slice(), v.as_slice()))
                             .collect();
                         let tail_offset = store.batch_write(&borrowed_entries)?;
-                        let resp =
+                        let response_bytes =
                             BatchWrite::encode_response(BatchWriteResponseParams { tail_offset })?;
-                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
                     .map_err(|e| std::io::Error::other(format!("batch task: {e}")))??;
@@ -103,21 +94,14 @@ async fn main() -> std::io::Result<()> {
                 let store_mutex = Arc::clone(&read_store);
                 async move {
                     let resp = task::spawn_blocking(move || {
-                        let req = Read::decode_request(&bytes)?;
-
-                        // Acquire shared read lock.
-                        //
-                        // This allows multiple concurrent readers to access
-                        // the store at the same time *as long as no writer holds the lock*.
-                        //
-                        // We extract the data into memory immediately,
-                        // and then drop the read lock to maximize concurrency.
+                        let params = Read::decode_request(&bytes)?;
                         let store = store_mutex.blocking_read();
                         let entry_payload = store
-                            .read(&req.key)?
+                            .read(&params.key)?
                             .map(|handle| handle.as_slice().to_vec());
-                        let resp = Read::encode_response(ReadResponseParams { entry_payload })?;
-                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
+                        let response_bytes =
+                            Read::encode_response(ReadResponseParams { entry_payload })?;
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
                     .map_err(|e| std::io::Error::other(format!("read task: {e}")))??;
@@ -130,45 +114,45 @@ async fn main() -> std::io::Result<()> {
                 let store_mutex = Arc::clone(&batch_read_store);
                 async move {
                     let resp = task::spawn_blocking(move || {
-                        // ── 1. Decode the RPC frame ──────────────────────────────────────
-                        let req = BatchRead::decode_request(&bytes)?;
-
-                        // ── 2. Pull a shared read-lock on the store ─────────────────────
-                        //
-                        //    • Many BatchReads can run in parallel because this is a
-                        //      `blocking_read()`.
-                        //    • The lock is held only long enough to obtain the
-                        //      zero-copy EntryHandles; we drop it immediately after.
-                        //
+                        let params = BatchRead::decode_request(&bytes)?;
                         let store_guard = store_mutex.blocking_read();
-
-                        //     Convert Vec<Vec<u8>> → Vec<&[u8]>  (what `batch_read` wants)
-                        let key_refs: Vec<&[u8]> = req.keys.iter().map(|k| k.as_slice()).collect();
-
+                        let key_refs: Vec<&[u8]> =
+                            params.keys.iter().map(|k| k.as_slice()).collect();
                         let handles = store_guard.batch_read(&key_refs)?;
 
                         drop(store_guard); // free the lock ASAP
 
-                        // ── 3. Copy the payloads out (still zero-copy *inside* the guard) ─
-                        //
-                        //    Each handle is turned into Option<Vec<u8>> so the resulting
-                        //    response owns its bytes and is independent of the mmap.
-                        //
                         let entries_payloads: Vec<Option<Vec<u8>>> = handles
                             .into_iter()
                             .map(|opt| opt.map(|h| h.as_slice().to_vec()))
                             .collect();
-
-                        // ── 4. Marshal the response frame ───────────────────────────────
-                        let resp = BatchRead::encode_response(BatchReadResponseParams {
+                        let response_bytes = BatchRead::encode_response(BatchReadResponseParams {
                             entries_payloads,
                         })?;
 
-                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(resp)
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
                     .map_err(|e| std::io::Error::other(format!("batch read task: {e}")))??;
 
+                    Ok(resp)
+                }
+            }
+        }),
+        endpoint.register_prebuffered(Delete::METHOD_ID, {
+            move |_, bytes: Vec<u8>| {
+                let store_mutex = Arc::clone(&delete_store);
+                async move {
+                    let resp = task::spawn_blocking(move || {
+                        let params = Delete::decode_request(&bytes)?;
+                        let store = store_mutex.blocking_write();
+                        let tail_offset = store.delete(&params.key)?;
+                        let response_bytes =
+                            Delete::encode_response(DeleteResponseParams { tail_offset })?;
+                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
+                    })
+                    .await
+                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
                     Ok(resp)
                 }
             }

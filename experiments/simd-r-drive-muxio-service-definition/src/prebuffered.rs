@@ -9,3 +9,6 @@ pub use batch_write::*;
 
 mod write;
 pub use write::*;
+
+mod delete;
+pub use delete::*;
