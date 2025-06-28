@@ -229,7 +229,7 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 ## License
 
-Licensed under the [Apache-2.0 License](LICENSE).
+Licensed under the [Apache-2.0 License](./LICENSE).
 
 [rust-src-page]: https://www.rust-lang.org/
 [rust-logo]: https://img.shields.io/badge/Made%20with-Rust-black?&logo=Rust
