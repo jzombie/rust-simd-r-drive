@@ -201,7 +201,7 @@ impl DataStore {
         for (key_hash, offset) in key_hash_offsets.iter() {
             if deleted_keys
                 .as_ref()
-                .map_or(false, |set| set.contains(key_hash))
+                .is_some_and(|set| set.contains(key_hash))
             {
                 key_indexer_guard.remove(key_hash);
             } else {

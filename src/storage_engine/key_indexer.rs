@@ -75,4 +75,9 @@ impl KeyIndexer {
     pub fn len(&self) -> usize {
         self.index.len()
     }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.index.is_empty()
+    }
 }
