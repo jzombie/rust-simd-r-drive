@@ -25,7 +25,7 @@ impl RpcMethodPrebuffered for BatchRead {
     }
 
     fn decode_request(bytes: &[u8]) -> Result<Self::Input, io::Error> {
-        let req_params = bitcode::decode::<BatchReadRequestParams>(bytes)
+        let req_params = bitcode::decode::<Self::Input>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         Ok(req_params)
@@ -36,7 +36,7 @@ impl RpcMethodPrebuffered for BatchRead {
     }
 
     fn decode_response(bytes: &[u8]) -> Result<Self::Output, io::Error> {
-        let resp_params = bitcode::decode::<BatchReadResponseParams>(bytes)
+        let resp_params = bitcode::decode::<Self::Output>(bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         Ok(resp_params)
