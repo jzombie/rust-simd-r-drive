@@ -50,7 +50,7 @@ print(client.read(b"hello"))       # b"world"
 ```
 
 See the [type stubs](https://github.com/jzombie/rust-simd-r-drive/blob/main/experiments/bindings/python-ws-client/simd_r_drive_ws_client/simd_r_drive_ws_client.pyi)
-for the full async and sync API surface.
+for the full API surface.
 
 
 ## License
