@@ -7,6 +7,7 @@ Prototype WebSocket bindings for [SIMD R Drive](https://crates.io/crates/simd-r-
 ## Requirements
 - **Python ≥ 3.10** (CPython)
 - Works on Linux, macOS, and Windows
+- A compatible [SIMD R Drive Server](https://crates.io/crates/simd-r-drive-ws-server) [[Source](https://github.com/jzombie/rust-simd-r-drive/tree/main/experiments/simd-r-drive-ws-server)]
 
 ## License
 
