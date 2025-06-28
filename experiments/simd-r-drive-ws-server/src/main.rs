@@ -66,7 +66,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`write` task: {e}")))??;
                     Ok(resp)
                 }
             }
@@ -89,7 +89,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("batch task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`batch_write` task: {e}")))??;
                     Ok(resp)
                 }
             }
@@ -109,7 +109,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("read task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`read` task: {e}")))??;
                     Ok(resp)
                 }
             }
@@ -138,7 +138,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("batch read task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`batch_read` task: {e}")))??;
 
                     Ok(resp)
                 }
@@ -157,7 +157,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`delete` task: {e}")))??;
                     Ok(resp)
                 }
             }
@@ -174,7 +174,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`len` task: {e}")))??;
                     Ok(resp)
                 }
             }
@@ -191,7 +191,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`is_empty` task: {e}")))??;
                     Ok(resp)
                 }
             }
@@ -208,7 +208,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`file_size` task: {e}")))??;
                     Ok(resp)
                 }
             }
@@ -226,7 +226,7 @@ async fn main() -> std::io::Result<()> {
                         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(response_bytes)
                     })
                     .await
-                    .map_err(|e| std::io::Error::other(format!("write task: {e}")))??;
+                    .map_err(|e| std::io::Error::other(format!("`exists` task: {e}")))??;
                     Ok(resp)
                 }
             }
