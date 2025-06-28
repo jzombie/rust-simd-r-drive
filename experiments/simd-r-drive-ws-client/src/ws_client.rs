@@ -73,7 +73,7 @@ impl AsyncDataStoreWriter for WsClient {
         unimplemented!("`copy` is not currently implemented");
     }
 
-    async fn transfer(&self, key: &[u8], _target: &DataStore) -> Result<u64> {
+    async fn transfer(&self, _key: &[u8], _target: &DataStore) -> Result<u64> {
         unimplemented!("`transfer` is not currently implemented");
     }
 
