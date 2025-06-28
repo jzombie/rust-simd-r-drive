@@ -1,4 +1,4 @@
-# SIMD R Drive WebSocket Python Client
+# SIMD R Drive Python WebSocket Client
 
 [![made-with-rust](https://img.shields.io/badge/Made%20with-Rust-black?logo=Rust)](https://www.rust-lang.org)
 [![built-with-maturin](https://img.shields.io/badge/Built%20with-maturin-orange)](https://github.com/PyO3/maturin)
