@@ -189,6 +189,7 @@ impl DataStore {
         write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
         key_hash_offsets: &[(u64, u64)],
         tail_offset: u64,
+        deleted_keys: Option<&HashSet<u64>>,
     ) -> std::io::Result<()> {
         let new_mmap = Self::init_mmap(write_guard)?;
         let mut mmap_guard = self.mmap.lock().unwrap();
@@ -198,7 +199,13 @@ impl DataStore {
             .map_err(|_| std::io::Error::other("Failed to acquire index lock"))?;
 
         for (key_hash, offset) in key_hash_offsets.iter() {
-            key_indexer_guard.insert(*key_hash, *offset);
+            if let Some(deleted_keys) = deleted_keys
+                && deleted_keys.contains(key_hash)
+            {
+                key_indexer_guard.remove(key_hash);
+            } else {
+                key_indexer_guard.insert(*key_hash, *offset);
+            }
         }
 
         *mmap_guard = Arc::new(new_mmap);
@@ -366,6 +373,7 @@ impl DataStore {
             &file,
             &[(key_hash, tail_offset - METADATA_SIZE as u64)],
             tail_offset,
+            None,
         )?;
         Ok(tail_offset)
     }
@@ -432,12 +440,18 @@ impl DataStore {
         let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
 
         let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(hashed_payloads.len());
+        let mut deleted_keys: HashSet<u64> = HashSet::new();
+
         for (key_hash, payload) in hashed_payloads {
-            if !allow_null_bytes && payload == NULL_BYTE {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "NULL-byte payloads cannot be written directly.",
-                ));
+            if payload == NULL_BYTE {
+                if !allow_null_bytes {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "NULL-byte payloads cannot be written directly.",
+                    ));
+                }
+
+                deleted_keys.insert(key_hash);
             }
 
             if payload.is_empty() {
@@ -468,7 +482,7 @@ impl DataStore {
         file.write_all(&buffer)?;
         file.flush()?;
 
-        self.reindex(&file, &key_hash_offsets, tail_offset)?;
+        self.reindex(&file, &key_hash_offsets, tail_offset, Some(&deleted_keys))?;
 
         Ok(self.tail_offset.load(Ordering::Acquire))
     }
@@ -816,7 +830,7 @@ impl DataStoreReader for DataStore {
         let key_indexer_guard = self
             .key_indexer
             .read()
-            .map_err(|_| Error::other("Key-index lock poisoned during batch_read"))?;
+            .map_err(|_| Error::other("Key-index lock poisoned during `batch_read`"))?;
         let hashes = compute_hash_batch(keys);
 
         let results = hashes
@@ -853,9 +867,13 @@ impl DataStoreReader for DataStore {
         Ok(self.read(key)?.map(|entry| entry.metadata().clone()))
     }
 
-    // TODO: Use atomic count and don't loop through each entry!
     fn count(&self) -> Result<usize> {
-        Ok(self.iter_entries().count())
+        let read_guard = self
+            .key_indexer
+            .read()
+            .map_err(|_| Error::other("Key-index lock poisoned during `count`"))?;
+
+        Ok(read_guard.len())
     }
 
     fn get_storage_size(&self) -> Result<u64> {

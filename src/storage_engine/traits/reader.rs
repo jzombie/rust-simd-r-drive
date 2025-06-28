@@ -68,7 +68,7 @@ pub trait DataStoreReader {
     /// # Returns:
     /// - `Ok(active_count)`: Total active entries.
     /// - `Err(std::io::Error)`: On I/O failure.
-    fn count(&self) -> Result<usize>; // TODO: Use `u64`
+    fn count(&self) -> Result<usize>;
 
     // TODO: Consider adding `is_empty`
 
@@ -148,7 +148,7 @@ pub trait AsyncDataStoreReader {
     /// # Returns:
     /// - `Ok(active_count)`: Total active entries.
     /// - `Err(std::io::Error)`: On I/O failure.
-    async fn count(&self) -> Result<usize>; // TODO: Use `u64`
+    async fn count(&self) -> Result<usize>;
 
     // TODO: Consider adding `is_empty`
 
