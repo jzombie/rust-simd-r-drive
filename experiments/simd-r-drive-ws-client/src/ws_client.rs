@@ -130,7 +130,7 @@ impl AsyncDataStoreReader for WsClient {
         Ok(response_params.is_empty)
     }
 
-    async fn get_storage_size(&self) -> Result<u64> {
-        unimplemented!("`get_storage_size` is not currently implemented");
+    async fn file_size(&self) -> Result<u64> {
+        unimplemented!("`file_size` is not currently implemented");
     }
 }

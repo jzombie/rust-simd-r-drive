@@ -81,7 +81,7 @@ pub trait DataStoreReader {
     /// # Returns:
     /// - `Ok(bytes)`: File size in bytes.
     /// - `Err(std::io::Error)`: On I/O failure.
-    fn get_storage_size(&self) -> Result<u64>;
+    fn file_size(&self) -> Result<u64>;
 }
 
 #[async_trait::async_trait]
@@ -165,5 +165,5 @@ pub trait AsyncDataStoreReader {
     /// # Returns:
     /// - `Ok(bytes)`: File size in bytes.
     /// - `Err(std::io::Error)`: On I/O failure.
-    async fn get_storage_size(&self) -> Result<u64>;
+    async fn file_size(&self) -> Result<u64>;
 }

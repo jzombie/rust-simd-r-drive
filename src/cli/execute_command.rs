@@ -192,7 +192,7 @@ pub fn execute_command(cli: &Cli) {
                     println!(
                         "{:<25} {} bytes",
                         "TOTAL SIZE (W/ METADATA):",
-                        entry.size_with_metadata()
+                        entry.file_size()
                     );
                     println!("{:<25} {:?}", "OFFSET RANGE:", entry.offset_range());
                     println!("{:<25} {:?}", "MEMORY ADDRESS:", entry.address_range());
@@ -228,7 +228,7 @@ pub fn execute_command(cli: &Cli) {
             let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
 
             // Retrieve storage file size
-            let storage_size = storage.get_storage_size().unwrap_or(0);
+            let storage_size = storage.file_size().unwrap_or(0);
 
             // Get compaction savings estimate
             let savings_estimate = storage.estimate_compaction_savings();

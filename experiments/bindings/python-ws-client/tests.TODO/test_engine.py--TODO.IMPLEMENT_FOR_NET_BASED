@@ -237,7 +237,7 @@ def test_entry_accessors():
         assert entry.size == len(value)
         assert len(entry) == len(value) # Dunder test
 
-        assert entry.size_with_metadata > entry.size
+        assert entry.file_size > entry.size
 
         # Check offset logic
         start = entry.start_offset

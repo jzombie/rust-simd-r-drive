@@ -596,10 +596,10 @@ impl DataStore {
             let new_tail_offset = self.copy_handle(&entry, &compacted_storage)?;
             let stored_metadata_offset = new_tail_offset - METADATA_SIZE as u64;
             index_pairs.push((entry.key_hash(), stored_metadata_offset));
-            compacted_data_size += entry.size_with_metadata() as u64;
+            compacted_data_size += entry.file_size() as u64;
         }
 
-        let size_before = self.get_storage_size()?;
+        let size_before = self.file_size()?;
 
         // Note: The current implementation should never increase space, but if an additional indexer
         // is ever used, this may change.
@@ -639,13 +639,13 @@ impl DataStore {
     /// - Ignores older versions of keys to estimate the **optimized** storage footprint.
     /// - Returns the **difference** between the total file size and the estimated compacted size.
     pub fn estimate_compaction_savings(&self) -> u64 {
-        let total_size = self.get_storage_size().unwrap_or(0);
+        let total_size = self.file_size().unwrap_or(0);
         let mut unique_entry_size: u64 = 0;
         let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
 
         for entry in self.iter_entries() {
             if seen_keys.insert(entry.key_hash()) {
-                unique_entry_size += entry.size_with_metadata() as u64;
+                unique_entry_size += entry.file_size() as u64;
             }
         }
         total_size.saturating_sub(unique_entry_size)
@@ -883,7 +883,7 @@ impl DataStoreReader for DataStore {
         Ok(len == 0)
     }
 
-    fn get_storage_size(&self) -> Result<u64> {
+    fn file_size(&self) -> Result<u64> {
         std::fs::metadata(&self.path).map(|meta| meta.len())
     }
 }
