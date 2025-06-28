@@ -26,7 +26,7 @@ pub struct BaseDataStoreWsClient {
 #[pymethods]
 impl BaseDataStoreWsClient {
     #[new]
-    fn new(_py: Python<'_>, ws_address: &str) -> PyResult<Self> {
+    fn new(_py: Python<'_>, host: &str, port: u16) -> PyResult<Self> {
         let runtime = Arc::new(
             Builder::new_multi_thread()
                 .enable_all()
@@ -37,7 +37,7 @@ impl BaseDataStoreWsClient {
         );
 
         let ws_client = runtime
-            .block_on(async { WsClient::new(ws_address).await })
+            .block_on(async { WsClient::new(host, port).await })
             .map_err(|e| PyIOError::new_err(e.to_string()))?;
 
         let is_connected_clone = Arc::new(AtomicBool::new(true));
