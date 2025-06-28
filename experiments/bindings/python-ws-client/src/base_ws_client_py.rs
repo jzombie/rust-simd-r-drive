@@ -200,7 +200,7 @@ impl BaseDataStoreWsClient {
     }
 
     #[pyo3(name = "is_empty")]
-    fn py_is_empty(&self) -> PyResult<(bool)> {
+    fn py_is_empty(&self) -> PyResult<bool> {
         self.check_connection()?;
         let client = self.ws_client.clone();
 
@@ -215,7 +215,7 @@ impl BaseDataStoreWsClient {
     }
 
     #[pyo3(name = "file_size")]
-    fn py_file_size(&self) -> PyResult<(u64)> {
+    fn py_file_size(&self) -> PyResult<u64> {
         self.check_connection()?;
         let client = self.ws_client.clone();
 
