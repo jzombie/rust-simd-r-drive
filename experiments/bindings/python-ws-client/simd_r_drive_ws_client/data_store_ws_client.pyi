@@ -1,4 +1,5 @@
 from typing import Optional, final
+from typing import Union, Dict, Any, Optional, List
 
 __all__ = ["DataStoreWsClient", "NamespaceHasher"]
 
@@ -101,6 +102,28 @@ class DataStoreWsClient:
         Returns:
             list[Optional[bytes]]: A list of optional values, using None type if the
             key is not present.
+        """
+        ...
+
+    def batch_read_structured(
+        self, data: Union[Dict[Any, bytes], List[Dict[Any, bytes]]]
+    ) -> Union[Dict[Any, Optional[bytes]], List[Dict[Any, Optional[bytes]]]]:
+        """
+        Fetches values for a dict or list of dicts containing keys.
+
+        This method accepts a dictionary or a list of dictionaries where values
+        are keys in the datastore. It performs a high-performance batch read and
+        returns a new object with the same structure, where each value is replaced
+        with the corresponding fetched data.
+
+        Args:
+            data (Union[Dict[Any, bytes], List[Dict[Any, bytes]]]):
+                A dictionary or list of dictionaries containing binary keys.
+
+        Returns:
+            Union[Dict[Any, Optional[bytes]], List[Dict[Any, Optional[bytes]]]]:
+                A new object with the same shape as `data`, but with values replaced
+                by the corresponding result (or None if the key was not found).
         """
         ...
 
