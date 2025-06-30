@@ -2,6 +2,7 @@ use crate::storage_engine::EntryMetadata;
 use crate::storage_engine::constants::*;
 use crate::storage_engine::digest::{Xxh3BuildHasher, compute_hash};
 use memmap2::Mmap;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 
 /// Number of high bits reserved for collision-detection tag (16 bits).
@@ -121,15 +122,40 @@ impl KeyIndexer {
         Self { index }
     }
 
-    /// Inserts a new key hash and offset into the index.
+    /// Inserts a new key hash and offset into the index, with collision detection.
     ///
-    /// Returns the previous offset if one existed.
-    #[inline]
-    pub fn insert(&mut self, key_hash: u64, new_offset: u64) -> Option<u64> {
-        let packed = Self::pack(Self::tag_from_hash(key_hash), new_offset);
-        self.index
-            .insert(key_hash, packed)
-            .map(|prev| Self::unpack(prev).1)
+    /// This method checks the tag of an existing entry before overwriting. If the
+    /// tags do not match, it returns an `Err`, indicating a hash collision.
+    ///
+    /// # Returns
+    /// - `Ok(Some(u64))`: On a successful update, returning the previous offset.
+    /// - `Ok(None)`: On a successful insert of a new key.
+    /// - `Err(&'static str)`: On a tag mismatch, indicating a hash collision.
+    pub fn insert(&mut self, key_hash: u64, new_offset: u64) -> Result<Option<u64>, &'static str> {
+        let new_tag = Self::tag_from_hash(key_hash);
+        let new_packed = Self::pack(new_tag, new_offset);
+
+        match self.index.entry(key_hash) {
+            // The key already exists in the index.
+            Entry::Occupied(mut entry) => {
+                let (stored_tag, _) = Self::unpack(*entry.get());
+
+                // VERIFY: The new tag must match the old one.
+                if new_tag != stored_tag {
+                    // This is a hash collision with a different key! Reject the write.
+                    return Err("Hash collision detected: tag mismatch on write");
+                }
+
+                // Tags match, it's a legitimate update.
+                let previous_packed = entry.insert(new_packed);
+                Ok(Some(Self::unpack(previous_packed).1))
+            }
+            // The key does not exist, safe to insert.
+            Entry::Vacant(entry) => {
+                entry.insert(new_packed);
+                Ok(None)
+            }
+        }
     }
 
     /// Gets the raw packed value.

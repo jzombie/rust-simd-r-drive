@@ -205,7 +205,13 @@ impl DataStore {
             {
                 key_indexer_guard.remove(key_hash);
             } else {
-                key_indexer_guard.insert(*key_hash, *offset);
+                // Handle the Result from the new insert method
+                if let Err(e) = key_indexer_guard.insert(*key_hash, *offset) {
+                    // A collision was detected on write. The entire batch operation
+                    // should fail to prevent an inconsistent state.
+                    warn!("Write operation aborted due to hash collision: {}", e);
+                    return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+                }
             }
         }
 
