@@ -46,7 +46,7 @@ client = DataStoreWsClient("127.0.0.1", 34129)
 client.write(b"hello", b"world")
 
 assert b"hello" in client           # __contains__ → True
-assert len(client) == 1             # number of active keys
+assert len(client) > 1              # number of active keys
 assert client.read(b"hello") == b"world"
 ```
 
