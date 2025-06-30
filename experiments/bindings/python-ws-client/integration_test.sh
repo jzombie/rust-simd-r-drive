@@ -76,7 +76,8 @@ uv pip install --quiet pytest maturin
 echo "--> Installing development dependencies..."
 uv pip install -e . --group dev
 
-pwd
+echo "--> Extracting README tests..."
+uv run extract_readme_tests.py
 
 echo "--> Running pytest..."
 # Export the server address so the Python test script can use it

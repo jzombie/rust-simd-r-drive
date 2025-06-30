@@ -44,9 +44,10 @@ from simd_r_drive_ws_client import DataStoreWsClient
 
 client = DataStoreWsClient("127.0.0.1", 34129)
 client.write(b"hello", b"world")
-print(b"hello" in client)          # __contains__ → True
-print(len(client))                 # number of active keys
-print(client.read(b"hello"))       # b"world"
+
+assert b"hello" in client           # __contains__ → True
+assert len(client) > 1              # number of active keys
+assert client.read(b"hello") == b"world"
 ```
 
 See the [type stubs](https://github.com/jzombie/rust-simd-r-drive/blob/main/experiments/bindings/python-ws-client/simd_r_drive_ws_client/data_store_ws_client.pyi)
