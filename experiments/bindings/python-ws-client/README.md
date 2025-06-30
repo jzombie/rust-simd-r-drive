@@ -28,7 +28,7 @@ The bindings are implemented in Rust (via [PyO3](https://github.com/PyO3/pyo3)) 
 pip install simd-r-drive-ws-client
 ```
 
-Or build from source (Rust toolchain and maturin required):
+Or build from source (Rust toolchain and `maturin` required):
 
 ```bash
 pip install maturin
