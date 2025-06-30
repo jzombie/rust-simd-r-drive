@@ -210,7 +210,7 @@ impl DataStore {
                     // A collision was detected on write. The entire batch operation
                     // should fail to prevent an inconsistent state.
                     warn!("Write operation aborted due to hash collision: {}", e);
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+                    return Err(std::io::Error::other(e));
                 }
             }
         }
