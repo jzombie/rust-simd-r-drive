@@ -13,7 +13,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Error, Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use tracing::{debug, info, warn};
 
 /// Append-Only Storage Engine
@@ -488,55 +488,54 @@ impl DataStore {
         Ok(self.tail_offset.load(Ordering::Acquire))
     }
 
-    /// Internal helper that does the real work for `read`/`batch_read`.
+    /// Performs the core logic of reading an entry from the store.
     ///
-    /// *   `key` – raw-byte key we are searching for.  
-    /// *   `mmap_arc` – the current shared memory-map.  
-    /// *   `key_indexer` – **already locked** read-only view of the index.  
+    /// This private helper centralizes the logic for both `read` and `batch_read`.
+    /// It takes all necessary context to perform a safe lookup, including the key,
+    /// its hash, the memory map, and a read guard for the key indexer.
     ///
-    /// The function:
-    /// 1.  Hashes `key` with XXH3 (same as writers do).
-    /// 2.  Looks the hash up in the index; bails out early if absent.
-    /// 3.  Validates that the stored offset and metadata still fit inside the
-    ///     current `mmap` (guards against truncated / corrupted files).
-    /// 4.  Creates and returns an `EntryHandle` that spans the payload slice in
-    ///     the `mmap`.
+    /// # Parameters
+    /// - `key`: The original key bytes used for tag verification.
+    /// - `key_hash`: The pre-computed hash of the key for index lookup.
+    /// - `mmap_arc`: A reference to the active memory map.
+    /// - `key_indexer_guard`: A read-lock guard for the key index.
     ///
-    /// It deliberately **does not** take any locks itself – that must be done by
-    /// the caller so that `batch_read` can reuse the same lock for many lookups.
-    ///
-    /// `None` is returned when:
-    /// * the key is unknown,
-    /// * the mapped file looks inconsistent (bounds checks fail), or
-    /// * the latest record for the key is a tomb-stone (one-byte NULL payload).
+    /// # Returns
+    /// - `Some(EntryHandle)` if the key is found and all checks pass.
+    /// - `None` if the key is not found, a tag mismatch occurs (collision/corruption),
+    ///   or the entry is a tombstone.
     #[inline]
-    pub fn read_hashed_with_ctx(
+    fn read_entry_with_context<'a>(
+        &self,
+        key: &[u8],
         key_hash: u64,
         mmap_arc: &Arc<Mmap>,
-        key_indexer: &KeyIndexer,
+        key_indexer_guard: &RwLockReadGuard<'a, KeyIndexer>,
     ) -> Option<EntryHandle> {
-        let packed = *key_indexer.get_packed(&key_hash)?;
+        let packed = *key_indexer_guard.get_packed(&key_hash)?;
         let (tag, offset) = KeyIndexer::unpack(packed);
 
-        // Safety check
-        if tag != KeyIndexer::tag_from_hash(key_hash) {
+        // The crucial verification check, now centralized.
+        if tag != KeyIndexer::tag_from_key(key) {
+            warn!("Tag mismatch detected for key, likely a hash collision or index corruption.");
             return None;
         }
 
-        if offset as usize + METADATA_SIZE > mmap_arc.len() {
+        let offset = offset as usize;
+        if offset + METADATA_SIZE > mmap_arc.len() {
             return None;
         }
 
-        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
+        let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
-
         let entry_start = metadata.prev_offset as usize;
-        let entry_end = offset as usize;
+        let entry_end = offset;
 
         if entry_start >= entry_end || entry_end > mmap_arc.len() {
             return None;
         }
 
+        // Check for tombstone (deleted entry)
         if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
             return None;
         }
@@ -781,39 +780,7 @@ impl DataStoreReader for DataStore {
             .map_err(|_| Error::other("key-index lock poisoned"))?;
         let mmap_arc = self.get_mmap_arc();
 
-        let (tag, offset) = match key_indexer_guard.get_packed(&key_hash) {
-            Some(&packed) => KeyIndexer::unpack(packed),
-            None => return Ok(None),
-        };
-
-        if tag != KeyIndexer::tag_from_key(key) {
-            // 16‑bit mismatch → hash clash
-            warn!("Collision determined in `read`");
-            return Ok(None); // fall back: key not found
-        }
-
-        if offset as usize + METADATA_SIZE > mmap_arc.len() {
-            return Ok(None);
-        }
-
-        let metadata_bytes = &mmap_arc[offset as usize..offset as usize + METADATA_SIZE];
-        let metadata = EntryMetadata::deserialize(metadata_bytes);
-
-        let entry_start = metadata.prev_offset as usize;
-        let entry_end = offset as usize;
-        if entry_start >= entry_end || entry_end > mmap_arc.len() {
-            return Ok(None);
-        }
-
-        if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
-            return Ok(None);
-        }
-
-        Ok(Some(EntryHandle {
-            mmap_arc: mmap_arc.clone(),
-            range: entry_start..entry_end,
-            metadata,
-        }))
+        Ok(self.read_entry_with_context(key, key_hash, &mmap_arc, &key_indexer_guard))
     }
 
     fn read_last_entry(&self) -> Result<Option<EntryHandle>> {
@@ -856,38 +823,8 @@ impl DataStoreReader for DataStore {
         let results = hashes
             .into_iter()
             .zip(keys.iter())
-            .map(|(key_hash, key)| {
-                let packed = key_indexer_guard.get_packed(&key_hash)?;
-                let (tag, offset) = KeyIndexer::unpack(*packed);
-
-                if tag != KeyIndexer::tag_from_key(key) {
-                    warn!("Collision determined in `batch_read`");
-                    return None; // Collision: ignore mismatched hash
-                }
-
-                let offset = offset as usize;
-                if offset + METADATA_SIZE > mmap_arc.len() {
-                    return None;
-                }
-
-                let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
-                let metadata = EntryMetadata::deserialize(metadata_bytes);
-                let entry_start = metadata.prev_offset as usize;
-                let entry_end = offset;
-
-                if entry_start >= entry_end || entry_end > mmap_arc.len() {
-                    return None;
-                }
-
-                if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
-                    return None;
-                }
-
-                Some(EntryHandle {
-                    mmap_arc: mmap_arc.clone(),
-                    range: entry_start..entry_end,
-                    metadata,
-                })
+            .map(|(key_hash, &key)| {
+                self.read_entry_with_context(key, key_hash, &mmap_arc, &key_indexer_guard)
             })
             .collect();
 
