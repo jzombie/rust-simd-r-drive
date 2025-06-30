@@ -10,13 +10,21 @@ class DataStoreWsClient(BaseDataStoreWsClient):
         self, data: Union[Dict[Any, bytes], List[Dict[Any, bytes]]]
     ) -> Union[Dict[Any, Optional[bytes]], List[Dict[Any, Optional[bytes]]]]:
         """
-        Takes a dict or list of dicts, where values are datastore keys. It fetches
-        all keys using a single high-performance batch call and returns a new object
-        with the same shape, with values replaced by the fetched data.
+        Fetches values for a dict or list of dicts containing keys.
 
-        :param client: An instance of the DataStoreWsClient.
-        :param data: The dict or list of dicts to process.
-        :return: A new object with the same shape, with values replaced by fetched data.
+        This method accepts a dictionary or a list of dictionaries where values
+        are keys in the datastore. It performs a high-performance batch read and
+        returns a new object with the same structure, where each value is replaced
+        with the corresponding fetched data.
+
+        Args:
+            data (Union[Dict[Any, bytes], List[Dict[Any, bytes]]]):
+                A dictionary or list of dictionaries containing binary keys.
+
+        Returns:
+            Union[Dict[Any, Optional[bytes]], List[Dict[Any, Optional[bytes]]]]:
+                A new object with the same shape as `data`, but with values replaced
+                by the corresponding result (or None if the key was not found).
         """
         is_single_dict = isinstance(data, dict)
         dict_list = [data] if is_single_dict else data
