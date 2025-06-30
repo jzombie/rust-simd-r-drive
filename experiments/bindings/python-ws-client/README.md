@@ -49,7 +49,7 @@ print(len(client))                 # number of active keys
 print(client.read(b"hello"))       # b"world"
 ```
 
-See the [type stubs](https://github.com/jzombie/rust-simd-r-drive/blob/main/experiments/bindings/python-ws-client/simd_r_drive_ws_client/simd_r_drive_ws_client.pyi)
+See the [type stubs](https://github.com/jzombie/rust-simd-r-drive/blob/main/experiments/bindings/python-ws-client/simd_r_drive_ws_client/data_store_ws_client.pyi)
 for the full API surface.
 
 
