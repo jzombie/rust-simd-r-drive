@@ -788,6 +788,7 @@ impl DataStoreReader for DataStore {
 
         if tag != KeyIndexer::tag_from_key(key) {
             // 16‑bit mismatch → hash clash
+            warn!("Collision determined in `read`");
             return Ok(None); // fall back: key not found
         }
 
@@ -860,6 +861,7 @@ impl DataStoreReader for DataStore {
                 let (tag, offset) = KeyIndexer::unpack(*packed);
 
                 if tag != KeyIndexer::tag_from_key(key) {
+                    warn!("Collision determined in `batch_read`");
                     return None; // Collision: ignore mismatched hash
                 }
 
