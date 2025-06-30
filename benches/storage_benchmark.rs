@@ -2,6 +2,7 @@
 //! engine.  It writes 1 M entries, then exercises sequential, random
 //! and *vectorized* (`batch_read`) lookup paths.
 
+use bytes::Bytes;
 use rand::{Rng, rng}; // `rng()` & `random_range` are the new, non-deprecated names
 use simd_r_drive::{
     DataStore,
@@ -83,10 +84,11 @@ fn benchmark_append_entries(path: &Path) {
 }
 
 fn flush_batch(storage: &DataStore, batch: &mut Vec<(Vec<u8>, Vec<u8>)>) {
-    let refs: Vec<(&[u8], &[u8])> = batch
-        .iter()
-        .map(|(k, v)| (k.as_slice(), v.as_slice()))
+    let refs: Vec<(Bytes, Bytes)> = batch
+        .drain(..)
+        .map(|(k, v)| (Bytes::from(k), Bytes::from(v)))
         .collect();
+
     storage.batch_write(&refs).expect("Batch write failed");
     batch.clear();
 }
@@ -131,7 +133,7 @@ fn benchmark_random_reads(path: &Path) {
         let i = rng.random_range(0..NUM_ENTRIES);
         let key = format!("bench-key-{i}");
         let handle = storage
-            .read(key.as_bytes())
+            .read(Bytes::from(key))
             .unwrap()
             .expect("Missing entry in random read");
 
@@ -181,8 +183,9 @@ fn benchmark_batch_reads(path: &Path) {
 }
 
 fn verify_batch(storage: &DataStore, keys_buf: &mut Vec<Vec<u8>>) -> usize {
-    let key_refs: Vec<&[u8]> = keys_buf.iter().map(|k| k.as_slice()).collect();
-    let handles = storage.batch_read(&key_refs).expect("batch_read failed"); // ← unwrap the Result
+    let key_refs: Vec<Bytes> = keys_buf.iter().map(|k| Bytes::copy_from_slice(k)).collect();
+
+    let handles = storage.batch_read(&key_refs).expect("batch_read failed");
 
     for (k_bytes, opt_handle) in keys_buf.iter().zip(handles.into_iter()) {
         let handle = opt_handle.expect("Missing batch entry");

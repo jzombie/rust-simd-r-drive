@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
 
+    use bytes::Bytes;
     use simd_r_drive::{
         DataStore, compute_checksum,
         traits::{DataStoreReader, DataStoreWriter},
@@ -92,7 +93,7 @@ mod tests {
     fn test_write_stream_null_byte_fails() {
         let (_dir, storage) = create_temp_storage();
 
-        let key = b"test_key";
+        let key = Bytes::copy_from_slice(b"test_key");
         let mut payload = b"\x00".as_ref(); // Hardcoded null-byte
 
         let result = storage.write_stream(key, &mut payload);

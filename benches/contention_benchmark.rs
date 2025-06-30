@@ -5,6 +5,7 @@
 //! Toggle your lock implementation with a feature flag, build profile
 //! setting or Cargo alias (e.g. `cargo bench --features parking_lot`).
 
+use bytes::Bytes;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main, measurement::WallTime};
 use futures::future::join_all;
 use rand::{Rng, rng};
@@ -54,7 +55,11 @@ fn contention_bench(c: &mut Criterion<WallTime>) {
                                     let key = format!("t{t}_{i}");
                                     // random payload prevents easy compression
                                     let payload: Vec<u8> = (0..len).map(|_| rng.random()).collect();
-                                    s.write(key.as_bytes(), &payload).unwrap();
+                                    s.write(
+                                        Bytes::copy_from_slice(key.as_bytes()),
+                                        Bytes::from(payload),
+                                    )
+                                    .unwrap();
                                 }
                             }));
                         }
