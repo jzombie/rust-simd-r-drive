@@ -515,7 +515,14 @@ impl DataStore {
         mmap_arc: &Arc<Mmap>,
         key_indexer: &KeyIndexer,
     ) -> Option<EntryHandle> {
-        let offset = *key_indexer.get(&key_hash)?;
+        let packed = *key_indexer.get_packed(&key_hash)?;
+        let (tag, offset) = KeyIndexer::unpack(packed);
+
+        // Safety check
+        if tag != KeyIndexer::tag_from_hash(key_hash) {
+            return None;
+        }
+
         if offset as usize + METADATA_SIZE > mmap_arc.len() {
             return None;
         }
@@ -525,6 +532,7 @@ impl DataStore {
 
         let entry_start = metadata.prev_offset as usize;
         let entry_end = offset as usize;
+
         if entry_start >= entry_end || entry_end > mmap_arc.len() {
             return None;
         }
@@ -773,10 +781,15 @@ impl DataStoreReader for DataStore {
             .map_err(|_| Error::other("key-index lock poisoned"))?;
         let mmap_arc = self.get_mmap_arc();
 
-        let offset = match key_indexer_guard.get(&key_hash) {
-            Some(off) => *off,       // found → continue
-            None => return Ok(None), // not found → early-return
+        let (tag, offset) = match key_indexer_guard.get_packed(&key_hash) {
+            Some(&packed) => KeyIndexer::unpack(packed),
+            None => return Ok(None),
         };
+
+        if tag != KeyIndexer::tag_from_key(key) {
+            // 16‑bit mismatch → hash clash
+            return Ok(None); // fall back: key not found
+        }
 
         if offset as usize + METADATA_SIZE > mmap_arc.len() {
             return Ok(None);
@@ -836,35 +849,46 @@ impl DataStoreReader for DataStore {
             .key_indexer
             .read()
             .map_err(|_| Error::other("Key-index lock poisoned during `batch_read`"))?;
+
         let hashes = compute_hash_batch(keys);
 
         let results = hashes
             .into_iter()
-            .map(|h| {
-                key_indexer_guard.get(&h).and_then(|offset| {
-                    let offset = *offset as usize;
-                    if offset + METADATA_SIZE > mmap_arc.len() {
-                        return None;
-                    }
-                    let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
-                    let metadata = EntryMetadata::deserialize(metadata_bytes);
-                    let entry_start = metadata.prev_offset as usize;
-                    let entry_end = offset;
-                    if entry_start >= entry_end || entry_end > mmap_arc.len() {
-                        return None;
-                    }
-                    if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE
-                    {
-                        return None;
-                    }
-                    Some(EntryHandle {
-                        mmap_arc: mmap_arc.clone(),
-                        range: entry_start..entry_end,
-                        metadata,
-                    })
+            .zip(keys.iter())
+            .map(|(key_hash, key)| {
+                let packed = key_indexer_guard.get_packed(&key_hash)?;
+                let (tag, offset) = KeyIndexer::unpack(*packed);
+
+                if tag != KeyIndexer::tag_from_key(key) {
+                    return None; // Collision: ignore mismatched hash
+                }
+
+                let offset = offset as usize;
+                if offset + METADATA_SIZE > mmap_arc.len() {
+                    return None;
+                }
+
+                let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
+                let metadata = EntryMetadata::deserialize(metadata_bytes);
+                let entry_start = metadata.prev_offset as usize;
+                let entry_end = offset;
+
+                if entry_start >= entry_end || entry_end > mmap_arc.len() {
+                    return None;
+                }
+
+                if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
+                    return None;
+                }
+
+                Some(EntryHandle {
+                    mmap_arc: mmap_arc.clone(),
+                    range: entry_start..entry_end,
+                    metadata,
                 })
             })
             .collect();
+
         Ok(results)
     }
 
