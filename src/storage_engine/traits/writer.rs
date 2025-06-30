@@ -1,4 +1,5 @@
 use crate::storage_engine::DataStore;
+use bytes::Bytes;
 use std::io::{Read, Result};
 
 pub trait DataStoreWriter {
@@ -26,7 +27,7 @@ pub trait DataStoreWriter {
     /// - Data is immediately **written to disk** as it is read.
     /// - **A checksum is computed incrementally** during the write.
     /// - Metadata is appended **after** the full entry is written.
-    fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64>;
+    fn write_stream<R: Read>(&self, key: Bytes, reader: &mut R) -> Result<u64>;
 
     /// Writes an entry with a given key and payload.
     ///
@@ -47,7 +48,7 @@ pub trait DataStoreWriter {
     ///   entry will be retrieved when reading.
     /// - This method **locks the file for writing** to ensure consistency.
     /// - For writing **multiple entries at once**, use `batch_write()`.
-    fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64>;
+    fn write(&self, key: Bytes, payload: Bytes) -> Result<u64>;
 
     /// Writes multiple key-value pairs as a **single transaction**.
     ///
@@ -68,7 +69,7 @@ pub trait DataStoreWriter {
     /// - This method improves efficiency by **minimizing file lock contention**.
     /// - If a large number of entries are written, **batching reduces overhead**.
     /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
-    fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64>;
+    fn batch_write(&self, entries: &[(Bytes, Bytes)]) -> Result<u64>;
 
     /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
     ///
@@ -89,7 +90,7 @@ pub trait DataStoreWriter {
     /// - This operation **does not modify** the original entry but instead appends a new copy.
     /// - The old key is **logically deleted** via an append-only tombstone.
     /// - Attempting to rename a key to itself will return an error.
-    fn rename(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64>;
+    fn rename(&self, old_key: Bytes, new_key: Bytes) -> Result<u64>;
 
     /// Copies an entry to a **different storage container**.
     ///
@@ -109,7 +110,7 @@ pub trait DataStoreWriter {
     /// # Notes:
     /// - Copying within the **same** storage is unnecessary; use `rename` instead.
     /// - This operation does **not** delete the original entry.
-    fn copy(&self, key: &[u8], target: &DataStore) -> Result<u64>;
+    fn copy(&self, key: Bytes, target: &DataStore) -> Result<u64>;
 
     /// Moves an entry from the current storage to a **different storage container**.
     ///
@@ -129,7 +130,7 @@ pub trait DataStoreWriter {
     /// - Moving an entry within the **same** storage is unnecessary; use `rename` instead.
     /// - The original entry is **logically deleted** by appending a tombstone, maintaining
     ///   the append-only structure.
-    fn transfer(&self, key: &[u8], target: &DataStore) -> Result<u64>;
+    fn transfer(&self, key: Bytes, target: &DataStore) -> Result<u64>;
 
     /// Deletes a key by appending a **null byte marker**.
     ///
@@ -141,7 +142,7 @@ pub trait DataStoreWriter {
     ///
     /// # Returns:
     /// - The **new file offset** where the delete marker was appended.
-    fn delete(&self, key: &[u8]) -> Result<u64>;
+    fn delete(&self, key: Bytes) -> Result<u64>;
 }
 
 #[async_trait::async_trait]
@@ -170,7 +171,7 @@ pub trait AsyncDataStoreWriter {
     /// - Data is immediately **written to disk** as it is read.
     /// - **A checksum is computed incrementally** during the write.
     /// - Metadata is appended **after** the full entry is written.
-    async fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64>;
+    async fn write_stream<R: Read>(&self, key: Bytes, reader: &mut R) -> Result<u64>;
 
     /// Writes an entry with a given key and payload.
     ///
@@ -191,7 +192,7 @@ pub trait AsyncDataStoreWriter {
     ///   entry will be retrieved when reading.
     /// - This method **locks the file for writing** to ensure consistency.
     /// - For writing **multiple entries at once**, use `batch_write()`.
-    async fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64>;
+    async fn write(&self, key: Bytes, payload: Bytes) -> Result<u64>;
 
     /// Writes multiple key-value pairs as a **single transaction**.
     ///
@@ -212,7 +213,7 @@ pub trait AsyncDataStoreWriter {
     /// - This method improves efficiency by **minimizing file lock contention**.
     /// - If a large number of entries are written, **batching reduces overhead**.
     /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
-    async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64>;
+    async fn batch_write(&self, entries: &[(Bytes, Bytes)]) -> Result<u64>;
 
     /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
     ///
@@ -233,7 +234,7 @@ pub trait AsyncDataStoreWriter {
     /// - This operation **does not modify** the original entry but instead appends a new copy.
     /// - The old key is **logically deleted** via an append-only tombstone.
     /// - Attempting to rename a key to itself will return an error.
-    async fn rename(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64>;
+    async fn rename(&self, old_key: Bytes, new_key: Bytes) -> Result<u64>;
 
     /// Copies an entry to a **different storage container**.
     ///
@@ -253,7 +254,7 @@ pub trait AsyncDataStoreWriter {
     /// # Notes:
     /// - Copying within the **same** storage is unnecessary; use `rename` instead.
     /// - This operation does **not** delete the original entry.
-    async fn copy(&self, key: &[u8], target: &DataStore) -> Result<u64>;
+    async fn copy(&self, key: Bytes, target: &DataStore) -> Result<u64>;
 
     /// Moves an entry from the current storage to a **different storage container**.
     ///
@@ -273,7 +274,7 @@ pub trait AsyncDataStoreWriter {
     /// - Moving an entry within the **same** storage is unnecessary; use `rename` instead.
     /// - The original entry is **logically deleted** by appending a tombstone, maintaining
     ///   the append-only structure.
-    async fn transfer(&self, key: &[u8], target: &DataStore) -> Result<u64>;
+    async fn transfer(&self, key: Bytes, target: &DataStore) -> Result<u64>;
 
     /// Deletes a key by appending a **null byte marker**.
     ///
@@ -285,5 +286,5 @@ pub trait AsyncDataStoreWriter {
     ///
     /// # Returns:
     /// - The **new file offset** where the delete marker was appended.
-    async fn delete(&self, key: &[u8]) -> Result<u64>;
+    async fn delete(&self, key: Bytes) -> Result<u64>;
 }

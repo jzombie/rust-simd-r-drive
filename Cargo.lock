@@ -1489,6 +1489,7 @@ version = "0.11.0-alpha"
 dependencies = [
  "async-trait",
  "bincode",
+ "bytes",
  "clap",
  "crc32fast",
  "criterion",

@@ -4,6 +4,7 @@ use crate::storage_engine::{
     traits::{DataStoreReader, DataStoreWriter},
 };
 use crate::utils::{format_bytes, parse_buffer_size};
+use bytes::Bytes;
 use std::io::{self, IsTerminal, Read, Write};
 
 /// Executes commands from the CLI and interacts with the storage engine.
@@ -38,7 +39,9 @@ pub fn execute_command(cli: &Cli) {
                 })
                 .unwrap_or(64 * 1024); // Default to 64KB
 
-            match storage.read(key.as_bytes()) {
+            let key_bytes = Bytes::copy_from_slice(key.as_bytes());
+
+            match storage.read(key_bytes) {
                 Ok(Some(entry_handle)) => {
                     let stdout = io::stdout();
                     let mut stdout_handle = stdout.lock();
@@ -86,18 +89,21 @@ pub fn execute_command(cli: &Cli) {
 
         Commands::Write { key, value } => {
             let storage = DataStore::open(&cli.storage).expect("Failed to open storage");
-            let key_as_bytes = key.as_bytes();
+
+            let key_bytes = Bytes::copy_from_slice(key.as_bytes());
 
             if let Some(value) = value {
+                let value_bytes = Bytes::copy_from_slice(value.as_bytes());
+
                 // If a direct value is provided, write it normally
                 storage
-                    .write(key_as_bytes, value.as_bytes())
+                    .write(key_bytes, value_bytes)
                     .expect("Failed to write entry");
             } else if !io::stdin().is_terminal() && std::env::var("FORCE_NO_TTY").is_err() {
                 // If stdin is piped, use a streaming approach
                 let mut stdin_reader = io::stdin().lock();
 
-                if let Err(err) = storage.write_stream(key_as_bytes, &mut stdin_reader) {
+                if let Err(err) = storage.write_stream(key_bytes, &mut stdin_reader) {
                     eprintln!("Failed to write streamed stdin data: {err}");
                     std::process::exit(1);
                 }
@@ -116,8 +122,10 @@ pub fn execute_command(cli: &Cli) {
 
             let target_storage = DataStore::open(target).expect("Failed to open target storage");
 
+            let key_bytes = Bytes::copy_from_slice(key.as_bytes());
+
             source_storage
-                .copy(key.as_bytes(), &target_storage)
+                .copy(key_bytes, &target_storage)
                 .map_err(|err| {
                     eprintln!("Could not copy entry. Received error: {err}");
                     std::process::exit(1);
@@ -133,8 +141,10 @@ pub fn execute_command(cli: &Cli) {
 
             let target_storage = DataStore::open(target).expect("Failed to open target storage");
 
+            let key_bytes = Bytes::copy_from_slice(key.as_bytes());
+
             source_storage
-                .transfer(key.as_bytes(), &target_storage)
+                .transfer(key_bytes, &target_storage)
                 .map_err(|err| {
                     eprintln!("Could not copy entry. Received error: {err}");
                     std::process::exit(1);
@@ -148,8 +158,11 @@ pub fn execute_command(cli: &Cli) {
             let storage =
                 DataStore::open_existing(&cli.storage).expect("Failed to open source storage");
 
+            let old_key_bytes = Bytes::copy_from_slice(old_key.as_bytes());
+            let new_key_bytes = Bytes::copy_from_slice(new_key.as_bytes());
+
             storage
-                .rename(old_key.as_bytes(), new_key.as_bytes())
+                .rename(old_key_bytes, new_key_bytes)
                 .map_err(|err| {
                     eprintln!("Could not rename entry. Received error: {err}");
                     std::process::exit(1);
@@ -162,9 +175,9 @@ pub fn execute_command(cli: &Cli) {
         Commands::Delete { key } => {
             let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
 
-            storage
-                .delete(key.as_bytes())
-                .expect("Failed to delete entry");
+            let key_bytes = Bytes::copy_from_slice(key.as_bytes());
+
+            storage.delete(key_bytes).expect("Failed to delete entry");
             eprintln!("Deleted key '{key}'");
         }
 
@@ -182,7 +195,9 @@ pub fn execute_command(cli: &Cli) {
         Commands::Metadata { key } => {
             let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
 
-            match storage.read(key.as_bytes()) {
+            let key_bytes = Bytes::copy_from_slice(key.as_bytes());
+
+            match storage.read(key_bytes) {
                 Ok(Some(entry)) => {
                     println!("\n{:=^50}", " METADATA SUMMARY ");
                     println!("{:<25} \"{}\"", "ENTRY FOR:", key);

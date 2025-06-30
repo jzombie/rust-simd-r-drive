@@ -1,6 +1,7 @@
 use crate::storage_engine::EntryMetadata;
 use crate::storage_engine::constants::*;
 use crate::storage_engine::digest::{Xxh3BuildHasher, compute_hash};
+use bytes::Bytes;
 use memmap2::Mmap;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
@@ -66,7 +67,7 @@ impl KeyIndexer {
 
     /// Computes a tag directly from the raw key.
     #[inline]
-    pub fn tag_from_key(key: &[u8]) -> u16 {
+    pub fn tag_from_key(key: Bytes) -> u16 {
         Self::tag_from_hash(compute_hash(key))
     }
 

@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use xxhash_rust::xxh3::xxh3_64;
 
 /// Computes a 64-bit hash for the given key using XXH3.
@@ -22,8 +23,8 @@ use xxhash_rust::xxh3::xxh3_64;
 /// See `crate::storage_engine::DataStore::write_stream_with_key_hash` for implementation
 /// details.
 #[inline]
-pub fn compute_hash(key: &[u8]) -> u64 {
-    xxh3_64(key)
+pub fn compute_hash(key: Bytes) -> u64 {
+    xxh3_64(&key)
 }
 
 /// Computes XXH3 64-bit hashes for a batch of keys **in one call**.
@@ -61,7 +62,7 @@ pub fn compute_hash(key: &[u8]) -> u64 {
 /// assert_eq!(hashes[2], compute_hash(b"carol"));
 /// ```
 #[inline]
-pub fn compute_hash_batch(keys: &[&[u8]]) -> Vec<u64> {
+pub fn compute_hash_batch(keys: &[Bytes]) -> Vec<u64> {
     // TODO: Look into more efficient approaches that can work on a matrix of
     // keys without iterating over them.
 

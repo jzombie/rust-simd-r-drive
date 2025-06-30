@@ -1,4 +1,5 @@
 use crate::storage_engine::digest::compute_hash;
+use bytes::Bytes;
 
 /// A utility struct for namespacing keys using XXH3 hashing.
 ///
@@ -30,7 +31,7 @@ impl NamespaceHasher {
     /// # Returns
     /// - A `NamespaceHasher` instance with a precomputed prefix hash.
     #[inline]
-    pub fn new(prefix: &[u8]) -> Self {
+    pub fn new(prefix: Bytes) -> Self {
         Self {
             prefix: compute_hash(prefix),
         }
@@ -53,7 +54,7 @@ impl NamespaceHasher {
     /// # Returns
     /// - A `Vec<u8>` containing the **16-byte** namespaced key (`8-byte prefix hash + 8-byte key hash`).
     #[inline]
-    pub fn namespace(&self, key: &[u8]) -> Vec<u8> {
+    pub fn namespace(&self, key: Bytes) -> Vec<u8> {
         let key_hash = compute_hash(key);
 
         // Combine both hashes into a 16-byte buffer

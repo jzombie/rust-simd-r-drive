@@ -6,6 +6,7 @@ use crate::storage_engine::simd_copy;
 use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
 use crate::traits::{DataStoreReader, DataStoreWriter};
 use crate::utils::verify_file_existence;
+use bytes::Bytes;
 use memmap2::Mmap;
 use std::collections::HashSet;
 use std::convert::From;
@@ -403,7 +404,7 @@ impl DataStore {
     /// - The caller is responsible for ensuring that `key_hash` is correctly computed.
     /// - This method **locks the file for writing** to maintain consistency.
     /// - If writing **multiple entries**, consider using `batch_write_hashed_payloads()`.
-    pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
+    pub fn write_with_key_hash(&self, key_hash: u64, payload: Bytes) -> Result<u64> {
         self.batch_write_hashed_payloads(vec![(key_hash, payload)], false)
     }
 
@@ -435,7 +436,7 @@ impl DataStore {
     /// - If keys are available but not hashed, use `batch_write()` instead.
     pub fn batch_write_hashed_payloads(
         &self,
-        hashed_payloads: Vec<(u64, &[u8])>,
+        hashed_payloads: Vec<(u64, Bytes)>,
         allow_null_bytes: bool,
     ) -> Result<u64> {
         let mut file = self
@@ -450,7 +451,7 @@ impl DataStore {
         let mut deleted_keys: HashSet<u64> = HashSet::new();
 
         for (key_hash, payload) in hashed_payloads {
-            if payload == NULL_BYTE {
+            if *payload == NULL_BYTE {
                 if !allow_null_bytes {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
@@ -469,7 +470,7 @@ impl DataStore {
             }
 
             let prev_offset = tail_offset;
-            let checksum = compute_checksum(payload);
+            let checksum = compute_checksum(&payload);
             let metadata = EntryMetadata {
                 key_hash,
                 prev_offset,
@@ -478,7 +479,7 @@ impl DataStore {
             let payload_len = payload.len();
 
             let mut entry: Vec<u8> = vec![0u8; payload_len + METADATA_SIZE];
-            simd_copy(&mut entry[..payload.len()], payload);
+            simd_copy(&mut entry[..payload.len()], &payload);
             entry[payload.len()..].copy_from_slice(&metadata.serialize());
             buffer.extend_from_slice(&entry);
 
@@ -513,7 +514,7 @@ impl DataStore {
     #[inline]
     fn read_entry_with_context<'a>(
         &self,
-        key: &[u8],
+        key: Bytes,
         key_hash: u64,
         mmap_arc: &Arc<Mmap>,
         key_indexer_guard: &RwLockReadGuard<'a, KeyIndexer>,
@@ -704,24 +705,24 @@ impl DataStore {
 }
 
 impl DataStoreWriter for DataStore {
-    fn write_stream<R: Read>(&self, key: &[u8], reader: &mut R) -> Result<u64> {
+    fn write_stream<R: Read>(&self, key: Bytes, reader: &mut R) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.write_stream_with_key_hash(key_hash, reader)
     }
 
-    fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
+    fn write(&self, key: Bytes, payload: Bytes) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.write_with_key_hash(key_hash, payload)
     }
 
-    fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
+    fn batch_write(&self, entries: &[(Bytes, Bytes)]) -> Result<u64> {
         let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
         let hashes = compute_hash_batch(&keys);
         let hashed_entries = hashes.into_iter().zip(payloads).collect::<Vec<_>>();
         self.batch_write_hashed_payloads(hashed_entries, false)
     }
 
-    fn rename(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
+    fn rename(&self, old_key: Bytes, new_key: Bytes) -> Result<u64> {
         if old_key == new_key {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -729,7 +730,7 @@ impl DataStoreWriter for DataStore {
             ));
         }
 
-        let old_entry = self.read(old_key)?.ok_or_else(|| {
+        let old_entry = self.read(old_key.clone())?.ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::NotFound, "Old key not found")
         })?;
         let mut old_entry_stream = EntryStream::from(old_entry);
@@ -740,7 +741,7 @@ impl DataStoreWriter for DataStore {
         Ok(new_offset)
     }
 
-    fn copy(&self, key: &[u8], target: &DataStore) -> Result<u64> {
+    fn copy(&self, key: Bytes, target: &DataStore) -> Result<u64> {
         if self.path == target.path {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -751,35 +752,35 @@ impl DataStoreWriter for DataStore {
             ));
         }
 
-        let entry_handle = self.read(key)?.ok_or_else(|| {
+        let entry_handle = self.read(key.clone())?.ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("Key not found: {:?}", String::from_utf8_lossy(key)),
+                format!("Key not found: {:?}", String::from_utf8_lossy(&key)),
             )
         })?;
         self.copy_handle(&entry_handle, target)
     }
 
-    fn transfer(&self, key: &[u8], target: &DataStore) -> Result<u64> {
-        self.copy(key, target)?;
+    fn transfer(&self, key: Bytes, target: &DataStore) -> Result<u64> {
+        self.copy(key.clone(), target)?;
         self.delete(key)
     }
 
-    fn delete(&self, key: &[u8]) -> Result<u64> {
+    fn delete(&self, key: Bytes) -> Result<u64> {
         let key_hash = compute_hash(key);
-        self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
+        self.batch_write_hashed_payloads(vec![(key_hash, Bytes::copy_from_slice(&NULL_BYTE))], true)
     }
 }
 
 impl DataStoreReader for DataStore {
     type EntryHandleType = EntryHandle;
 
-    fn exists(&self, key: &[u8]) -> Result<bool> {
+    fn exists(&self, key: Bytes) -> Result<bool> {
         Ok(self.read(key)?.is_some())
     }
 
-    fn read(&self, key: &[u8]) -> Result<Option<EntryHandle>> {
-        let key_hash = compute_hash(key);
+    fn read(&self, key: Bytes) -> Result<Option<EntryHandle>> {
+        let key_hash = compute_hash(key.clone());
         let key_indexer_guard = self
             .key_indexer
             .read()
@@ -817,7 +818,7 @@ impl DataStoreReader for DataStore {
         }))
     }
 
-    fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
+    fn batch_read(&self, keys: &[Bytes]) -> Result<Vec<Option<EntryHandle>>> {
         let mmap_arc = self.get_mmap_arc();
         let key_indexer_guard = self
             .key_indexer
@@ -829,15 +830,15 @@ impl DataStoreReader for DataStore {
         let results = hashes
             .into_iter()
             .zip(keys.iter())
-            .map(|(key_hash, &key)| {
-                self.read_entry_with_context(key, key_hash, &mmap_arc, &key_indexer_guard)
+            .map(|(key_hash, key)| {
+                self.read_entry_with_context(key.clone(), key_hash, &mmap_arc, &key_indexer_guard)
             })
             .collect();
 
         Ok(results)
     }
 
-    fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>> {
+    fn read_metadata(&self, key: Bytes) -> Result<Option<EntryMetadata>> {
         Ok(self.read(key)?.map(|entry| entry.metadata().clone()))
     }
 

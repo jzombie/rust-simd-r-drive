@@ -1,4 +1,5 @@
 use crate::storage_engine::EntryMetadata;
+use bytes::Bytes;
 use std::io::Result;
 
 pub trait DataStoreReader {
@@ -18,7 +19,7 @@ pub trait DataStoreReader {
     /// - `Ok(true)`: Key exists and is active.  
     /// - `Ok(false)`: Key is absent or has been deleted.  
     /// - `Err(std::io::Error)`: On I/O failure.
-    fn exists(&self, key: &[u8]) -> Result<bool>;
+    fn exists(&self, key: Bytes) -> Result<bool>;
 
     /// Retrieves the most recent value associated with a given key.
     ///
@@ -35,7 +36,7 @@ pub trait DataStoreReader {
     ///
     /// # Notes:
     /// - The returned `EntryHandle` provides zero-copy access to the stored data.
-    fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>>;
+    fn read(&self, key: Bytes) -> Result<Option<Self::EntryHandleType>>;
 
     /// Retrieves the last entry written to the file.
     ///
@@ -63,7 +64,7 @@ pub trait DataStoreReader {
     /// # Returns:
     /// - `Ok(results)`: `Vec<Option<EntryHandle>>` in key order.
     /// - `Err(std::io::Error)`: On I/O failure.
-    fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>>;
+    fn batch_read(&self, keys: &[Bytes]) -> Result<Vec<Option<Self::EntryHandleType>>>;
 
     /// Retrieves metadata for a given key.
     ///
@@ -76,7 +77,7 @@ pub trait DataStoreReader {
     /// - `Ok(Some(metadata))`: Metadata if the key exists.
     /// - `Ok(None)`: If the key is absent.
     /// - `Err(std::io::Error)`: On I/O failure.
-    fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>>;
+    fn read_metadata(&self, key: Bytes) -> Result<Option<EntryMetadata>>;
 
     /// Counts **active** (non-deleted) key-value pairs in the storage.
     ///
@@ -118,7 +119,7 @@ pub trait AsyncDataStoreReader {
     /// - `Ok(true)`: Key exists and is active.  
     /// - `Ok(false)`: Key is absent or has been deleted.  
     /// - `Err(std::io::Error)`: On I/O failure.
-    async fn exists(&self, key: &[u8]) -> Result<bool>;
+    async fn exists(&self, key: Bytes) -> Result<bool>;
 
     /// Retrieves the most recent value associated with a given key.
     ///
@@ -135,7 +136,7 @@ pub trait AsyncDataStoreReader {
     ///
     /// # Notes:
     /// - The returned `EntryHandle` provides zero-copy access to the stored data.
-    async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>>;
+    async fn read(&self, key: Bytes) -> Result<Option<Self::EntryHandleType>>;
 
     /// Retrieves the last entry written to the file.
     ///
@@ -163,7 +164,7 @@ pub trait AsyncDataStoreReader {
     /// # Returns:
     /// - `Ok(results)`: `Vec<Option<EntryHandle>>` in key order.
     /// - `Err(std::io::Error)`: On I/O failure.
-    async fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>>;
+    async fn batch_read(&self, keys: &[Bytes]) -> Result<Vec<Option<Self::EntryHandleType>>>;
 
     /// Retrieves metadata for a given key.
     ///
@@ -176,7 +177,7 @@ pub trait AsyncDataStoreReader {
     /// - `Ok(Some(metadata))`: Metadata if the key exists.
     /// - `Ok(None)`: If the key is absent.
     /// - `Err(std::io::Error)`: On I/O failure.
-    async fn read_metadata(&self, key: &[u8]) -> Result<Option<EntryMetadata>>;
+    async fn read_metadata(&self, key: Bytes) -> Result<Option<EntryMetadata>>;
 
     /// Counts **active** (non-deleted) key-value pairs in the storage.
     ///
