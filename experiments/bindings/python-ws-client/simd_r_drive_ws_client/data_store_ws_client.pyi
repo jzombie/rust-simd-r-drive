@@ -1,4 +1,4 @@
-from .simd_r_drive_ws_client import BaseDataStoreWsClient
+from .simd_r_drive_ws_client import BaseDataStoreWsClient, NamespaceHasher
 from typing import Optional, final
 from typing import Union, Dict, Any, Optional, List
 
