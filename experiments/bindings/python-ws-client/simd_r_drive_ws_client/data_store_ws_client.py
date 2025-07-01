@@ -1,8 +1,11 @@
 from .simd_r_drive_ws_client import (
+    NamespaceHasher,
     BaseDataStoreWsClient,
 )
 
 from typing import Union, Dict, Any, Optional, List
+
+__all__ = ["DataStoreWsClient", "NamespaceHasher"]
 
 
 class DataStoreWsClient(BaseDataStoreWsClient):
