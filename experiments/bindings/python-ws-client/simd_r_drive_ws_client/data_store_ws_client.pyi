@@ -1,10 +1,11 @@
+from .simd_r_drive_ws_client import BaseDataStoreWsClient
 from typing import Optional, final
 from typing import Union, Dict, Any, Optional, List
 
 __all__ = ["DataStoreWsClient", "NamespaceHasher"]
 
 @final
-class DataStoreWsClient:
+class DataStoreWsClient(BaseDataStoreWsClient):
     """
     A high-performance, append-only binary key/value store.
 
