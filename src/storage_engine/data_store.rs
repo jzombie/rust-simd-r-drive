@@ -408,6 +408,7 @@ impl DataStore {
         self.batch_write_hashed_payloads(vec![(key_hash, payload)], false)
     }
 
+    // TODO: Change `hashed_payloads: Vec<(u64, &[u8])>` to `hashed_payloads: Vec<(u64, Vec<u8>)>`
     /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
     ///
     /// This method efficiently appends multiple entries in a **batch operation**,
