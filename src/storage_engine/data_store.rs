@@ -770,6 +770,8 @@ impl DataStoreWriter for DataStore {
         // TODO: Check prior exists before deletion
         self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
     }
+
+    // TODO: Implement batch_delete
 }
 
 impl DataStoreReader for DataStore {
