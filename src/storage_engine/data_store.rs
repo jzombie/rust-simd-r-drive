@@ -714,6 +714,7 @@ impl DataStoreWriter for DataStore {
         self.write_with_key_hash(key_hash, payload)
     }
 
+    // TODO: Change signature to: fn batch_write(&self, entries: Vec<(Vec<u8>, Vec<u8>)>) -> Result<u64> {
     fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
         let hashes = compute_hash_batch(&keys);
