@@ -767,6 +767,7 @@ impl DataStoreWriter for DataStore {
 
     fn delete(&self, key: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
+        // TODO: Check prior exists before deletion
         self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
     }
 }
