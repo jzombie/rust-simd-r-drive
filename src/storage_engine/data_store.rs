@@ -25,6 +25,7 @@ pub struct DataStore {
     path: PathBuf,
 }
 
+// TODO: Add feature to iterate via `rayon`
 impl IntoIterator for DataStore {
     type Item = EntryHandle;
     type IntoIter = EntryIterator;
