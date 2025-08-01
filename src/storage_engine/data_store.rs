@@ -25,7 +25,6 @@ pub struct DataStore {
     path: PathBuf,
 }
 
-// TODO: Add feature to iterate via `rayon`
 impl IntoIterator for DataStore {
     type Item = EntryHandle;
     type IntoIter = EntryIterator;
@@ -34,6 +33,22 @@ impl IntoIterator for DataStore {
         self.iter_entries()
     }
 }
+
+// TODO: Add feature to iterate via `rayon`
+// pub struct ParallelEntryIter {
+//     entries: Arc<[EntryHandle]>, // or offsets
+// }
+//
+// impl ParallelIterator for ParallelEntryIter {
+//     type Item = EntryHandle;
+//
+//     fn drive_unindexed<C>(self, consumer: C) -> C::Result
+//     where
+//         C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
+//     {
+//         rayon::slice::from_arc(&self.entries).into_par_iter().drive_unindexed(consumer)
+//     }
+// }
 
 impl From<PathBuf> for DataStore {
     /// Creates an `DataStore` instance from a `PathBuf`.
