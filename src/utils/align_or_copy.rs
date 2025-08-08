@@ -41,7 +41,10 @@ use std::{borrow::Cow, mem};
 /// let result: Cow<[f32]> = simd_r_drive::utils::align_or_copy::<f32, 4>(raw, f32::from_le_bytes);
 /// assert_eq!(result[0], 1.0);
 /// ```
-pub fn align_or_copy<T, const N: usize>(bytes: &[u8], from_le_bytes: fn([u8; N]) -> T) -> Cow<[T]>
+pub fn align_or_copy<T, const N: usize>(
+    bytes: &[u8],
+    from_le_bytes: fn([u8; N]) -> T,
+) -> Cow<'_, [T]>
 where
     T: Copy,
 {
