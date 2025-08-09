@@ -39,6 +39,14 @@ impl AsyncDataStoreWriter for WsClient {
         unimplemented!("`write_stream` is not currently implemented");
     }
 
+    async fn write_stream_with_key_hash<R: std::io::Read>(
+        &self,
+        _key_hash: u64,
+        _reader: &mut R,
+    ) -> Result<u64> {
+        unimplemented!("`write_stream_with_key_hash` is not currently implemented");
+    }
+
     async fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let response_params = Write::call(
             &self.rpc_client,
@@ -50,6 +58,10 @@ impl AsyncDataStoreWriter for WsClient {
         .await?;
 
         Ok(response_params.tail_offset)
+    }
+
+    async fn write_with_key_hash(&self, _key_hash: u64, _payload: &[u8]) -> Result<u64> {
+        unimplemented!("`write_with_key_hash` is not currently implemented");
     }
 
     async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
@@ -65,6 +77,14 @@ impl AsyncDataStoreWriter for WsClient {
         .await?;
 
         Ok(response_params.tail_offset)
+    }
+
+    async fn batch_write_with_key_hashes(
+        &self,
+        _prehashed_keys: Vec<(u64, &[u8])>,
+        _allow_null_bytes: bool,
+    ) -> Result<u64> {
+        unimplemented!("`batch_write_with_key_hashes` is not currently implemented");
     }
 
     async fn rename(&self, _old_key: &[u8], _new_key: &[u8]) -> Result<u64> {

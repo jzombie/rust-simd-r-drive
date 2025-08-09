@@ -332,188 +332,6 @@ impl DataStore {
         Ok(best_valid_offset.unwrap_or(0))
     }
 
-    // TODO: Move to writer trait
-    /// Writes an entry using a **precomputed key hash** and a streaming `Read` source.
-    ///
-    /// This is a **low-level** method that operates like `write_stream`, but requires
-    /// the key to be hashed beforehand. It is primarily used internally to avoid
-    /// redundant hash computations when writing multiple entries.
-    ///
-    /// # Parameters:
-    /// - `key_hash`: The **precomputed hash** of the key.
-    /// - `reader`: A **streaming reader** (`Read` trait) supplying the entry's content.
-    ///
-    /// # Returns:
-    /// - `Ok(offset)`: The file offset where the entry was written.
-    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
-    pub fn write_stream_with_key_hash<R: Read>(
-        &self,
-        key_hash: u64,
-        reader: &mut R,
-    ) -> Result<u64> {
-        let mut file = self
-            .file
-            .write()
-            .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
-        let prev_offset = self.tail_offset.load(Ordering::Acquire);
-
-        let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE];
-        let mut total_written = 0;
-        let mut checksum_state = crc32fast::Hasher::new();
-        let mut is_null_only = true;
-
-        while let Ok(bytes_read) = reader.read(&mut buffer) {
-            if bytes_read == 0 {
-                break;
-            }
-
-            if buffer[..bytes_read].iter().any(|&b| b != NULL_BYTE[0]) {
-                is_null_only = false;
-            }
-
-            file.write_all(&buffer[..bytes_read])?;
-            checksum_state.update(&buffer[..bytes_read]);
-            total_written += bytes_read;
-        }
-
-        if total_written > 0 && is_null_only {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "NULL-byte-only streams cannot be written directly.",
-            ));
-        }
-
-        let checksum = checksum_state.finalize().to_le_bytes();
-        let metadata = EntryMetadata {
-            key_hash,
-            prev_offset,
-            checksum,
-        };
-        file.write_all(&metadata.serialize())?;
-        file.flush()?;
-
-        let tail_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
-        self.reindex(
-            &file,
-            &[(key_hash, tail_offset - METADATA_SIZE as u64)],
-            tail_offset,
-            None,
-        )?;
-        Ok(tail_offset)
-    }
-
-    // TODO: Move to writer trait
-    /// Writes an entry using a **precomputed key hash** and a payload.
-    ///
-    /// This method is a **low-level** alternative to `write()`, allowing direct
-    /// specification of the key hash. It is mainly used for optimized workflows
-    /// where the key hash is already known, avoiding redundant computations.
-    ///
-    /// # Parameters:
-    /// - `key_hash`: The **precomputed hash** of the key.
-    /// - `payload`: The **data payload** to be stored.
-    ///
-    /// # Returns:
-    /// - `Ok(offset)`: The file offset where the entry was written.
-    /// - `Err(std::io::Error)`: If a write operation fails.
-    ///
-    /// # Notes:
-    /// - The caller is responsible for ensuring that `key_hash` is correctly computed.
-    /// - This method **locks the file for writing** to maintain consistency.
-    /// - If writing **multiple entries**, consider using `batch_write_with_key_hashes()`.
-    pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
-        self.batch_write_with_key_hashes(vec![(key_hash, payload)], false)
-    }
-
-    // TODO: Move to writer trait
-    // TODO: Change `prehashed_keys: Vec<(u64, &[u8])>` to `prehashed_keys: Vec<(u64, Vec<u8>)>`
-    /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
-    ///
-    /// This method efficiently appends multiple entries in a **batch operation**,
-    /// reducing lock contention and improving performance for bulk writes.
-    ///
-    /// # Parameters:
-    /// - `prehashed_keys`: A **vector of precomputed key hashes and payloads**, where:
-    ///   - `key_hash`: The **precomputed hash** of the key.
-    ///   - `payload`: The **data payload** to be stored.
-    ///
-    /// # Returns:
-    /// - `Ok(final_offset)`: The file offset after all writes.
-    /// - `Err(std::io::Error)`: If a write operation fails.
-    ///
-    /// # Notes:
-    /// - **File locking is performed only once** for all writes, improving efficiency.
-    /// - If an entry's `payload` is empty, an error is returned.
-    /// - This method uses **SIMD-accelerated memory copy (`simd_copy`)** to optimize write
-    ///   performance.
-    /// - **Metadata (checksums, offsets) is written after payloads** to ensure data integrity.
-    /// - After writing, the memory-mapped file (`mmap`) is **remapped** to reflect updates.
-    ///
-    /// # Efficiency Considerations:
-    /// - **Faster than multiple `write()` calls**, since it reduces lock contention.
-    /// - Suitable for **bulk insertions** where key hashes are known beforehand.
-    /// - If keys are available but not hashed, use `batch_write()` instead.
-    pub fn batch_write_with_key_hashes(
-        &self,
-        prehashed_keys: Vec<(u64, &[u8])>,
-        allow_null_bytes: bool,
-    ) -> Result<u64> {
-        let mut file = self
-            .file
-            .write()
-            .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
-
-        let mut buffer = Vec::new();
-        let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
-
-        let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(prehashed_keys.len());
-        let mut deleted_keys: HashSet<u64> = HashSet::new();
-
-        for (key_hash, payload) in prehashed_keys {
-            if payload == NULL_BYTE {
-                if !allow_null_bytes {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        "NULL-byte payloads cannot be written directly.",
-                    ));
-                }
-
-                deleted_keys.insert(key_hash);
-            }
-
-            if payload.is_empty() {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "Payload cannot be empty.",
-                ));
-            }
-
-            let prev_offset = tail_offset;
-            let checksum = compute_checksum(payload);
-            let metadata = EntryMetadata {
-                key_hash,
-                prev_offset,
-                checksum,
-            };
-            let payload_len = payload.len();
-
-            let mut entry: Vec<u8> = vec![0u8; payload_len + METADATA_SIZE];
-            simd_copy(&mut entry[..payload.len()], payload);
-            entry[payload.len()..].copy_from_slice(&metadata.serialize());
-            buffer.extend_from_slice(&entry);
-
-            tail_offset += entry.len() as u64;
-            key_hash_offsets.push((key_hash, tail_offset - METADATA_SIZE as u64));
-        }
-
-        file.write_all(&buffer)?;
-        file.flush()?;
-
-        self.reindex(&file, &key_hash_offsets, tail_offset, Some(&deleted_keys))?;
-
-        Ok(self.tail_offset.load(Ordering::Acquire))
-    }
-
     /// Performs the core logic of reading an entry from the store.
     ///
     /// This private helper centralizes the logic for both `read` and `batch_read`.
@@ -729,17 +547,135 @@ impl DataStoreWriter for DataStore {
         self.write_stream_with_key_hash(key_hash, reader)
     }
 
+    fn write_stream_with_key_hash<R: Read>(&self, key_hash: u64, reader: &mut R) -> Result<u64> {
+        let mut file = self
+            .file
+            .write()
+            .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
+        let prev_offset = self.tail_offset.load(Ordering::Acquire);
+
+        let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE];
+        let mut total_written = 0;
+        let mut checksum_state = crc32fast::Hasher::new();
+        let mut is_null_only = true;
+
+        while let Ok(bytes_read) = reader.read(&mut buffer) {
+            if bytes_read == 0 {
+                break;
+            }
+
+            if buffer[..bytes_read].iter().any(|&b| b != NULL_BYTE[0]) {
+                is_null_only = false;
+            }
+
+            file.write_all(&buffer[..bytes_read])?;
+            checksum_state.update(&buffer[..bytes_read]);
+            total_written += bytes_read;
+        }
+
+        if total_written > 0 && is_null_only {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "NULL-byte-only streams cannot be written directly.",
+            ));
+        }
+
+        let checksum = checksum_state.finalize().to_le_bytes();
+        let metadata = EntryMetadata {
+            key_hash,
+            prev_offset,
+            checksum,
+        };
+        file.write_all(&metadata.serialize())?;
+        file.flush()?;
+
+        let tail_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
+        self.reindex(
+            &file,
+            &[(key_hash, tail_offset - METADATA_SIZE as u64)],
+            tail_offset,
+            None,
+        )?;
+        Ok(tail_offset)
+    }
+
     fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.write_with_key_hash(key_hash, payload)
     }
 
-    // TODO: Change signature to: fn batch_write(&self, entries: Vec<(Vec<u8>, Vec<u8>)>) -> Result<u64> {
+    fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
+        self.batch_write_with_key_hashes(vec![(key_hash, payload)], false)
+    }
+
+    // TODO: Consider change signature to: fn batch_write(&self, entries: Vec<(Vec<u8>, Vec<u8>)>) -> Result<u64> {
     fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
         let hashes = compute_hash_batch(&keys);
         let hashed_entries = hashes.into_iter().zip(payloads).collect::<Vec<_>>();
         self.batch_write_with_key_hashes(hashed_entries, false)
+    }
+
+    // TODO: Consider change `prehashed_keys: Vec<(u64, &[u8])>` to `prehashed_keys: Vec<(u64, Vec<u8>)>`
+    fn batch_write_with_key_hashes(
+        &self,
+        prehashed_keys: Vec<(u64, &[u8])>,
+        allow_null_bytes: bool,
+    ) -> Result<u64> {
+        let mut file = self
+            .file
+            .write()
+            .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
+
+        let mut buffer = Vec::new();
+        let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
+
+        let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(prehashed_keys.len());
+        let mut deleted_keys: HashSet<u64> = HashSet::new();
+
+        for (key_hash, payload) in prehashed_keys {
+            if payload == NULL_BYTE {
+                if !allow_null_bytes {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "NULL-byte payloads cannot be written directly.",
+                    ));
+                }
+
+                deleted_keys.insert(key_hash);
+            }
+
+            if payload.is_empty() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Payload cannot be empty.",
+                ));
+            }
+
+            let prev_offset = tail_offset;
+            let checksum = compute_checksum(payload);
+            let metadata = EntryMetadata {
+                key_hash,
+                prev_offset,
+                checksum,
+            };
+            let payload_len = payload.len();
+
+            let mut entry: Vec<u8> = vec![0u8; payload_len + METADATA_SIZE];
+            simd_copy(&mut entry[..payload.len()], payload);
+            entry[payload.len()..].copy_from_slice(&metadata.serialize());
+            buffer.extend_from_slice(&entry);
+
+            tail_offset += entry.len() as u64;
+            key_hash_offsets.push((key_hash, tail_offset - METADATA_SIZE as u64));
+        }
+
+        file.write_all(&buffer)?;
+        file.flush()?;
+
+        self.reindex(&file, &key_hash_offsets, tail_offset, Some(&deleted_keys))?;
+
+        Ok(self.tail_offset.load(Ordering::Acquire))
     }
 
     fn rename(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
