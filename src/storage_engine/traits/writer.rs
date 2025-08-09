@@ -198,16 +198,21 @@ pub trait DataStoreWriter {
     ///   the append-only structure.
     fn transfer(&self, key: &[u8], target: &DataStore) -> Result<u64>;
 
-    /// Deletes a key by appending a **null byte marker**.
+    /// Logically deletes an entry by its key.
     ///
-    /// The storage engine is **append-only**, so keys cannot be removed directly.
-    /// Instead, a **null byte is appended** as a tombstone entry to mark the key as deleted.
+    /// The storage engine is **append-only**, so entries are not removed directly.
+    /// Instead, this method appends a **tombstone marker** to logically delete the key.
     ///
-    /// # Parameters:
+    /// This operation first **verifies that the key exists** before appending a tombstone.
+    /// If the key is not found, no data is written to the file, and the operation
+    /// succeeds without changing the store's state.
+    ///
+    /// # Parameters
     /// - `key`: The **binary key** to mark as deleted.
     ///
-    /// # Returns:
-    /// - The **new file offset** where the delete marker was appended.
+    /// # Returns
+    /// - `Ok(tail_offset)`: The file's tail offset after the operation completes.
+    /// - `Err(std::io::Error)`: On I/O failure.
     fn delete(&self, key: &[u8]) -> Result<u64>;
 
     /// Deletes a batch of entries from the storage by their keys.
@@ -442,16 +447,21 @@ pub trait AsyncDataStoreWriter {
     ///   the append-only structure.
     async fn transfer(&self, key: &[u8], target: &DataStore) -> Result<u64>;
 
-    /// Deletes a key by appending a **null byte marker**.
+    /// Logically deletes an entry by its key.
     ///
-    /// The storage engine is **append-only**, so keys cannot be removed directly.
-    /// Instead, a **null byte is appended** as a tombstone entry to mark the key as deleted.
+    /// The storage engine is **append-only**, so entries are not removed directly.
+    /// Instead, this method appends a **tombstone marker** to logically delete the key.
     ///
-    /// # Parameters:
+    /// This operation first **verifies that the key exists** before appending a tombstone.
+    /// If the key is not found, no data is written to the file, and the operation
+    /// succeeds without changing the store's state.
+    ///
+    /// # Parameters
     /// - `key`: The **binary key** to mark as deleted.
     ///
-    /// # Returns:
-    /// - The **new file offset** where the delete marker was appended.
+    /// # Returns
+    /// - `Ok(tail_offset)`: The file's tail offset after the operation completes.
+    /// - `Err(std::io::Error)`: On I/O failure.
     async fn delete(&self, key: &[u8]) -> Result<u64>;
 
     /// Deletes a batch of entries from the storage by their keys.
