@@ -332,6 +332,7 @@ impl DataStore {
         Ok(best_valid_offset.unwrap_or(0))
     }
 
+    // TODO: Move to writer trait
     /// Writes an entry using a **precomputed key hash** and a streaming `Read` source.
     ///
     /// This is a **low-level** method that operates like `write_stream`, but requires
@@ -401,6 +402,7 @@ impl DataStore {
         Ok(tail_offset)
     }
 
+    // TODO: Move to writer trait
     /// Writes an entry using a **precomputed key hash** and a payload.
     ///
     /// This method is a **low-level** alternative to `write()`, allowing direct
@@ -423,6 +425,7 @@ impl DataStore {
         self.batch_write_hashed_payloads(vec![(key_hash, payload)], false)
     }
 
+    // TODO: Move to writer trait
     // TODO: Change `hashed_payloads: Vec<(u64, &[u8])>` to `hashed_payloads: Vec<(u64, Vec<u8>)>`
     /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
     ///
