@@ -360,13 +360,13 @@ impl DataStore {
         let (tag, offset) = KeyIndexer::unpack(packed);
 
         // The crucial verification check, now centralized.
-        if let Some(non_hashed_key) = non_hashed_key {
-            if tag != KeyIndexer::tag_from_key(non_hashed_key) {
-                warn!(
-                    "Tag mismatch detected for `non_hashed_key`, likely a hash collision or index corruption."
-                );
-                return None;
-            }
+        if let Some(non_hashed_key) = non_hashed_key
+            && tag != KeyIndexer::tag_from_key(non_hashed_key)
+        {
+            warn!(
+                "Tag mismatch detected for `non_hashed_key`, likely a hash collision or index corruption."
+            );
+            return None;
         }
 
         let offset = offset as usize;
