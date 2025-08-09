@@ -30,6 +30,7 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
 - [Multiple Read Modes](#multiple-read-modes)
   - [Direct memory access](#direct-memory-access)
   - [Streaming](#streaming)
+  - [Parallel Iteration (via Rayon)](#parallel-iteration-via-rayon)
 - [SIMD Write & Query Acceleration](#simd-write--query-acceleration)
 - [Python Bindings and Experiments](#python-bindings-and-experiments)
 - [License](#license)
@@ -207,6 +208,11 @@ This avoids high memory overhead while still leveraging `mmap` for efficient acc
 
 > ⚠️ Streaming reads are non-zero-copy since they are read through a buffer.
 
+### Parallel Iteration (via Rayon)
+
+For high-throughput, bulk processing on multi-core machines, `SIMD R Drive` offers an optional parallel iterator. When the `parallel` feature is enabled, you can use the Rayon-powered `.par_iter_entries()` method to process all valid entries in the data store across multiple threads.
+
+This is ideal for data analytics, batch processing, or building in-memory caches where you need to scan the entire dataset as quickly as possible.
 
 ## SIMD Write & Query Acceleration
 
