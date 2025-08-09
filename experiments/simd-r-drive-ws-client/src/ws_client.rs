@@ -127,11 +127,22 @@ impl AsyncDataStoreReader for WsClient {
         Ok(response_params.exists)
     }
 
+    async fn exists_with_key_hash(&self, _prehashed_key: u64) -> Result<bool> {
+        unimplemented!("`exists_with_key_hash` is not currently implemented");
+    }
+
     async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>> {
         let response_params =
             Read::call(&self.rpc_client, ReadRequestParams { key: key.to_vec() }).await?;
 
         Ok(response_params.entry_payload)
+    }
+
+    async fn read_with_key_hash(
+        &self,
+        _prehashed_key: u64,
+    ) -> Result<Option<Self::EntryHandleType>> {
+        unimplemented!("`read_with_key_hash` is not currently implemented");
     }
 
     async fn read_last_entry(&self) -> Result<Option<Self::EntryHandleType>> {

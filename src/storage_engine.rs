@@ -1,4 +1,5 @@
 mod constants;
+pub use constants::NULL_BYTE;
 use constants::*;
 
 mod data_store;

@@ -773,6 +773,11 @@ impl DataStoreReader for DataStore {
         Ok(self.read(key)?.is_some())
     }
 
+    fn exists_with_key_hash(&self, prehashed_key: u64) -> Result<bool> {
+        // This is a lightweight wrapper around the read method, just like exists().
+        Ok(self.read_with_key_hash(prehashed_key)?.is_some())
+    }
+
     fn read(&self, key: &[u8]) -> Result<Option<EntryHandle>> {
         let key_hash = compute_hash(key);
         let key_indexer_guard = self
@@ -782,6 +787,18 @@ impl DataStoreReader for DataStore {
         let mmap_arc = self.get_mmap_arc();
 
         Ok(self.read_entry_with_context(Some(key), key_hash, &mmap_arc, &key_indexer_guard))
+    }
+
+    fn read_with_key_hash(&self, prehashed_key: u64) -> Result<Option<EntryHandle>> {
+        let key_indexer_guard = self
+            .key_indexer
+            .read()
+            .map_err(|_| Error::other("key-index lock poisoned"))?;
+        let mmap_arc = self.get_mmap_arc();
+
+        // Call the core logic with `None` for the key, as we are only using the hash
+        // and want to skip the tag verification check.
+        Ok(self.read_entry_with_context(None, prehashed_key, &mmap_arc, &key_indexer_guard))
     }
 
     fn read_last_entry(&self) -> Result<Option<EntryHandle>> {

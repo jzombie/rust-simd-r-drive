@@ -132,3 +132,5 @@ pub use storage_engine::digest::*;
 pub use storage_engine::*;
 
 pub mod utils;
+
+pub use storage_engine::NULL_BYTE;
