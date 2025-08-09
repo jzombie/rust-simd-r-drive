@@ -209,6 +209,35 @@ pub trait DataStoreWriter {
     /// # Returns:
     /// - The **new file offset** where the delete marker was appended.
     fn delete(&self, key: &[u8]) -> Result<u64>;
+
+    /// Deletes a batch of entries from the storage by their keys.
+    ///
+    /// This method computes the hash for each key and then calls the underlying
+    /// `batch_delete_key_hashes` method. It will only write deletion markers
+    /// (tombstones) for keys that currently exist in the store.
+    ///
+    /// # Parameters
+    /// - `keys`: A slice of keys to be deleted.
+    ///
+    /// # Returns
+    /// - `Ok(tail_offset)`: The new tail offset of the file after the operation.
+    /// - `Err(std::io::Error)`: On I/O failure.
+    fn batch_delete(&self, keys: &[&[u8]]) -> Result<u64>;
+
+    /// Deletes a batch of entries from the storage using pre-computed key hashes.
+    ///
+    /// This is the lowest-level batch deletion method. It checks for the existence
+    /// of each key hash in the in-memory index before writing a deletion marker.
+    /// This prevents the store from being filled with unnecessary tombstones for
+    /// keys that were never present.
+    ///
+    /// # Parameters
+    /// - `prehashed_keys`: A slice of `u64` key hashes to be deleted.
+    ///
+    /// # Returns
+    /// - `Ok(tail_offset)`: The new tail offset of the file after the operation.
+    /// - `Err(std::io::Error)`: On I/O failure.
+    fn batch_delete_key_hashes(&self, prehashed_keys: &[u64]) -> Result<u64>;
 }
 
 #[async_trait::async_trait]
@@ -424,4 +453,33 @@ pub trait AsyncDataStoreWriter {
     /// # Returns:
     /// - The **new file offset** where the delete marker was appended.
     async fn delete(&self, key: &[u8]) -> Result<u64>;
+
+    /// Deletes a batch of entries from the storage by their keys.
+    ///
+    /// This method computes the hash for each key and then calls the underlying
+    /// `batch_delete_key_hashes` method. It will only write deletion markers
+    /// (tombstones) for keys that currently exist in the store.
+    ///
+    /// # Parameters
+    /// - `keys`: A slice of keys to be deleted.
+    ///
+    /// # Returns
+    /// - `Ok(tail_offset)`: The new tail offset of the file after the operation.
+    /// - `Err(std::io::Error)`: On I/O failure.
+    async fn batch_delete(&self, keys: &[&[u8]]) -> Result<u64>;
+
+    /// Deletes a batch of entries from the storage using pre-computed key hashes.
+    ///
+    /// This is the lowest-level batch deletion method. It checks for the existence
+    /// of each key hash in the in-memory index before writing a deletion marker.
+    /// This prevents the store from being filled with unnecessary tombstones for
+    /// keys that were never present.
+    ///
+    /// # Parameters
+    /// - `prehashed_keys`: A slice of `u64` key hashes to be deleted.
+    ///
+    /// # Returns
+    /// - `Ok(tail_offset)`: The new tail offset of the file after the operation.
+    /// - `Err(std::io::Error)`: On I/O failure.
+    async fn batch_delete_key_hashes(&self, prehashed_keys: &[u64]) -> Result<u64>;
 }

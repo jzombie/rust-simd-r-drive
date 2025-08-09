@@ -105,6 +105,14 @@ impl AsyncDataStoreWriter for WsClient {
 
         Ok(resp.tail_offset)
     }
+
+    async fn batch_delete(&self, _keys: &[&[u8]]) -> Result<u64> {
+        unimplemented!("`batch_delete` is not currently implemented");
+    }
+
+    async fn batch_delete_key_hashes(&self, _prehashed_keys: &[u64]) -> Result<u64> {
+        unimplemented!("`batch_delete_key_hashes` is not currently implemented");
+    }
 }
 
 #[async_trait::async_trait]

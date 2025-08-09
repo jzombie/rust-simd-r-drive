@@ -727,12 +727,43 @@ impl DataStoreWriter for DataStore {
     }
 
     fn delete(&self, key: &[u8]) -> Result<u64> {
-        let key_hash = compute_hash(key);
-        // TODO: Check prior exists before deletion
-        self.batch_write_with_key_hashes(vec![(key_hash, &NULL_BYTE)], true)
+        self.batch_delete(&[key])
     }
 
-    // TODO: Implement batch_delete
+    fn batch_delete(&self, keys: &[&[u8]]) -> Result<u64> {
+        let key_hashes = compute_hash_batch(keys);
+        self.batch_delete_key_hashes(&key_hashes)
+    }
+
+    fn batch_delete_key_hashes(&self, prehashed_keys: &[u64]) -> Result<u64> {
+        // First, check which keys actually exist to avoid writing useless tombstones.
+        let keys_to_delete: Vec<u64> = {
+            let key_indexer_guard = self
+                .key_indexer
+                .read()
+                .map_err(|_| Error::other("Key-index lock poisoned during batch_delete check"))?;
+
+            prehashed_keys
+                .iter()
+                .filter(|&&key_hash| key_indexer_guard.get_packed(&key_hash).is_some())
+                .cloned()
+                .collect()
+        };
+
+        // If no keys were found to delete, we can exit early without any file I/O.
+        if keys_to_delete.is_empty() {
+            return Ok(self.tail_offset.load(Ordering::Acquire));
+        }
+
+        // Prepare the delete operations (a key hash + a null byte payload).
+        let delete_ops: Vec<(u64, &[u8])> = keys_to_delete
+            .iter()
+            .map(|&key_hash| (key_hash, &NULL_BYTE as &[u8]))
+            .collect();
+
+        // Use the underlying batch write method, allowing null bytes for tombstones.
+        self.batch_write_with_key_hashes(delete_ops, true)
+    }
 }
 
 impl DataStoreReader for DataStore {

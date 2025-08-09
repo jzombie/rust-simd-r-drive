@@ -1,7 +1,7 @@
 //! Integration-tests for the batch-write / batch-read API.
 
 use simd_r_drive::{
-    DataStore, compute_hash_batch,
+    DataStore, compute_hash, compute_hash_batch,
     traits::{DataStoreReader, DataStoreWriter},
 };
 use tempfile::tempdir;
@@ -278,4 +278,76 @@ fn test_batch_read_hashed_keys_detects_collision() {
         results[0].is_none(),
         "Read should fail due to tag mismatch, simulating a hash collision"
     );
+}
+
+/// Happy-path: write a handful of entries, then delete a subset of them
+/// in a single batch operation.
+#[test]
+fn test_batch_delete() {
+    let (_dir, storage) = create_temp_storage();
+    let entries = vec![
+        (b"alpha".as_slice(), b"one".as_slice()),
+        (b"beta".as_slice(), b"two".as_slice()),
+        (b"gamma".as_slice(), b"three".as_slice()),
+        (b"delta".as_slice(), b"four".as_slice()),
+    ];
+    storage.batch_write(&entries).expect("batch_write failed");
+    assert_eq!(storage.len().unwrap(), 4);
+
+    // Delete two of the entries
+    let keys_to_delete = [b"beta".as_slice(), b"delta".as_slice()];
+    storage
+        .batch_delete(&keys_to_delete)
+        .expect("batch_delete failed");
+
+    // Verify store state
+    assert_eq!(storage.len().unwrap(), 2, "Length should be reduced by 2");
+    assert!(storage.read(b"beta").unwrap().is_none());
+    assert!(storage.read(b"delta").unwrap().is_none());
+
+    // Ensure other keys are unaffected
+    assert!(storage.read(b"alpha").unwrap().is_some());
+    assert!(storage.read(b"gamma").unwrap().is_some());
+}
+
+/// Verify that `batch_delete` correctly handles a mix of keys that
+/// exist and keys that do not. The operation should succeed, and only
+/// existing keys should be deleted.
+#[test]
+fn test_batch_delete_with_missing_keys() {
+    let (_dir, storage) = create_temp_storage();
+    let entries = vec![(b"key1".as_slice(), b"val1".as_slice())];
+    storage.batch_write(&entries).expect("batch_write failed");
+    assert_eq!(storage.len().unwrap(), 1);
+
+    // Attempt to delete one existing and one non-existent key
+    let keys_to_delete = [b"key1".as_slice(), b"non_existent_key".as_slice()];
+    storage
+        .batch_delete(&keys_to_delete)
+        .expect("batch_delete should not fail on missing keys");
+
+    // Verify only the existing key was deleted
+    assert_eq!(storage.len().unwrap(), 0);
+    assert!(storage.is_empty().unwrap());
+    assert!(storage.read(b"key1").unwrap().is_none());
+}
+
+/// Verify the lowest-level batch delete function works as intended,
+/// ignoring hashes for keys that are not present in the store.
+#[test]
+fn test_batch_delete_key_hashes() {
+    let (_dir, storage) = create_temp_storage();
+    storage.write(b"real", b"data").unwrap();
+    assert_eq!(storage.len().unwrap(), 1);
+
+    let real_hash = compute_hash(b"real");
+    let fake_hash = 1234567890_u64; // A hash for a key that doesn't exist
+
+    let hashes_to_delete = [real_hash, fake_hash];
+    storage
+        .batch_delete_key_hashes(&hashes_to_delete)
+        .expect("batch_delete_key_hashes failed");
+
+    // The store should now be empty because the only real key was deleted.
+    assert!(storage.is_empty().unwrap());
 }
