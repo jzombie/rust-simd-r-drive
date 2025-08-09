@@ -3,10 +3,7 @@
 #![cfg(feature = "parallel")]
 
 use rayon::prelude::*;
-use simd_r_drive::{
-    DataStore,
-    traits::{DataStoreReader, DataStoreWriter},
-};
+use simd_r_drive::{DataStore, traits::DataStoreWriter};
 use std::collections::HashSet;
 use tempfile::tempdir;
 

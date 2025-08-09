@@ -297,7 +297,7 @@ impl DataStore {
 
             // Important: We must filter out tombstone entries, which are marked
             // by a single null byte payload.
-            if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+            if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
                 return None;
             }
 
