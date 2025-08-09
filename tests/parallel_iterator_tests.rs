@@ -86,3 +86,70 @@ fn test_par_iter_on_empty_store() {
         "Parallel iterator should produce zero items for an empty store"
     );
 }
+
+#[test]
+fn test_par_iter_yields_only_latest_version_of_updated_entry() {
+    let (_dir, storage) = create_temp_storage();
+
+    // Write initial versions of two keys
+    storage
+        .write(b"updated_key", b"version1")
+        .expect("Write failed");
+    storage
+        .write(b"stable_key", b"stable_version")
+        .expect("Write failed");
+
+    // Update one of the keys
+    storage
+        .write(b"updated_key", b"version2_final")
+        .expect("Update failed");
+
+    // Collect the results from the parallel iterator
+    let final_payloads: HashSet<Vec<u8>> = storage
+        .par_iter_entries()
+        .map(|e| e.as_slice().to_vec())
+        .collect();
+
+    // The iterator should yield two entries: the final version of the updated key
+    // and the stable key.
+    assert_eq!(final_payloads.len(), 2);
+    assert!(final_payloads.contains(&b"version2_final".to_vec()));
+    assert!(final_payloads.contains(&b"stable_version".to_vec()));
+
+    // Crucially, the stale, older version should NOT be present.
+    assert!(!final_payloads.contains(&b"version1".to_vec()));
+}
+
+#[test]
+fn test_par_iter_excludes_entries_that_were_updated_then_deleted() {
+    let (_dir, storage) = create_temp_storage();
+
+    // Write and then update a key that we intend to delete
+    storage
+        .write(b"deleted_key", b"version1")
+        .expect("Write failed");
+    storage
+        .write(b"deleted_key", b"version2")
+        .expect("Update failed");
+
+    // Write another key that will remain
+    storage
+        .write(b"stable_key", b"stable_version")
+        .expect("Write failed");
+
+    // Now, delete the key that has multiple versions
+    storage.delete(b"deleted_key").expect("Delete failed");
+
+    let final_payloads: HashSet<Vec<u8>> = storage
+        .par_iter_entries()
+        .map(|e| e.as_slice().to_vec())
+        .collect();
+
+    // The iterator should only yield the one remaining stable key.
+    assert_eq!(final_payloads.len(), 1);
+    assert!(final_payloads.contains(&b"stable_version".to_vec()));
+
+    // Assert that NEITHER version of the deleted key is present.
+    assert!(!final_payloads.contains(&b"version1".to_vec()));
+    assert!(!final_payloads.contains(&b"version2".to_vec()));
+}
