@@ -1509,6 +1509,7 @@ dependencies = [
  "indoc",
  "memmap2",
  "rand",
+ "rayon",
  "serde",
  "serde_json",
  "serial_test",

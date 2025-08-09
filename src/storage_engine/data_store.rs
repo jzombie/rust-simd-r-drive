@@ -16,6 +16,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use tracing::{debug, info, warn};
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 /// Append-Only Storage Engine
 pub struct DataStore {
     file: Arc<RwLock<BufWriter<File>>>,
@@ -25,6 +28,13 @@ pub struct DataStore {
     path: PathBuf,
 }
 
+/// Provides a **consuming sequential** iterator over the valid entries.
+///
+/// This allows a `DataStore` to be consumed to produce a sequential iterator.
+/// For non-consuming iteration, iterate over a reference (`&storage`).
+///
+/// The iterator produced is **sequential**. For parallel processing,
+/// enable the `parallel` feature and use the `.par_iter_entries()` method instead.
 impl IntoIterator for DataStore {
     type Item = EntryHandle;
     type IntoIter = EntryIterator;
@@ -33,22 +43,6 @@ impl IntoIterator for DataStore {
         self.iter_entries()
     }
 }
-
-// TODO: Add feature to iterate via `rayon`
-// pub struct ParallelEntryIter {
-//     entries: Arc<[EntryHandle]>, // or offsets
-// }
-//
-// impl ParallelIterator for ParallelEntryIter {
-//     type Item = EntryHandle;
-//
-//     fn drive_unindexed<C>(self, consumer: C) -> C::Result
-//     where
-//         C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
-//     {
-//         rayon::slice::from_arc(&self.entries).into_par_iter().drive_unindexed(consumer)
-//     }
-// }
 
 impl From<PathBuf> for DataStore {
     /// Creates an `DataStore` instance from a `PathBuf`.
@@ -256,6 +250,64 @@ impl DataStore {
         let mmap_clone = self.get_mmap_arc();
         let tail_offset = self.tail_offset.load(Ordering::Acquire);
         EntryIterator::new(mmap_clone, tail_offset)
+    }
+
+    /// Provides a parallel iterator over all valid entries in the storage.
+    ///
+    /// This method is only available when the `parallel` feature is enabled.
+    /// It leverages the Rayon crate to process entries across multiple threads,
+    /// which can be significantly faster for bulk operations on multi-core machines.
+    ///
+    /// The iterator is efficient, collecting only the necessary entry offsets first
+    /// and then constructing the `EntryHandle` objects in parallel.
+    ///
+    /// # Returns
+    /// - A Rayon `ParallelIterator` that yields `EntryHandle` items.
+    #[cfg(feature = "parallel")]
+    pub fn par_iter_entries(&self) -> impl ParallelIterator<Item = EntryHandle> {
+        // First, acquire a read lock and collect all the packed offset values.
+        // This is a short, fast operation.
+        let key_indexer_guard = self.key_indexer.read().unwrap();
+        let packed_values: Vec<u64> = key_indexer_guard.values().cloned().collect();
+        drop(key_indexer_guard); // Release the lock as soon as possible.
+
+        // Clone the mmap Arc once to be moved into the parallel iterator.
+        let mmap_arc = self.get_mmap_arc();
+
+        // Create a parallel iterator over the collected offsets. The `filter_map`
+        // operation is the part that will run in parallel across threads.
+        packed_values.into_par_iter().filter_map(move |packed| {
+            let (_tag, offset) = KeyIndexer::unpack(packed);
+            let offset = offset as usize;
+
+            // This logic is a simplified, read-only version of `read_entry_with_context`.
+            // We perform basic bounds checks to ensure safety.
+            if offset + METADATA_SIZE > mmap_arc.len() {
+                return None;
+            }
+
+            let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
+            let metadata = EntryMetadata::deserialize(metadata_bytes);
+            let entry_start = metadata.prev_offset as usize;
+            let entry_end = offset;
+
+            if entry_start >= entry_end || entry_end > mmap_arc.len() {
+                return None;
+            }
+
+            // Important: We must filter out tombstone entries, which are marked
+            // by a single null byte payload.
+            if entry_end - entry_start == 1 && &mmap_arc[entry_start..entry_end] == NULL_BYTE {
+                return None;
+            }
+
+            // If all checks pass, construct and return the EntryHandle.
+            Some(EntryHandle {
+                mmap_arc: mmap_arc.clone(), // Each handle gets a clone of the Arc
+                range: entry_start..entry_end,
+                metadata,
+            })
+        })
     }
 
     /// Recovers the **latest valid chain** of entries from the storage file.
