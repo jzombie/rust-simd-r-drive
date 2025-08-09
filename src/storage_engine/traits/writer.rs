@@ -52,7 +52,7 @@ pub trait DataStoreWriter {
     /// Writes multiple key-value pairs as a **single transaction**.
     ///
     /// This method computes the hashes of the provided keys and delegates to
-    /// `batch_write_hashed_payloads()`, ensuring all writes occur in a single
+    /// `batch_write_prehashed_keys()`, ensuring all writes occur in a single
     /// locked operation for efficiency.
     ///
     /// # Parameters:
@@ -67,7 +67,7 @@ pub trait DataStoreWriter {
     /// # Notes:
     /// - This method improves efficiency by **minimizing file lock contention**.
     /// - If a large number of entries are written, **batching reduces overhead**.
-    /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
+    /// - If the key hashes are already computed, use `batch_write_prehashed_keys()`.
     fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64>;
 
     /// Renames an existing entry by copying it under a new key and marking the old key as deleted.
@@ -196,7 +196,7 @@ pub trait AsyncDataStoreWriter {
     /// Writes multiple key-value pairs as a **single transaction**.
     ///
     /// This method computes the hashes of the provided keys and delegates to
-    /// `batch_write_hashed_payloads()`, ensuring all writes occur in a single
+    /// `batch_write_prehashed_keys()`, ensuring all writes occur in a single
     /// locked operation for efficiency.
     ///
     /// # Parameters:
@@ -211,7 +211,7 @@ pub trait AsyncDataStoreWriter {
     /// # Notes:
     /// - This method improves efficiency by **minimizing file lock contention**.
     /// - If a large number of entries are written, **batching reduces overhead**.
-    /// - If the key hashes are already computed, use `batch_write_hashed_payloads()`.
+    /// - If the key hashes are already computed, use `batch_write_prehashed_keys()`.
     async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64>;
 
     /// Renames an existing entry by copying it under a new key and marking the old key as deleted.

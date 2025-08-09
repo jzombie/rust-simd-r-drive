@@ -420,20 +420,20 @@ impl DataStore {
     /// # Notes:
     /// - The caller is responsible for ensuring that `key_hash` is correctly computed.
     /// - This method **locks the file for writing** to maintain consistency.
-    /// - If writing **multiple entries**, consider using `batch_write_hashed_payloads()`.
+    /// - If writing **multiple entries**, consider using `batch_write_prehashed_keys()`.
     pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
-        self.batch_write_hashed_payloads(vec![(key_hash, payload)], false)
+        self.batch_write_prehashed_keys(vec![(key_hash, payload)], false)
     }
 
     // TODO: Move to writer trait
-    // TODO: Change `hashed_payloads: Vec<(u64, &[u8])>` to `hashed_payloads: Vec<(u64, Vec<u8>)>`
+    // TODO: Change `prehashed_keys: Vec<(u64, &[u8])>` to `prehashed_keys: Vec<(u64, Vec<u8>)>`
     /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
     ///
     /// This method efficiently appends multiple entries in a **batch operation**,
     /// reducing lock contention and improving performance for bulk writes.
     ///
     /// # Parameters:
-    /// - `hashed_payloads`: A **vector of precomputed key hashes and payloads**, where:
+    /// - `prehashed_keys`: A **vector of precomputed key hashes and payloads**, where:
     ///   - `key_hash`: The **precomputed hash** of the key.
     ///   - `payload`: The **data payload** to be stored.
     ///
@@ -453,9 +453,9 @@ impl DataStore {
     /// - **Faster than multiple `write()` calls**, since it reduces lock contention.
     /// - Suitable for **bulk insertions** where key hashes are known beforehand.
     /// - If keys are available but not hashed, use `batch_write()` instead.
-    pub fn batch_write_hashed_payloads(
+    pub fn batch_write_prehashed_keys(
         &self,
-        hashed_payloads: Vec<(u64, &[u8])>,
+        prehashed_keys: Vec<(u64, &[u8])>,
         allow_null_bytes: bool,
     ) -> Result<u64> {
         let mut file = self
@@ -466,10 +466,10 @@ impl DataStore {
         let mut buffer = Vec::new();
         let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
 
-        let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(hashed_payloads.len());
+        let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(prehashed_keys.len());
         let mut deleted_keys: HashSet<u64> = HashSet::new();
 
-        for (key_hash, payload) in hashed_payloads {
+        for (key_hash, payload) in prehashed_keys {
             if payload == NULL_BYTE {
                 if !allow_null_bytes {
                     return Err(std::io::Error::new(
@@ -739,7 +739,7 @@ impl DataStoreWriter for DataStore {
         let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
         let hashes = compute_hash_batch(&keys);
         let hashed_entries = hashes.into_iter().zip(payloads).collect::<Vec<_>>();
-        self.batch_write_hashed_payloads(hashed_entries, false)
+        self.batch_write_prehashed_keys(hashed_entries, false)
     }
 
     fn rename(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
@@ -789,7 +789,7 @@ impl DataStoreWriter for DataStore {
     fn delete(&self, key: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
         // TODO: Check prior exists before deletion
-        self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
+        self.batch_write_prehashed_keys(vec![(key_hash, &NULL_BYTE)], true)
     }
 
     // TODO: Implement batch_delete
