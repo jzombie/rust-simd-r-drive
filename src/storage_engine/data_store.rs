@@ -63,7 +63,6 @@ impl From<PathBuf> for DataStore {
 }
 
 impl DataStore {
-    // TODO: Use owned `PathBuf`
     /// Opens an **existing** or **new** append-only storage file.
     ///
     /// This function:
