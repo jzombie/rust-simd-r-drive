@@ -351,7 +351,7 @@ impl DataStore {
     #[inline]
     fn read_entry_with_context<'a>(
         &self,
-        key: &[u8],
+        non_hashed_key: Option<&[u8]>,
         key_hash: u64,
         mmap_arc: &Arc<Mmap>,
         key_indexer_guard: &RwLockReadGuard<'a, KeyIndexer>,
@@ -360,9 +360,13 @@ impl DataStore {
         let (tag, offset) = KeyIndexer::unpack(packed);
 
         // The crucial verification check, now centralized.
-        if tag != KeyIndexer::tag_from_key(key) {
-            warn!("Tag mismatch detected for key, likely a hash collision or index corruption.");
-            return None;
+        if let Some(non_hashed_key) = non_hashed_key {
+            if tag != KeyIndexer::tag_from_key(non_hashed_key) {
+                warn!(
+                    "Tag mismatch detected for `non_hashed_key`, likely a hash collision or index corruption."
+                );
+                return None;
+            }
         }
 
         let offset = offset as usize;
@@ -746,7 +750,7 @@ impl DataStoreReader for DataStore {
             .map_err(|_| Error::other("key-index lock poisoned"))?;
         let mmap_arc = self.get_mmap_arc();
 
-        Ok(self.read_entry_with_context(key, key_hash, &mmap_arc, &key_indexer_guard))
+        Ok(self.read_entry_with_context(Some(key), key_hash, &mmap_arc, &key_indexer_guard))
     }
 
     fn read_last_entry(&self) -> Result<Option<EntryHandle>> {
@@ -778,21 +782,59 @@ impl DataStoreReader for DataStore {
     }
 
     fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
+        let hashed_keys = compute_hash_batch(keys);
+
+        self.batch_read_hashed_keys(&hashed_keys, Some(&keys))
+    }
+
+    fn batch_read_hashed_keys(
+        &self,
+        prehashed_keys: &[u64],
+        non_hashed_keys: Option<&[&[u8]]>,
+    ) -> Result<Vec<Option<EntryHandle>>> {
         let mmap_arc = self.get_mmap_arc();
         let key_indexer_guard = self
             .key_indexer
             .read()
             .map_err(|_| Error::other("Key-index lock poisoned during `batch_read`"))?;
 
-        let hashes = compute_hash_batch(keys);
+        // Use a match to handle the two possible scenarios
+        let results = match non_hashed_keys {
+            // Case 1: We have the original keys for tag verification.
+            Some(keys) => {
+                // Good practice to ensure lengths match.
+                if keys.len() != prehashed_keys.len() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Mismatched lengths for hashed and non-hashed keys.",
+                    ));
+                }
 
-        let results = hashes
-            .into_iter()
-            .zip(keys.iter())
-            .map(|(key_hash, &key)| {
-                self.read_entry_with_context(key, key_hash, &mmap_arc, &key_indexer_guard)
-            })
-            .collect();
+                prehashed_keys
+                    .iter()
+                    .zip(keys.iter())
+                    .map(|(key_hash, &key)| {
+                        // Correctly pass `Some(key)` for verification
+                        self.read_entry_with_context(
+                            Some(key),
+                            *key_hash,
+                            &mmap_arc,
+                            &key_indexer_guard,
+                        )
+                    })
+                    .collect()
+            }
+            // Case 2: We only have the hashes and must skip tag verification.
+            None => {
+                prehashed_keys
+                    .iter()
+                    .map(|key_hash| {
+                        // Correctly pass `None` as we don't have the original key
+                        self.read_entry_with_context(None, *key_hash, &mmap_arc, &key_indexer_guard)
+                    })
+                    .collect()
+            }
+        };
 
         Ok(results)
     }

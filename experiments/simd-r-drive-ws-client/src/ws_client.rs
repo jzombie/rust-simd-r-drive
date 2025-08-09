@@ -142,6 +142,14 @@ impl AsyncDataStoreReader for WsClient {
         Ok(batch_read_result.entries_payloads)
     }
 
+    async fn batch_read_hashed_keys(
+        &self,
+        _prehashed_keys: &[u64],
+        _non_hashed_keys: Option<&[&[u8]]>,
+    ) -> Result<Vec<Option<Self::EntryHandleType>>> {
+        unimplemented!("`batch_read_hashed_keys` is not currently implemented");
+    }
+
     async fn read_metadata(&self, _key: &[u8]) -> Result<Option<EntryMetadata>> {
         unimplemented!("`read_metadata` is not currently implemented");
     }
