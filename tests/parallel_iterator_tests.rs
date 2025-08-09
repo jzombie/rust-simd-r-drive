@@ -113,11 +113,11 @@ fn test_par_iter_yields_only_latest_version_of_updated_entry() {
     // The iterator should yield two entries: the final version of the updated key
     // and the stable key.
     assert_eq!(final_payloads.len(), 2);
-    assert!(final_payloads.contains(&b"version2_final".to_vec()));
-    assert!(final_payloads.contains(&b"stable_version".to_vec()));
+    assert!(final_payloads.contains(b"version2_final".as_slice()));
+    assert!(final_payloads.contains(b"stable_version".as_slice()));
 
     // Crucially, the stale, older version should NOT be present.
-    assert!(!final_payloads.contains(&b"version1".to_vec()));
+    assert!(!final_payloads.contains(b"version1".as_slice()));
 }
 
 #[test]
@@ -147,9 +147,9 @@ fn test_par_iter_excludes_entries_that_were_updated_then_deleted() {
 
     // The iterator should only yield the one remaining stable key.
     assert_eq!(final_payloads.len(), 1);
-    assert!(final_payloads.contains(&b"stable_version".to_vec()));
+    assert!(final_payloads.contains(b"stable_version".as_slice()));
 
     // Assert that NEITHER version of the deleted key is present.
-    assert!(!final_payloads.contains(&b"version1".to_vec()));
-    assert!(!final_payloads.contains(&b"version2".to_vec()));
+    assert!(!final_payloads.contains(b"version1".as_slice()));
+    assert!(!final_payloads.contains(b"version2".as_slice()));
 }
