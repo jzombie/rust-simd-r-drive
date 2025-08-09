@@ -17,5 +17,5 @@ simd-r-drive = { workspace = true }
 walkdir = { workspace = true}
 
 [dev-dependencies]
-doc-comment = "0.3.3"
-tempfile = "3.19.0"
+doc-comment = { workspace = true }
+tempfile = { workspace = true }
