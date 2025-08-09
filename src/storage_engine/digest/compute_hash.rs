@@ -37,7 +37,7 @@ pub fn compute_hash(key: &[u8]) -> u64 {
 /// * call the hasher exactly **once** from the high-level API,
 /// * pre-allocate the `Vec<u64>` only once,
 /// * hand the resulting `(hash, payload)` tuples straight to
-///   `batch_write_prehashed_keys`, keeping the critical section (the `RwLock`)
+///   `batch_write_with_key_hashes`, keeping the critical section (the `RwLock`)
 ///   as small as possible.
 ///
 /// # Parameters
