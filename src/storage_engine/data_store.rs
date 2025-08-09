@@ -245,7 +245,6 @@ impl DataStore {
         self.path.clone()
     }
 
-    // TODO: Ensure this doesn't include deleted entries
     /// Retrieves an iterator over all valid entries in the storage.
     ///
     /// This iterator allows scanning the storage file and retrieving **only the most recent**
