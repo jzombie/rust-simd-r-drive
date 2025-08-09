@@ -832,7 +832,7 @@ impl DataStoreReader for DataStore {
     fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
         let hashed_keys = compute_hash_batch(keys);
 
-        self.batch_read_hashed_keys(&hashed_keys, Some(&keys))
+        self.batch_read_hashed_keys(&hashed_keys, Some(keys))
     }
 
     fn batch_read_hashed_keys(

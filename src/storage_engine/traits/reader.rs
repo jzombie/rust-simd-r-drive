@@ -108,11 +108,11 @@ pub trait DataStoreReader {
     /// an optional verification step to safeguard against hash collisions.
     ///
     /// * **Zero-copy**: Each `Some(EntryHandle)` provides a direct, zero-copy view
-    ///     into the memory-mapped file.
+    ///   into the memory-mapped file.
     /// * **High-performance**: Bypasses the key hashing step if hashes are already
-    ///     available.
+    ///   available.
     /// * **Thread-safe**: Acquires a single read lock for the entire batch
-    ///     operation, minimizing contention.
+    ///   operation, minimizing contention.
     ///
     /// # Parameters
     /// - `prehashed_keys`: A slice of `u64` key hashes to look up.
