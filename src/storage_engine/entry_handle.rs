@@ -179,9 +179,14 @@ impl EntryHandle {
         self.range.len() + METADATA_SIZE
     }
 
-    /// Returns the computed hash of the entry's key.
+    /// Returns the 64-bit hash of this entry’s key.
     ///
-    /// This value is derived from `compute_hash()` and is used for fast lookups.
+    /// The value is read from the entry’s metadata exactly as it was written:
+    /// for APIs that accept raw keys it is `compute_hash(key)`; for APIs that
+    /// accept pre-hashed keys (e.g. `write_with_key_hash`, `batch_write_with_key_hashes`)
+    /// it is the caller-supplied hash. No hashing is performed when reading.
+    ///
+    /// This hash is used by the index for fast lookup and collision checks.
     ///
     /// # Returns
     /// - A 64-bit unsigned integer representing the key hash.
