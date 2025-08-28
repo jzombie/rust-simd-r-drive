@@ -34,6 +34,15 @@ pub struct EntryMetadata {
 }
 
 impl EntryMetadata {
+    // TODO: Document
+    pub fn new(key_hash: u64, prev_offset: u64, checksum: [u8; 4]) -> Self {
+        Self {
+            key_hash,
+            prev_offset,
+            checksum,
+        }
+    }
+
     /// Serializes the metadata into a byte array.
     ///
     /// Converts the `EntryMetadata` structure into a fixed-size array

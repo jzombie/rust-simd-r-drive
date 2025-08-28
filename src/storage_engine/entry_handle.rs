@@ -1,5 +1,5 @@
 use crate::storage_engine::*;
-use memmap2::Mmap;
+use memmap2::{Mmap, MmapMut};
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -62,6 +62,48 @@ impl PartialEq<Vec<u8>> for EntryHandle {
 }
 
 impl EntryHandle {
+    // TODO: Document
+    pub fn from_owned_bytes_anon(bytes: &[u8], key_hash: u64) -> std::io::Result<Self> {
+        // 1) anon mmap (writable)
+        let mut mm = MmapMut::map_anon(bytes.len())?;
+        // 2) copy once
+        mm[..bytes.len()].copy_from_slice(bytes);
+        // 3) freeze to read-only Mmap
+        let ro: Mmap = mm.make_read_only()?;
+        // 4) compute checksum the same way your store does
+        let checksum = {
+            let mut hasher = crc32fast::Hasher::new();
+            hasher.update(bytes);
+            hasher.finalize().to_le_bytes()
+        };
+
+        // 5) fill metadata; set prev_offset to 0 (unused for in-memory)
+        let metadata = EntryMetadata {
+            key_hash,
+            prev_offset: 0,
+            checksum,
+        };
+
+        Ok(Self {
+            mmap_arc: Arc::new(ro),
+            range: 0..bytes.len(),
+            metadata,
+        })
+    }
+
+    // TODO: Document
+    pub fn from_arc_mmap(
+        mmap_arc: Arc<Mmap>,
+        range: Range<usize>,
+        metadata: EntryMetadata,
+    ) -> Self {
+        Self {
+            mmap_arc,
+            range,
+            metadata,
+        }
+    }
+
     /// Returns a zero-copy reference to the sub-slice of bytes corresponding to the entry.
     ///
     /// This method ensures **no additional allocations** occur by referencing the memory-mapped
