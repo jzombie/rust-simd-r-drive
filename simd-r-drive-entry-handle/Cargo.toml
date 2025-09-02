@@ -1,5 +1,6 @@
 [package]
 name = "simd-r-drive-entry-handle"
+description = "Standalone mmap-friendly entry handles for SIMD R Drive"
 authors.workspace = true
 version.workspace = true
 edition.workspace = true
