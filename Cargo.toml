@@ -11,14 +11,14 @@ publish = false
 [package]
 name = "simd-r-drive"
 description = "SIMD-optimized append-only schema-less storage engine. Key-based binary storage in a single-file storage container."
-authors.workspace = true # Inherit from workspace
-edition.workspace = true # Inherit from workspace
-version.workspace = true  # Inherit from workspace
-repository.workspace = true # Inherit from workspace
-license.workspace = true # Inherit from workspace
-categories.workspace = true # Inherit from workspace
-keywords.workspace = true # Inherit from workspace
-publish.workspace = true # Inherit from workspace
+authors.workspace = true
+edition.workspace = true
+version.workspace = true 
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+publish.workspace = true
 
 [workspace.dependencies]
 # Intra-workspace crates
