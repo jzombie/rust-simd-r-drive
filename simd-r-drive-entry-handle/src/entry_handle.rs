@@ -73,15 +73,15 @@ impl EntryHandle {
     /// `prev_offset` of `0` (not used for in-memory entries), and a 32-bit
     /// checksum computed by the same algorithm used in `is_valid_checksum()`.
     ///
-    /// ### When to use
+    /// # When to use
     /// - Unit tests and benchmarks.
     /// - Backends that ingest bytes from the network or RAM but still want an
     ///   `EntryHandle` with mmap-like semantics.
     ///
-    /// ### Cost
+    /// # Cost
     /// - One O(len) copy into the anonymous mapping.
     ///
-    /// ### Errors
+    /// # Errors
     /// - Returns `std::io::Error` if the platform cannot create an anonymous
     ///   mapping or the mapping fails.
     pub fn from_owned_bytes_anon(bytes: &[u8], key_hash: u64) -> std::io::Result<Self> {
