@@ -63,7 +63,27 @@ impl PartialEq<Vec<u8>> for EntryHandle {
 }
 
 impl EntryHandle {
-    // TODO: Document
+    /// Construct an in-memory, read-only entry backed by an anonymous mmap.
+    ///
+    /// This copies `bytes` **once** into an anonymous `MmapMut`, then seals it
+    /// to a read-only `Mmap`. The result behaves like a file-backed entry
+    /// (zero-copy reads via `as_slice()`), but never touches the filesystem.
+    ///
+    /// The `EntryMetadata` is populated using the supplied `key_hash`, a
+    /// `prev_offset` of `0` (not used for in-memory entries), and a 32-bit
+    /// checksum computed by the same algorithm used in `is_valid_checksum()`.
+    ///
+    /// ### When to use
+    /// - Unit tests and benchmarks.
+    /// - Backends that ingest bytes from the network or RAM but still want an
+    ///   `EntryHandle` with mmap-like semantics.
+    ///
+    /// ### Cost
+    /// - One O(len) copy into the anonymous mapping.
+    ///
+    /// ### Errors
+    /// - Returns `std::io::Error` if the platform cannot create an anonymous
+    ///   mapping or the mapping fails.
     pub fn from_owned_bytes_anon(bytes: &[u8], key_hash: u64) -> std::io::Result<Self> {
         // 1) anon mmap (writable)
         let mut mm = MmapMut::map_anon(bytes.len())?;
@@ -73,7 +93,6 @@ impl EntryHandle {
         let ro: Mmap = mm.make_read_only()?;
         // 4) compute checksum the same way your store does
         let checksum = {
-            // TODO: Replace w/ xxhash
             let mut hasher = crc32fast::Hasher::new();
             hasher.update(bytes);
             hasher.finalize().to_le_bytes()
@@ -93,7 +112,20 @@ impl EntryHandle {
         })
     }
 
-    // TODO: Document
+    /// Wrap a region in an existing `Arc<Mmap)` without copying.
+    ///
+    /// The caller provides the shared mapping, a `range` within that mapping
+    /// that contains the payload bytes, and the `EntryMetadata` corresponding
+    /// to those bytes.
+    ///
+    /// ### Safety & Correctness
+    /// - **Bounds:** `range` must lie entirely within the mapping.
+    /// - **Lifetime:** The `Arc<Mmap>` is cloned and keeps the mapping alive as
+    ///   long as any `EntryHandle` exists.
+    /// - **Integrity:** `metadata.checksum` should match the bytes in `range`
+    ///   (use `is_valid_checksum()` to verify).
+    ///
+    /// This is the zero-copy path used by file-backed stores.
     pub fn from_arc_mmap(
         mmap_arc: Arc<Mmap>,
         range: Range<usize>,
