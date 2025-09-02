@@ -37,7 +37,7 @@ pub fn compute_hash(key: &[u8]) -> u64 {
 /// * call the hasher exactly **once** from the high-level API,
 /// * pre-allocate the `Vec<u64>` only once,
 /// * hand the resulting `(hash, payload)` tuples straight to
-///   `batch_write_hashed_payloads`, keeping the critical section (the `RwLock`)
+///   `batch_write_with_key_hashes`, keeping the critical section (the `RwLock`)
 ///   as small as possible.
 ///
 /// # Parameters
@@ -67,6 +67,8 @@ pub fn compute_hash_batch(keys: &[&[u8]]) -> Vec<u64> {
 
     // A plain loop beats an iterator here; it lets LLVM unroll/vectorize freely.
     let mut out = Vec::with_capacity(keys.len());
+
+    // TODO: For a large amount of keys, consider distributing the work with Rayon
     for k in keys {
         // xxh3_64 already uses SIMD internally where available.
         out.push(xxh3_64(k));

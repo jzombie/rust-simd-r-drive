@@ -9,11 +9,25 @@ on:
 
 jobs:
   test:
-    name: Run Rust Tests (OS = ${{ matrix.os }})
+    name: Test (OS=${{ matrix.os }}, Features=${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - name: "Default"
+            flags: ""
+          - name: "No Default Features"
+            flags: "--no-default-features"
+          - name: "Parallel"
+            flags: "--features parallel"
+          - name: "Expose Internal API"
+            flags: "--features expose-internal-api"
+          - name: "Parallel + Expose API"
+            flags: "--features=parallel,expose-internal-api"
+          - name: "All Features"
+            flags: "--all-features"
 
     steps:
       - name: Checkout repository
@@ -22,8 +36,26 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build workspace
-        run: cargo build --workspace
+      # Added caching step to speed up dependency builds.
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.flags }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
 
-      - name: Run tests
-        run: cargo test --workspace --all-targets --verbose
+      - name: Build
+        run: cargo build --workspace --all-targets ${{ matrix.flags }}
+
+      - name: Test
+        run: cargo test --workspace --all-targets --verbose ${{ matrix.flags }}
+
+      # Added step to ensure benchmarks compile. `--no-run` is important.
+      - name: Check benchmarks compile
+        run: cargo bench --workspace --no-run ${{ matrix.flags }}

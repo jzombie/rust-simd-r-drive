@@ -1,6 +1,5 @@
 [package]
-name = "simd-r-drive-muxio-service-definition"
-description = "Experimental Muxio service definitions for SIMD R Drive"
+name = "simd-r-drive-entry-handle"
 authors.workspace = true
 version.workspace = true
 edition.workspace = true
@@ -11,6 +10,8 @@ keywords.workspace = true
 publish.workspace = true
 
 [dependencies]
-bitcode = { workspace = true }
-muxio-rpc-service = { workspace = true }
+crc32fast = { workspace = true }
+memmap2 = { workspace = true }
 
+[features]
+expose-internal-api = []

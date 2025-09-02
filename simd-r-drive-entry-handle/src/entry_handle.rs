@@ -1,5 +1,6 @@
-use crate::storage_engine::*;
-use memmap2::Mmap;
+use super::constants::METADATA_SIZE;
+use crate::EntryMetadata;
+use memmap2::{Mmap, MmapMut};
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -8,13 +9,13 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct EntryHandle {
     /// The underlying memory map.
-    pub(in crate::storage_engine) mmap_arc: Arc<Mmap>,
+    pub mmap_arc: Arc<Mmap>,
 
     /// The range of bytes within the memory-mapped file corresponding to the payload.
-    pub(in crate::storage_engine) range: Range<usize>,
+    pub range: Range<usize>,
 
     /// Metadata associated with the entry, including key hash and checksum.
-    pub(in crate::storage_engine) metadata: EntryMetadata,
+    pub metadata: EntryMetadata,
 }
 
 impl EntryHandle {
@@ -62,6 +63,81 @@ impl PartialEq<Vec<u8>> for EntryHandle {
 }
 
 impl EntryHandle {
+    /// Construct an in-memory, read-only entry backed by an anonymous mmap.
+    ///
+    /// This copies `bytes` **once** into an anonymous `MmapMut`, then seals it
+    /// to a read-only `Mmap`. The result behaves like a file-backed entry
+    /// (zero-copy reads via `as_slice()`), but never touches the filesystem.
+    ///
+    /// The `EntryMetadata` is populated using the supplied `key_hash`, a
+    /// `prev_offset` of `0` (not used for in-memory entries), and a 32-bit
+    /// checksum computed by the same algorithm used in `is_valid_checksum()`.
+    ///
+    /// # When to use
+    /// - Unit tests and benchmarks.
+    /// - Backends that ingest bytes from the network or RAM but still want an
+    ///   `EntryHandle` with mmap-like semantics.
+    ///
+    /// # Cost
+    /// - One O(len) copy into the anonymous mapping.
+    ///
+    /// # Errors
+    /// - Returns `std::io::Error` if the platform cannot create an anonymous
+    ///   mapping or the mapping fails.
+    pub fn from_owned_bytes_anon(bytes: &[u8], key_hash: u64) -> std::io::Result<Self> {
+        // 1) anon mmap (writable)
+        let mut mm = MmapMut::map_anon(bytes.len())?;
+        // 2) copy once
+        mm[..bytes.len()].copy_from_slice(bytes);
+        // 3) freeze to read-only Mmap
+        let ro: Mmap = mm.make_read_only()?;
+        // 4) compute checksum the same way your store does
+        let checksum = {
+            let mut hasher = crc32fast::Hasher::new();
+            hasher.update(bytes);
+            hasher.finalize().to_le_bytes()
+        };
+
+        // 5) fill metadata; set prev_offset to 0 (unused for in-memory)
+        let metadata = EntryMetadata {
+            key_hash,
+            prev_offset: 0,
+            checksum,
+        };
+
+        Ok(Self {
+            mmap_arc: Arc::new(ro),
+            range: 0..bytes.len(),
+            metadata,
+        })
+    }
+
+    /// Wrap a region in an existing `Arc<Mmap)` without copying.
+    ///
+    /// The caller provides the shared mapping, a `range` within that mapping
+    /// that contains the payload bytes, and the `EntryMetadata` corresponding
+    /// to those bytes.
+    ///
+    /// ### Safety & Correctness
+    /// - **Bounds:** `range` must lie entirely within the mapping.
+    /// - **Lifetime:** The `Arc<Mmap>` is cloned and keeps the mapping alive as
+    ///   long as any `EntryHandle` exists.
+    /// - **Integrity:** `metadata.checksum` should match the bytes in `range`
+    ///   (use `is_valid_checksum()` to verify).
+    ///
+    /// This is the zero-copy path used by file-backed stores.
+    pub fn from_arc_mmap(
+        mmap_arc: Arc<Mmap>,
+        range: Range<usize>,
+        metadata: EntryMetadata,
+    ) -> Self {
+        Self {
+            mmap_arc,
+            range,
+            metadata,
+        }
+    }
+
     /// Returns a zero-copy reference to the sub-slice of bytes corresponding to the entry.
     ///
     /// This method ensures **no additional allocations** occur by referencing the memory-mapped
@@ -137,9 +213,14 @@ impl EntryHandle {
         self.range.len() + METADATA_SIZE
     }
 
-    /// Returns the computed hash of the entry's key.
+    /// Returns the 64-bit hash of this entry’s key.
     ///
-    /// This value is derived from `compute_hash()` and is used for fast lookups.
+    /// The value is read from the entry’s metadata exactly as it was written:
+    /// for APIs that accept raw keys it is `compute_hash(key)`; for APIs that
+    /// accept pre-hashed keys (e.g. `write_with_key_hash`, `batch_write_with_key_hashes`)
+    /// it is the caller-supplied hash. No hashing is performed when reading.
+    ///
+    /// This hash is used by the index for fast lookup and collision checks.
     ///
     /// # Returns
     /// - A 64-bit unsigned integer representing the key hash.

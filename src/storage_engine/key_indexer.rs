@@ -1,8 +1,9 @@
-use crate::storage_engine::EntryMetadata;
 use crate::storage_engine::constants::*;
 use crate::storage_engine::digest::{Xxh3BuildHasher, compute_hash};
 use memmap2::Mmap;
+use simd_r_drive_entry_handle::EntryMetadata;
 use std::collections::hash_map::Entry;
+use std::collections::hash_map::Values;
 use std::collections::{HashMap, HashSet};
 
 /// Number of high bits reserved for collision-detection tag (16 bits).
@@ -184,5 +185,17 @@ impl KeyIndexer {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.index.is_empty()
+    }
+
+    /// Returns a memory-efficient iterator over the packed (tag|offset) values.
+    ///
+    /// This method is preferable to collecting all values into a `Vec` when the
+    /// index is large, as it avoids a large upfront memory allocation. The iterator
+    /// borrows the underlying index, so it must be used within the lifetime of the
+    /// `KeyIndexer`'s read lock.
+    ///
+    #[inline]
+    pub fn values(&self) -> Values<'_, u64, u64> {
+        self.index.values()
     }
 }

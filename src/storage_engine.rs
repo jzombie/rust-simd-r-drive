@@ -1,17 +1,11 @@
 mod constants;
-use constants::*;
+pub use constants::NULL_BYTE;
 
 mod data_store;
 pub use data_store::*;
 
-mod entry_handle;
-pub use entry_handle::*;
-
 mod entry_iterator;
 pub use entry_iterator::*;
-
-mod entry_metadata;
-pub use entry_metadata::*;
 
 mod entry_stream;
 pub use entry_stream::*;
@@ -25,3 +19,6 @@ mod simd_copy;
 use simd_copy::*;
 
 pub mod traits;
+
+// Re-export for convenience
+pub use simd_r_drive_entry_handle::{EntryHandle, EntryMetadata};

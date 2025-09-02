@@ -1,4 +1,4 @@
-use crate::storage_engine::EntryMetadata;
+use simd_r_drive_entry_handle::EntryMetadata;
 use std::io::Result;
 
 pub trait DataStoreReader {
@@ -20,6 +20,22 @@ pub trait DataStoreReader {
     /// - `Err(std::io::Error)`: On I/O failure.
     fn exists(&self, key: &[u8]) -> Result<bool>;
 
+    /// Checks whether a key with a pre-computed hash exists in the store.
+    ///
+    /// This is a more direct version of [`Self::exists`] that skips the hashing step,
+    /// making it faster if the hash is already known. Because the original key is not
+    /// provided, this check does not perform tag verification and relies solely on the
+    /// hash's presence in the index.
+    ///
+    /// # Parameters
+    /// - `prehashed_key`: The **pre-computed hash** of the key to check.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if the key hash exists in the index.
+    /// - `Ok(false)` if the key hash is absent.
+    /// - `Err(std::io::Error)`: On I/O failure.
+    fn exists_with_key_hash(&self, prehashed_key: u64) -> Result<bool>;
+
     /// Retrieves the most recent value associated with a given key.
     ///
     /// This method **efficiently looks up a key** using a fast in-memory index,
@@ -36,6 +52,25 @@ pub trait DataStoreReader {
     /// # Notes:
     /// - The returned `EntryHandle` provides zero-copy access to the stored data.
     fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>>;
+
+    /// Retrieves the most recent value associated with a pre-computed key hash.
+    ///
+    /// This is a low-level alternative to [`Self::read`] that looks up an entry using
+    /// only its hash, bypassing the hashing step.
+    ///
+    /// # Warning
+    /// This method does **not** perform tag verification, as the original key is not
+    /// provided. This means that in the rare event of a hash collision, this function
+    /// could return the entry for a different key.
+    ///
+    /// # Parameters
+    /// - `prehashed_key`: The **pre-computed hash** of the key to retrieve.
+    ///
+    /// # Returns
+    /// - `Ok(Some(EntryHandle))`: Handle to the entry if found.
+    /// - `Ok(None)`: If the key hash does not exist or is deleted.
+    /// - `Err(std::io::Error)`: On I/O failure.
+    fn read_with_key_hash(&self, prehashed_key: u64) -> Result<Option<Self::EntryHandleType>>;
 
     /// Retrieves the last entry written to the file.
     ///
@@ -64,6 +99,43 @@ pub trait DataStoreReader {
     /// - `Ok(results)`: `Vec<Option<EntryHandle>>` in key order.
     /// - `Err(std::io::Error)`: On I/O failure.
     fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>>;
+
+    /// Reads many keys in one shot using pre-computed hashes.
+    ///
+    /// This is a lower-level, high-performance version of [`Self::batch_read`].
+    /// It is designed for scenarios where the caller has already computed the key
+    /// hashes and wants to avoid the overhead of re-hashing. The method offers
+    /// an optional verification step to safeguard against hash collisions.
+    ///
+    /// * **Zero-copy**: Each `Some(EntryHandle)` provides a direct, zero-copy view
+    ///   into the memory-mapped file.
+    /// * **High-performance**: Bypasses the key hashing step if hashes are already
+    ///   available.
+    /// * **Thread-safe**: Acquires a single read lock for the entire batch
+    ///   operation, minimizing contention.
+    ///
+    /// # Parameters
+    /// - `prehashed_keys`: A slice of `u64` key hashes to look up.
+    /// - `non_hashed_keys`: An optional slice of the original, non-hashed keys
+    ///   corresponding to `prehashed_keys`.
+    ///     - If `Some(keys)`, the method performs a tag-based verification to ensure
+    ///       that the found entry truly belongs to the original key, preventing
+    ///       data retrieval from a hash collision. The length of this slice
+    ///       **must** match the length of `prehashed_keys`.
+    ///     - If `None`, this verification is skipped. The lookup relies solely
+    ///       on the hash, which is faster but carries a theoretical risk of
+    ///       returning incorrect data in the event of a hash collision.
+    ///
+    /// # Returns
+    /// - `Ok(results)`: A `Vec<Option<Self::EntryHandleType>>` where each element
+    ///   corresponds to the result of looking up the key at the same index.
+    /// - `Err(std::io::Error)`: On I/O failure or if the lengths of `prehashed_keys`
+    ///   and `non_hashed_keys` (when `Some`) do not match.
+    fn batch_read_hashed_keys(
+        &self,
+        prehashed_keys: &[u64],
+        non_hashed_keys: Option<&[&[u8]]>,
+    ) -> Result<Vec<Option<Self::EntryHandleType>>>;
 
     /// Retrieves metadata for a given key.
     ///
@@ -120,6 +192,22 @@ pub trait AsyncDataStoreReader {
     /// - `Err(std::io::Error)`: On I/O failure.
     async fn exists(&self, key: &[u8]) -> Result<bool>;
 
+    /// Checks whether a key with a pre-computed hash exists in the store.
+    ///
+    /// This is a more direct version of [`Self::exists`] that skips the hashing step,
+    /// making it faster if the hash is already known. Because the original key is not
+    /// provided, this check does not perform tag verification and relies solely on the
+    /// hash's presence in the index.
+    ///
+    /// # Parameters
+    /// - `prehashed_key`: The **pre-computed hash** of the key to check.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if the key hash exists in the index.
+    /// - `Ok(false)` if the key hash is absent.
+    /// - `Err(std::io::Error)`: On I/O failure.
+    async fn exists_with_key_hash(&self, prehashed_key: u64) -> Result<bool>;
+
     /// Retrieves the most recent value associated with a given key.
     ///
     /// This method **efficiently looks up a key** using a fast in-memory index,
@@ -136,6 +224,26 @@ pub trait AsyncDataStoreReader {
     /// # Notes:
     /// - The returned `EntryHandle` provides zero-copy access to the stored data.
     async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>>;
+
+    /// Retrieves the most recent value associated with a pre-computed key hash.
+    ///
+    /// This is a low-level alternative to [`Self::read`] that looks up an entry using
+    /// only its hash, bypassing the hashing step.
+    ///
+    /// # Warning
+    /// This method does **not** perform tag verification, as the original key is not
+    /// provided. This means that in the rare event of a hash collision, this function
+    /// could return the entry for a different key.
+    ///
+    /// # Parameters
+    /// - `prehashed_key`: The **pre-computed hash** of the key to retrieve.
+    ///
+    /// # Returns
+    /// - `Ok(Some(EntryHandle))`: Handle to the entry if found.
+    /// - `Ok(None)`: If the key hash does not exist or is deleted.
+    /// - `Err(std::io::Error)`: On I/O failure.
+    async fn read_with_key_hash(&self, prehashed_key: u64)
+    -> Result<Option<Self::EntryHandleType>>;
 
     /// Retrieves the last entry written to the file.
     ///
@@ -164,6 +272,43 @@ pub trait AsyncDataStoreReader {
     /// - `Ok(results)`: `Vec<Option<EntryHandle>>` in key order.
     /// - `Err(std::io::Error)`: On I/O failure.
     async fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>>;
+
+    /// Reads many keys in one shot using pre-computed hashes.
+    ///
+    /// This is a lower-level, high-performance version of [`Self::batch_read`].
+    /// It is designed for scenarios where the caller has already computed the key
+    /// hashes and wants to avoid the overhead of re-hashing. The method offers
+    /// an optional verification step to safeguard against hash collisions.
+    ///
+    /// * **Zero-copy**: Each `Some(EntryHandle)` provides a direct, zero-copy view
+    ///     into the memory-mapped file.
+    /// * **High-performance**: Bypasses the key hashing step if hashes are already
+    ///     available.
+    /// * **Thread-safe**: Acquires a single read lock for the entire batch
+    ///     operation, minimizing contention.
+    ///
+    /// # Parameters
+    /// - `prehashed_keys`: A slice of `u64` key hashes to look up.
+    /// - `non_hashed_keys`: An optional slice of the original, non-hashed keys
+    ///   corresponding to `prehashed_keys`.
+    ///     - If `Some(keys)`, the method performs a tag-based verification to ensure
+    ///       that the found entry truly belongs to the original key, preventing
+    ///       data retrieval from a hash collision. The length of this slice
+    ///       **must** match the length of `prehashed_keys`.
+    ///     - If `None`, this verification is skipped. The lookup relies solely
+    ///       on the hash, which is faster but carries a theoretical risk of
+    ///       returning incorrect data in the event of a hash collision.
+    ///
+    /// # Returns
+    /// - `Ok(results)`: A `Vec<Option<Self::EntryHandleType>>` where each element
+    ///   corresponds to the result of looking up the key at the same index.
+    /// - `Err(std::io::Error)`: On I/O failure or if the lengths of `prehashed_keys`
+    ///   and `non_hashed_keys` (when `Some`) do not match.
+    async fn batch_read_hashed_keys(
+        &self,
+        prehashed_keys: &[u64],
+        non_hashed_keys: Option<&[&[u8]]>,
+    ) -> Result<Vec<Option<Self::EntryHandleType>>>;
 
     /// Retrieves metadata for a given key.
     ///

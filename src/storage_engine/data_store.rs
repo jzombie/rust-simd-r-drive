@@ -3,10 +3,11 @@ use crate::storage_engine::digest::{
     Xxh3BuildHasher, compute_checksum, compute_hash, compute_hash_batch,
 };
 use crate::storage_engine::simd_copy;
-use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
+use crate::storage_engine::{EntryIterator, EntryStream, KeyIndexer};
 use crate::traits::{DataStoreReader, DataStoreWriter};
 use crate::utils::verify_file_existence;
 use memmap2::Mmap;
+use simd_r_drive_entry_handle::{EntryHandle, EntryMetadata};
 use std::collections::HashSet;
 use std::convert::From;
 use std::fs::{File, OpenOptions};
@@ -15,6 +16,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use tracing::{debug, info, warn};
+
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 /// Append-Only Storage Engine
 pub struct DataStore {
@@ -25,6 +29,13 @@ pub struct DataStore {
     path: PathBuf,
 }
 
+/// Provides a **consuming sequential** iterator over the valid entries.
+///
+/// This allows a `DataStore` to be consumed to produce a sequential iterator.
+/// For non-consuming iteration, iterate over a reference (`&storage`).
+///
+/// The iterator produced is **sequential**. For parallel processing,
+/// enable the `parallel` feature and use the `.par_iter_entries()` method instead.
 impl IntoIterator for DataStore {
     type Item = EntryHandle;
     type IntoIter = EntryIterator;
@@ -242,6 +253,64 @@ impl DataStore {
         EntryIterator::new(mmap_clone, tail_offset)
     }
 
+    /// Provides a parallel iterator over all valid entries in the storage.
+    ///
+    /// This method is only available when the `parallel` feature is enabled.
+    /// It leverages the Rayon crate to process entries across multiple threads,
+    /// which can be significantly faster for bulk operations on multi-core machines.
+    ///
+    /// The iterator is efficient, collecting only the necessary entry offsets first
+    /// and then constructing the `EntryHandle` objects in parallel.
+    ///
+    /// # Returns
+    /// - A Rayon `ParallelIterator` that yields `EntryHandle` items.
+    #[cfg(feature = "parallel")]
+    pub fn par_iter_entries(&self) -> impl ParallelIterator<Item = EntryHandle> {
+        // First, acquire a read lock and collect all the packed offset values.
+        // This is a short, fast operation.
+        let key_indexer_guard = self.key_indexer.read().unwrap();
+        let packed_values: Vec<u64> = key_indexer_guard.values().cloned().collect();
+        drop(key_indexer_guard); // Release the lock as soon as possible.
+
+        // Clone the mmap Arc once to be moved into the parallel iterator.
+        let mmap_arc = self.get_mmap_arc();
+
+        // Create a parallel iterator over the collected offsets. The `filter_map`
+        // operation is the part that will run in parallel across threads.
+        packed_values.into_par_iter().filter_map(move |packed| {
+            let (_tag, offset) = KeyIndexer::unpack(packed);
+            let offset = offset as usize;
+
+            // This logic is a simplified, read-only version of `read_entry_with_context`.
+            // We perform basic bounds checks to ensure safety.
+            if offset + METADATA_SIZE > mmap_arc.len() {
+                return None;
+            }
+
+            let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
+            let metadata = EntryMetadata::deserialize(metadata_bytes);
+            let entry_start = metadata.prev_offset as usize;
+            let entry_end = offset;
+
+            if entry_start >= entry_end || entry_end > mmap_arc.len() {
+                return None;
+            }
+
+            // Important: We must filter out tombstone entries, which are marked
+            // by a single null byte payload.
+            if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
+                return None;
+            }
+
+            // If all checks pass, construct and return the EntryHandle.
+            Some(EntryHandle {
+                mmap_arc: mmap_arc.clone(), // Each handle gets a clone of the Arc
+                range: entry_start..entry_end,
+                metadata,
+            })
+        })
+    }
+
     /// Recovers the **latest valid chain** of entries from the storage file.
     ///
     /// This function **scans backward** through the file, verifying that each entry
@@ -316,184 +385,6 @@ impl DataStore {
         Ok(best_valid_offset.unwrap_or(0))
     }
 
-    /// Writes an entry using a **precomputed key hash** and a streaming `Read` source.
-    ///
-    /// This is a **low-level** method that operates like `write_stream`, but requires
-    /// the key to be hashed beforehand. It is primarily used internally to avoid
-    /// redundant hash computations when writing multiple entries.
-    ///
-    /// # Parameters:
-    /// - `key_hash`: The **precomputed hash** of the key.
-    /// - `reader`: A **streaming reader** (`Read` trait) supplying the entry's content.
-    ///
-    /// # Returns:
-    /// - `Ok(offset)`: The file offset where the entry was written.
-    /// - `Err(std::io::Error)`: If a write or I/O operation fails.
-    pub fn write_stream_with_key_hash<R: Read>(
-        &self,
-        key_hash: u64,
-        reader: &mut R,
-    ) -> Result<u64> {
-        let mut file = self
-            .file
-            .write()
-            .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
-        let prev_offset = self.tail_offset.load(Ordering::Acquire);
-
-        let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE];
-        let mut total_written = 0;
-        let mut checksum_state = crc32fast::Hasher::new();
-        let mut is_null_only = true;
-
-        while let Ok(bytes_read) = reader.read(&mut buffer) {
-            if bytes_read == 0 {
-                break;
-            }
-
-            if buffer[..bytes_read].iter().any(|&b| b != NULL_BYTE[0]) {
-                is_null_only = false;
-            }
-
-            file.write_all(&buffer[..bytes_read])?;
-            checksum_state.update(&buffer[..bytes_read]);
-            total_written += bytes_read;
-        }
-
-        if total_written > 0 && is_null_only {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "NULL-byte-only streams cannot be written directly.",
-            ));
-        }
-
-        let checksum = checksum_state.finalize().to_le_bytes();
-        let metadata = EntryMetadata {
-            key_hash,
-            prev_offset,
-            checksum,
-        };
-        file.write_all(&metadata.serialize())?;
-        file.flush()?;
-
-        let tail_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
-        self.reindex(
-            &file,
-            &[(key_hash, tail_offset - METADATA_SIZE as u64)],
-            tail_offset,
-            None,
-        )?;
-        Ok(tail_offset)
-    }
-
-    /// Writes an entry using a **precomputed key hash** and a payload.
-    ///
-    /// This method is a **low-level** alternative to `write()`, allowing direct
-    /// specification of the key hash. It is mainly used for optimized workflows
-    /// where the key hash is already known, avoiding redundant computations.
-    ///
-    /// # Parameters:
-    /// - `key_hash`: The **precomputed hash** of the key.
-    /// - `payload`: The **data payload** to be stored.
-    ///
-    /// # Returns:
-    /// - `Ok(offset)`: The file offset where the entry was written.
-    /// - `Err(std::io::Error)`: If a write operation fails.
-    ///
-    /// # Notes:
-    /// - The caller is responsible for ensuring that `key_hash` is correctly computed.
-    /// - This method **locks the file for writing** to maintain consistency.
-    /// - If writing **multiple entries**, consider using `batch_write_hashed_payloads()`.
-    pub fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
-        self.batch_write_hashed_payloads(vec![(key_hash, payload)], false)
-    }
-
-    /// Writes multiple key-value pairs as a **single transaction**, using precomputed key hashes.
-    ///
-    /// This method efficiently appends multiple entries in a **batch operation**,
-    /// reducing lock contention and improving performance for bulk writes.
-    ///
-    /// # Parameters:
-    /// - `hashed_payloads`: A **vector of precomputed key hashes and payloads**, where:
-    ///   - `key_hash`: The **precomputed hash** of the key.
-    ///   - `payload`: The **data payload** to be stored.
-    ///
-    /// # Returns:
-    /// - `Ok(final_offset)`: The file offset after all writes.
-    /// - `Err(std::io::Error)`: If a write operation fails.
-    ///
-    /// # Notes:
-    /// - **File locking is performed only once** for all writes, improving efficiency.
-    /// - If an entry's `payload` is empty, an error is returned.
-    /// - This method uses **SIMD-accelerated memory copy (`simd_copy`)** to optimize write
-    ///   performance.
-    /// - **Metadata (checksums, offsets) is written after payloads** to ensure data integrity.
-    /// - After writing, the memory-mapped file (`mmap`) is **remapped** to reflect updates.
-    ///
-    /// # Efficiency Considerations:
-    /// - **Faster than multiple `write()` calls**, since it reduces lock contention.
-    /// - Suitable for **bulk insertions** where key hashes are known beforehand.
-    /// - If keys are available but not hashed, use `batch_write()` instead.
-    pub fn batch_write_hashed_payloads(
-        &self,
-        hashed_payloads: Vec<(u64, &[u8])>,
-        allow_null_bytes: bool,
-    ) -> Result<u64> {
-        let mut file = self
-            .file
-            .write()
-            .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
-
-        let mut buffer = Vec::new();
-        let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
-
-        let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(hashed_payloads.len());
-        let mut deleted_keys: HashSet<u64> = HashSet::new();
-
-        for (key_hash, payload) in hashed_payloads {
-            if payload == NULL_BYTE {
-                if !allow_null_bytes {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        "NULL-byte payloads cannot be written directly.",
-                    ));
-                }
-
-                deleted_keys.insert(key_hash);
-            }
-
-            if payload.is_empty() {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "Payload cannot be empty.",
-                ));
-            }
-
-            let prev_offset = tail_offset;
-            let checksum = compute_checksum(payload);
-            let metadata = EntryMetadata {
-                key_hash,
-                prev_offset,
-                checksum,
-            };
-            let payload_len = payload.len();
-
-            let mut entry: Vec<u8> = vec![0u8; payload_len + METADATA_SIZE];
-            simd_copy(&mut entry[..payload.len()], payload);
-            entry[payload.len()..].copy_from_slice(&metadata.serialize());
-            buffer.extend_from_slice(&entry);
-
-            tail_offset += entry.len() as u64;
-            key_hash_offsets.push((key_hash, tail_offset - METADATA_SIZE as u64));
-        }
-
-        file.write_all(&buffer)?;
-        file.flush()?;
-
-        self.reindex(&file, &key_hash_offsets, tail_offset, Some(&deleted_keys))?;
-
-        Ok(self.tail_offset.load(Ordering::Acquire))
-    }
-
     /// Performs the core logic of reading an entry from the store.
     ///
     /// This private helper centralizes the logic for both `read` and `batch_read`.
@@ -513,7 +404,7 @@ impl DataStore {
     #[inline]
     fn read_entry_with_context<'a>(
         &self,
-        key: &[u8],
+        non_hashed_key: Option<&[u8]>,
         key_hash: u64,
         mmap_arc: &Arc<Mmap>,
         key_indexer_guard: &RwLockReadGuard<'a, KeyIndexer>,
@@ -522,8 +413,12 @@ impl DataStore {
         let (tag, offset) = KeyIndexer::unpack(packed);
 
         // The crucial verification check, now centralized.
-        if tag != KeyIndexer::tag_from_key(key) {
-            warn!("Tag mismatch detected for key, likely a hash collision or index corruption.");
+        if let Some(non_hashed_key) = non_hashed_key
+            && tag != KeyIndexer::tag_from_key(non_hashed_key)
+        {
+            warn!(
+                "Tag mismatch detected for `non_hashed_key`, likely a hash collision or index corruption."
+            );
             return None;
         }
 
@@ -709,16 +604,135 @@ impl DataStoreWriter for DataStore {
         self.write_stream_with_key_hash(key_hash, reader)
     }
 
+    fn write_stream_with_key_hash<R: Read>(&self, key_hash: u64, reader: &mut R) -> Result<u64> {
+        let mut file = self
+            .file
+            .write()
+            .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
+        let prev_offset = self.tail_offset.load(Ordering::Acquire);
+
+        let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE];
+        let mut total_written = 0;
+        let mut checksum_state = crc32fast::Hasher::new();
+        let mut is_null_only = true;
+
+        while let Ok(bytes_read) = reader.read(&mut buffer) {
+            if bytes_read == 0 {
+                break;
+            }
+
+            if buffer[..bytes_read].iter().any(|&b| b != NULL_BYTE[0]) {
+                is_null_only = false;
+            }
+
+            file.write_all(&buffer[..bytes_read])?;
+            checksum_state.update(&buffer[..bytes_read]);
+            total_written += bytes_read;
+        }
+
+        if total_written > 0 && is_null_only {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "NULL-byte-only streams cannot be written directly.",
+            ));
+        }
+
+        let checksum = checksum_state.finalize().to_le_bytes();
+        let metadata = EntryMetadata {
+            key_hash,
+            prev_offset,
+            checksum,
+        };
+        file.write_all(&metadata.serialize())?;
+        file.flush()?;
+
+        let tail_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
+        self.reindex(
+            &file,
+            &[(key_hash, tail_offset - METADATA_SIZE as u64)],
+            tail_offset,
+            None,
+        )?;
+        Ok(tail_offset)
+    }
+
     fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let key_hash = compute_hash(key);
         self.write_with_key_hash(key_hash, payload)
     }
 
+    fn write_with_key_hash(&self, key_hash: u64, payload: &[u8]) -> Result<u64> {
+        self.batch_write_with_key_hashes(vec![(key_hash, payload)], false)
+    }
+
+    // TODO: Consider change signature to: fn batch_write(&self, entries: Vec<(Vec<u8>, Vec<u8>)>) -> Result<u64> {
     fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
         let hashes = compute_hash_batch(&keys);
         let hashed_entries = hashes.into_iter().zip(payloads).collect::<Vec<_>>();
-        self.batch_write_hashed_payloads(hashed_entries, false)
+        self.batch_write_with_key_hashes(hashed_entries, false)
+    }
+
+    // TODO: Consider change `prehashed_keys: Vec<(u64, &[u8])>` to `prehashed_keys: Vec<(u64, Vec<u8>)>`
+    fn batch_write_with_key_hashes(
+        &self,
+        prehashed_keys: Vec<(u64, &[u8])>,
+        allow_null_bytes: bool,
+    ) -> Result<u64> {
+        let mut file = self
+            .file
+            .write()
+            .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
+
+        let mut buffer = Vec::new();
+        let mut tail_offset = self.tail_offset.load(Ordering::Acquire);
+
+        let mut key_hash_offsets: Vec<(u64, u64)> = Vec::with_capacity(prehashed_keys.len());
+        let mut deleted_keys: HashSet<u64> = HashSet::new();
+
+        for (key_hash, payload) in prehashed_keys {
+            if payload == NULL_BYTE {
+                if !allow_null_bytes {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "NULL-byte payloads cannot be written directly.",
+                    ));
+                }
+
+                deleted_keys.insert(key_hash);
+            }
+
+            if payload.is_empty() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Payload cannot be empty.",
+                ));
+            }
+
+            let prev_offset = tail_offset;
+            let checksum = compute_checksum(payload);
+            let metadata = EntryMetadata {
+                key_hash,
+                prev_offset,
+                checksum,
+            };
+            let payload_len = payload.len();
+
+            let mut entry: Vec<u8> = vec![0u8; payload_len + METADATA_SIZE];
+            simd_copy(&mut entry[..payload.len()], payload);
+            entry[payload.len()..].copy_from_slice(&metadata.serialize());
+            buffer.extend_from_slice(&entry);
+
+            tail_offset += entry.len() as u64;
+            key_hash_offsets.push((key_hash, tail_offset - METADATA_SIZE as u64));
+        }
+
+        file.write_all(&buffer)?;
+        file.flush()?;
+
+        self.reindex(&file, &key_hash_offsets, tail_offset, Some(&deleted_keys))?;
+
+        Ok(self.tail_offset.load(Ordering::Acquire))
     }
 
     fn rename(&self, old_key: &[u8], new_key: &[u8]) -> Result<u64> {
@@ -766,8 +780,42 @@ impl DataStoreWriter for DataStore {
     }
 
     fn delete(&self, key: &[u8]) -> Result<u64> {
-        let key_hash = compute_hash(key);
-        self.batch_write_hashed_payloads(vec![(key_hash, &NULL_BYTE)], true)
+        self.batch_delete(&[key])
+    }
+
+    fn batch_delete(&self, keys: &[&[u8]]) -> Result<u64> {
+        let key_hashes = compute_hash_batch(keys);
+        self.batch_delete_key_hashes(&key_hashes)
+    }
+
+    fn batch_delete_key_hashes(&self, prehashed_keys: &[u64]) -> Result<u64> {
+        // First, check which keys actually exist to avoid writing useless tombstones.
+        let keys_to_delete: Vec<u64> = {
+            let key_indexer_guard = self
+                .key_indexer
+                .read()
+                .map_err(|_| Error::other("Key-index lock poisoned during batch_delete check"))?;
+
+            prehashed_keys
+                .iter()
+                .filter(|&&key_hash| key_indexer_guard.get_packed(&key_hash).is_some())
+                .cloned()
+                .collect()
+        };
+
+        // If no keys were found to delete, we can exit early without any file I/O.
+        if keys_to_delete.is_empty() {
+            return Ok(self.tail_offset.load(Ordering::Acquire));
+        }
+
+        // Prepare the delete operations (a key hash + a null byte payload).
+        let delete_ops: Vec<(u64, &[u8])> = keys_to_delete
+            .iter()
+            .map(|&key_hash| (key_hash, &NULL_BYTE as &[u8]))
+            .collect();
+
+        // Use the underlying batch write method, allowing null bytes for tombstones.
+        self.batch_write_with_key_hashes(delete_ops, true)
     }
 }
 
@@ -778,6 +826,11 @@ impl DataStoreReader for DataStore {
         Ok(self.read(key)?.is_some())
     }
 
+    fn exists_with_key_hash(&self, prehashed_key: u64) -> Result<bool> {
+        // This is a lightweight wrapper around the read method, just like exists().
+        Ok(self.read_with_key_hash(prehashed_key)?.is_some())
+    }
+
     fn read(&self, key: &[u8]) -> Result<Option<EntryHandle>> {
         let key_hash = compute_hash(key);
         let key_indexer_guard = self
@@ -786,7 +839,19 @@ impl DataStoreReader for DataStore {
             .map_err(|_| Error::other("key-index lock poisoned"))?;
         let mmap_arc = self.get_mmap_arc();
 
-        Ok(self.read_entry_with_context(key, key_hash, &mmap_arc, &key_indexer_guard))
+        Ok(self.read_entry_with_context(Some(key), key_hash, &mmap_arc, &key_indexer_guard))
+    }
+
+    fn read_with_key_hash(&self, prehashed_key: u64) -> Result<Option<EntryHandle>> {
+        let key_indexer_guard = self
+            .key_indexer
+            .read()
+            .map_err(|_| Error::other("key-index lock poisoned"))?;
+        let mmap_arc = self.get_mmap_arc();
+
+        // Call the core logic with `None` for the key, as we are only using the hash
+        // and want to skip the tag verification check.
+        Ok(self.read_entry_with_context(None, prehashed_key, &mmap_arc, &key_indexer_guard))
     }
 
     fn read_last_entry(&self) -> Result<Option<EntryHandle>> {
@@ -818,21 +883,59 @@ impl DataStoreReader for DataStore {
     }
 
     fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<EntryHandle>>> {
+        let hashed_keys = compute_hash_batch(keys);
+
+        self.batch_read_hashed_keys(&hashed_keys, Some(keys))
+    }
+
+    fn batch_read_hashed_keys(
+        &self,
+        prehashed_keys: &[u64],
+        non_hashed_keys: Option<&[&[u8]]>,
+    ) -> Result<Vec<Option<EntryHandle>>> {
         let mmap_arc = self.get_mmap_arc();
         let key_indexer_guard = self
             .key_indexer
             .read()
             .map_err(|_| Error::other("Key-index lock poisoned during `batch_read`"))?;
 
-        let hashes = compute_hash_batch(keys);
+        // Use a match to handle the two possible scenarios
+        let results = match non_hashed_keys {
+            // Case 1: We have the original keys for tag verification.
+            Some(keys) => {
+                // Good practice to ensure lengths match.
+                if keys.len() != prehashed_keys.len() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Mismatched lengths for hashed and non-hashed keys.",
+                    ));
+                }
 
-        let results = hashes
-            .into_iter()
-            .zip(keys.iter())
-            .map(|(key_hash, &key)| {
-                self.read_entry_with_context(key, key_hash, &mmap_arc, &key_indexer_guard)
-            })
-            .collect();
+                prehashed_keys
+                    .iter()
+                    .zip(keys.iter())
+                    .map(|(key_hash, &key)| {
+                        // Correctly pass `Some(key)` for verification
+                        self.read_entry_with_context(
+                            Some(key),
+                            *key_hash,
+                            &mmap_arc,
+                            &key_indexer_guard,
+                        )
+                    })
+                    .collect()
+            }
+            // Case 2: We only have the hashes and must skip tag verification.
+            None => {
+                prehashed_keys
+                    .iter()
+                    .map(|key_hash| {
+                        // Correctly pass `None` as we don't have the original key
+                        self.read_entry_with_context(None, *key_hash, &mmap_arc, &key_indexer_guard)
+                    })
+                    .collect()
+            }
+        };
 
         Ok(results)
     }
