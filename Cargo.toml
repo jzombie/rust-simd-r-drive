@@ -6,7 +6,7 @@ repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
 categories = ["database-implementations", "data-structures", "filesystem"]
 keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
-publish = false
+publish = true
 
 [package]
 name = "simd-r-drive"
