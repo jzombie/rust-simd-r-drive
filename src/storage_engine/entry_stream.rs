@@ -1,4 +1,4 @@
-use crate::storage_engine::EntryHandle;
+use simd_r_drive_entry_handle::EntryHandle;
 use std::io::{self, Read};
 
 /// `EntryStream` provides a **streaming interface** over an `EntryHandle`.

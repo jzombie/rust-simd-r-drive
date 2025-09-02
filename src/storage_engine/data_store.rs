@@ -3,10 +3,11 @@ use crate::storage_engine::digest::{
     Xxh3BuildHasher, compute_checksum, compute_hash, compute_hash_batch,
 };
 use crate::storage_engine::simd_copy;
-use crate::storage_engine::{EntryHandle, EntryIterator, EntryMetadata, EntryStream, KeyIndexer};
+use crate::storage_engine::{EntryIterator, EntryStream, KeyIndexer};
 use crate::traits::{DataStoreReader, DataStoreWriter};
 use crate::utils::verify_file_existence;
 use memmap2::Mmap;
+use simd_r_drive_entry_handle::{EntryHandle, EntryMetadata};
 use std::collections::HashSet;
 use std::convert::From;
 use std::fs::{File, OpenOptions};

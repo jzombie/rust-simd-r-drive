@@ -9,13 +9,13 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct EntryHandle {
     /// The underlying memory map.
-    pub(in crate::storage_engine) mmap_arc: Arc<Mmap>,
+    pub mmap_arc: Arc<Mmap>,
 
     /// The range of bytes within the memory-mapped file corresponding to the payload.
-    pub(in crate::storage_engine) range: Range<usize>,
+    pub range: Range<usize>,
 
     /// Metadata associated with the entry, including key hash and checksum.
-    pub(in crate::storage_engine) metadata: EntryMetadata,
+    pub metadata: EntryMetadata,
 }
 
 impl EntryHandle {
@@ -73,6 +73,7 @@ impl EntryHandle {
         let ro: Mmap = mm.make_read_only()?;
         // 4) compute checksum the same way your store does
         let checksum = {
+            // TODO: Replace w/ xxhash
             let mut hasher = crc32fast::Hasher::new();
             hasher.update(bytes);
             hasher.finalize().to_le_bytes()

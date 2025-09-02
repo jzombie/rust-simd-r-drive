@@ -1,4 +1,4 @@
-use crate::storage_engine::constants::*;
+use crate::constants::*;
 
 /// Metadata structure for an append-only storage entry.
 ///
@@ -28,9 +28,9 @@ use crate::storage_engine::constants::*;
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct EntryMetadata {
-    pub(in crate::storage_engine) key_hash: u64, // 8 bytes (hashed key for lookup)
-    pub(in crate::storage_engine) prev_offset: u64, // 8 bytes (absolute offset of previous entry)
-    pub(in crate::storage_engine) checksum: [u8; 4], // 4 bytes (checksum for integrity)
+    pub key_hash: u64,     // 8 bytes (hashed key for lookup)
+    pub prev_offset: u64,  // 8 bytes (absolute offset of previous entry)
+    pub checksum: [u8; 4], // 4 bytes (checksum for integrity)
 }
 
 impl EntryMetadata {

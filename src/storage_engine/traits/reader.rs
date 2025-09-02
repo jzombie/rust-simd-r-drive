@@ -1,4 +1,4 @@
-use crate::storage_engine::EntryMetadata;
+use simd_r_drive_entry_handle::EntryMetadata;
 use std::io::Result;
 
 pub trait DataStoreReader {

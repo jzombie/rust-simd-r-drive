@@ -1,7 +1,7 @@
-use crate::storage_engine::EntryMetadata;
 use crate::storage_engine::constants::*;
 use crate::storage_engine::digest::{Xxh3BuildHasher, compute_hash};
 use memmap2::Mmap;
+use simd_r_drive_entry_handle::EntryMetadata;
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::Values;
 use std::collections::{HashMap, HashSet};
