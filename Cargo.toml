@@ -1,3 +1,13 @@
+[workspace.package]
+authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
+version = "0.12.0-alpha"
+edition = "2024"
+repository = "https://github.com/jzombie/rust-simd-r-drive"
+license = "Apache-2.0"
+categories = ["database-implementations", "data-structures", "filesystem"]
+keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
+publish = false
+
 [package]
 name = "simd-r-drive"
 description = "SIMD-optimized append-only schema-less storage engine. Key-based binary storage in a single-file storage container."
@@ -62,16 +72,6 @@ exclude = [
     "experiments/bindings/python-ws-client"
 ]
 resolver = "2"
-
-[workspace.package]
-authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
-version = "0.12.0-alpha"
-edition = "2024"
-repository = "https://github.com/jzombie/rust-simd-r-drive"
-license = "Apache-2.0"
-categories = ["database-implementations", "data-structures", "filesystem"]
-keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
-publish = false
 
 [workspace.dependencies]
 # Intra-workspace crates
