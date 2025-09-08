@@ -33,7 +33,7 @@ use crate::constants::*;
 /// - Using the previous tail in `Prev Offset` lets us insert pre-pad while
 ///   keeping chain traversal unambiguous.
 /// - Readers compute `payload_start = prev_offset + prepad_len(prev_offset)`
-///  and use the current metadata position as `payload_end`.
+///   and use the current metadata position as `payload_end`.
 ///
 /// <img src="https://github.com/jzombie/rust-simd-r-drive/blob/main/assets/storage-layout.png" alt="Storage Layout" />
 ///
