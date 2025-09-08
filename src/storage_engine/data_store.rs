@@ -31,11 +31,13 @@ pub struct DataStore {
 
 /// Provides a **consuming sequential** iterator over the valid entries.
 ///
-/// This allows a `DataStore` to be consumed to produce a sequential iterator.
-/// For non-consuming iteration, iterate over a reference (`&storage`).
+/// This allows a `DataStore` to be consumed to produce a sequential
+/// iterator. For non-consuming iteration, iterate over a reference
+/// (`&storage`).
 ///
 /// The iterator produced is **sequential**. For parallel processing,
-/// enable the `parallel` feature and use the `.par_iter_entries()` method instead.
+/// enable the `parallel` feature and use the `.par_iter_entries()`
+/// method instead.
 impl IntoIterator for DataStore {
     type Item = EntryHandle;
     type IntoIter = EntryIterator;
@@ -48,7 +50,8 @@ impl IntoIterator for DataStore {
 impl From<PathBuf> for DataStore {
     /// Creates an `DataStore` instance from a `PathBuf`.
     ///
-    /// This allows creating a storage instance **directly from a file path**.
+    /// This allows creating a storage instance **directly from a file
+    /// path**.
     ///
     /// # Panics:
     /// - If the file cannot be opened or mapped into memory.
@@ -61,10 +64,12 @@ impl DataStore {
     /// Opens an **existing** or **new** append-only storage file.
     ///
     /// This function:
-    /// 1. **Opens the file** in read/write mode (creating it if necessary).
+    /// 1. **Opens the file** in read/write mode (creating it if
+    ///    necessary).
     /// 2. **Maps the file** into memory using `mmap` for fast access.
     /// 3. **Recovers the valid chain**, ensuring **data integrity**.
-    /// 4. **Re-maps** the file after recovery to reflect the correct state.
+    /// 4. **Re-maps** the file after recovery to reflect the correct
+    ///    state.
     /// 5. **Builds an in-memory index** for **fast key lookups**.
     ///
     /// # Parameters:
@@ -110,32 +115,39 @@ impl DataStore {
 
     /// Opens an **existing** append-only storage file.
     ///
-    /// This function verifies that the file exists before attempting to open it.
-    /// If the file does not exist or is not a valid file, an error is returned.
+    /// This function verifies that the file exists before attempting to
+    /// open it. If the file does not exist or is not a valid file, an
+    /// error is returned.
     ///
     /// # Parameters:
     /// - `path`: The **file path** of the storage file.
     ///
     /// # Returns:
-    /// - `Ok(DataStore)`: A **new storage instance** if the file exists and can be opened.
-    /// - `Err(std::io::Error)`: If the file does not exist or is invalid.
+    /// - `Ok(DataStore)`: A **new storage instance** if the file exists
+    ///   and can be opened.
+    /// - `Err(std::io::Error)`: If the file does not exist or is
+    ///   invalid.
     ///
     /// # Notes:
-    /// - Unlike `open()`, this function **does not create** a new storage file if the
-    ///   specified file does not exist.
-    /// - If the file is **missing** or is not a regular file, an error is returned.
-    /// - This is useful in scenarios where the caller needs to **ensure** that they are
-    ///   working with an already existing storage file.
+    /// - Unlike `open()`, this function **does not create** a new
+    ///   storage file if the specified file does not exist.
+    /// - If the file is **missing** or is not a regular file, an error
+    ///   is returned.
+    /// - This is useful in scenarios where the caller needs to **ensure**
+    ///   that they are working with an already existing storage file.
     pub fn open_existing(path: &Path) -> Result<Self> {
         verify_file_existence(path)?;
         Self::open(path)
     }
 
-    /// Workaround for directly opening in **append mode** causing permissions issues on Windows
+    /// Workaround for directly opening in **append mode** causing
+    /// permissions issues on Windows
     ///
-    /// The file is opened normally and the **cursor is moved to the end.
+    /// The file is opened normally and the **cursor is moved to the
+    /// end.
     ///
-    /// Unix family unaffected by this issue, but this standardizes their handling.
+    /// Unix family unaffected by this issue, but this standardizes
+    /// their handling.
     ///
     /// # Parameters:
     /// - `path`: The **file path** of the storage file.
@@ -158,43 +170,54 @@ impl DataStore {
         unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }
     }
 
-    /// Re-maps the storage file and updates the key index after a write operation.
+    /// Re-maps the storage file and updates the key index after a write
+    /// operation.
     ///
     /// This function performs two key tasks:
-    /// 1. **Re-maps the file (`mmap`)**: Ensures that newly written data is visible
-    ///    to readers by creating a fresh memory-mapped view of the storage file.
-    /// 2. **Updates the key index**: Inserts new key hash-to-offset mappings into
-    ///    the in-memory key index, ensuring efficient key lookups for future reads.
+    /// 1. **Re-maps the file (`mmap`)**: Ensures that newly written data
+    ///    is visible to readers by creating a fresh memory-mapped view of
+    ///    the storage file.
+    /// 2. **Updates the key index**: Inserts new key hash-to-offset
+    ///    mappings into the in-memory key index, ensuring efficient key
+    ///    lookups for future reads.
     ///
     /// # Parameters:
-    /// - `write_guard`: A locked reference to the `BufWriter<File>`, ensuring that
-    ///   writes are completed before remapping and indexing.
-    /// - `key_hash_offsets`: A slice of `(key_hash, tail_offset)` tuples containing
-    ///   the latest key mappings to be added to the index.
-    /// - `tail_offset`: The **new absolute file offset** after the most recent write.
-    ///   This represents the byte position where the next write operation should begin.
-    ///   It is updated to reflect the latest valid data in the storage.
+    /// - `write_guard`: A locked reference to the `BufWriter<File>`,
+    ///   ensuring that writes are completed before remapping and
+    ///   indexing.
+    /// - `key_hash_offsets`: A slice of `(key_hash, tail_offset)`
+    ///   tuples containing the latest key mappings to be added to the
+    ///   index.
+    /// - `tail_offset`: The **new absolute file offset** after the most
+    ///   recent write. This represents the byte position where the next
+    ///   write operation should begin. It is updated to reflect the
+    ///   latest valid data in the storage.
     ///
     /// # Returns:
     /// - `Ok(())` if the reindexing process completes successfully.
-    /// - `Err(std::io::Error)` if file metadata retrieval, memory mapping, or
-    ///   key index updates fail.
+    /// - `Err(std::io::Error)` if file metadata retrieval, memory
+    ///   mapping, or key index updates fail.
     ///
     /// # Important:
-    /// - **The write operation must be flushed before calling `reindex`** to ensure
-    ///   all pending writes are persisted and visible in the new memory-mapped file.
-    ///   This prevents potential inconsistencies where written data is not reflected
-    ///   in the remapped view.
+    /// - **The write operation must be flushed before calling
+    ///   `reindex`** to ensure all pending writes are persisted and
+    ///   visible in the new memory-mapped file. This prevents potential
+    ///   inconsistencies where written data is not reflected in the
+    ///   remapped view.
     ///
     /// # Safety:
-    /// - This function should be called **immediately after a write operation**
-    ///   to ensure the file is in a consistent state before remapping.
-    /// - The function acquires locks on both the `mmap` and `key_indexer`
-    ///   to prevent race conditions while updating shared structures.
+    /// - This function should be called **immediately after a write
+    ///   operation** to ensure the file is in a consistent state before
+    ///   remapping.
+    /// - The function acquires locks on both the `mmap` and
+    ///   `key_indexer` to prevent race conditions while updating shared
+    ///   structures.
     ///
     /// # Locks Acquired:
-    /// - `mmap` (`Mutex<Arc<Mmap>>`) is locked to update the memory-mapped file.
-    /// - `key_indexer` (`RwLock<HashMap<u64, u64>>`) is locked to modify key mappings.
+    /// - `mmap` (`Mutex<Arc<Mmap>>`) is locked to update the
+    ///   memory-mapped file.
+    /// - `key_indexer` (`RwLock<HashMap<u64, u64>>`) is locked to
+    ///   modify key mappings.
     fn reindex(
         &self,
         write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
@@ -218,8 +241,8 @@ impl DataStore {
             } else {
                 // Handle the Result from the new insert method
                 if let Err(e) = key_indexer_guard.insert(*key_hash, *offset) {
-                    // A collision was detected on write. The entire batch operation
-                    // should fail to prevent an inconsistent state.
+                    // A collision was detected on write. The entire batch
+                    // operation should fail to prevent an inconsistent state.
                     warn!("Write operation aborted due to hash collision: {}", e);
                     return Err(std::io::Error::other(e));
                 }
@@ -242,8 +265,8 @@ impl DataStore {
 
     /// Retrieves an iterator over all valid entries in the storage.
     ///
-    /// This iterator allows scanning the storage file and retrieving **only the most recent**
-    /// versions of each key.
+    /// This iterator allows scanning the storage file and retrieving
+    /// **only the most recent** versions of each key.
     ///
     /// # Returns:
     /// - An `EntryIterator` instance for iterating over valid entries.
@@ -253,21 +276,24 @@ impl DataStore {
         EntryIterator::new(mmap_clone, tail_offset)
     }
 
-    /// Provides a parallel iterator over all valid entries in the storage.
+    /// Provides a parallel iterator over all valid entries in the
+    /// storage.
     ///
-    /// This method is only available when the `parallel` feature is enabled.
-    /// It leverages the Rayon crate to process entries across multiple threads,
-    /// which can be significantly faster for bulk operations on multi-core machines.
+    /// This method is only available when the `parallel` feature is
+    /// enabled. It leverages the Rayon crate to process entries across
+    /// multiple threads, which can be significantly faster for bulk
+    /// operations on multi-core machines.
     ///
-    /// The iterator is efficient, collecting only the necessary entry offsets first
-    /// and then constructing the `EntryHandle` objects in parallel.
+    /// The iterator is efficient, collecting only the necessary entry
+    /// offsets first and then constructing the `EntryHandle` objects in
+    /// parallel.
     ///
     /// # Returns
     /// - A Rayon `ParallelIterator` that yields `EntryHandle` items.
     #[cfg(feature = "parallel")]
     pub fn par_iter_entries(&self) -> impl ParallelIterator<Item = EntryHandle> {
-        // First, acquire a read lock and collect all the packed offset values.
-        // This is a short, fast operation.
+        // First, acquire a read lock and collect all the packed offset
+        // values. This is a short, fast operation.
         let key_indexer_guard = self.key_indexer.read().unwrap();
         let packed_values: Vec<u64> = key_indexer_guard.values().cloned().collect();
         drop(key_indexer_guard); // Release the lock as soon as possible.
@@ -275,47 +301,64 @@ impl DataStore {
         // Clone the mmap Arc once to be moved into the parallel iterator.
         let mmap_arc = self.get_mmap_arc();
 
-        // Create a parallel iterator over the collected offsets. The `filter_map`
-        // operation is the part that will run in parallel across threads.
+        // Create a parallel iterator over the collected offsets. The
+        // `filter_map` operation is the part that will run in parallel
+        // across threads.
         packed_values.into_par_iter().filter_map(move |packed| {
             let (_tag, offset) = KeyIndexer::unpack(packed);
             let offset = offset as usize;
 
-            // This logic is a simplified, read-only version of `read_entry_with_context`.
-            // We perform basic bounds checks to ensure safety.
+            // This logic is a simplified, read-only version of
+            // `read_entry_with_context`. We perform basic bounds checks
+            // to ensure safety.
             if offset + METADATA_SIZE > mmap_arc.len() {
                 return None;
             }
 
             let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
-            let entry_start = metadata.prev_offset as usize;
+
+            // Derive aligned start from previous tail. For tombstones
+            // (single NULL byte without pre-pad), also support legacy
+            // no-prepad case.
+            let prev_tail = metadata.prev_offset as u64;
+            let derived = prev_tail + Self::prepad_len(prev_tail) as u64;
             let entry_end = offset;
+
+            let mut entry_start = derived as usize;
+
+            // Tombstone detection (no pre-pad case).
+            if entry_end > prev_tail as usize
+                && entry_end - prev_tail as usize == 1
+                && mmap_arc[prev_tail as usize..entry_end] == NULL_BYTE
+            {
+                entry_start = prev_tail as usize;
+            }
 
             if entry_start >= entry_end || entry_end > mmap_arc.len() {
                 return None;
             }
 
-            // Important: We must filter out tombstone entries, which are marked
-            // by a single null byte payload.
+            // Filter out tombstones (single NULL byte region).
             if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
                 return None;
             }
 
-            // If all checks pass, construct and return the EntryHandle.
             Some(EntryHandle {
-                mmap_arc: mmap_arc.clone(), // Each handle gets a clone of the Arc
+                mmap_arc: mmap_arc.clone(),
                 range: entry_start..entry_end,
                 metadata,
             })
         })
     }
 
-    /// Recovers the **latest valid chain** of entries from the storage file.
+    /// Recovers the **latest valid chain** of entries from the storage
+    /// file.
     ///
-    /// This function **scans backward** through the file, verifying that each entry
-    /// correctly references the previous offset. It determines the **last valid
-    /// storage position** to ensure data integrity.
+    /// This function **scans backward** through the file, verifying that
+    /// each entry correctly references the previous offset. It
+    /// determines the **last valid storage position** to ensure data
+    /// integrity.
     ///
     /// # How It Works:
     /// - Scans from the last written offset **backward**.
@@ -342,7 +385,22 @@ impl DataStore {
                 &mmap[metadata_offset as usize..(metadata_offset as usize + METADATA_SIZE)];
             let metadata = EntryMetadata::deserialize(metadata_bytes);
 
-            let entry_start = metadata.prev_offset;
+            // Stored `prev_offset` is the **previous tail**.
+            let prev_tail = metadata.prev_offset;
+
+            // Derive start; handle tombstone (no pre-pad) as a special
+            // case so chain length math stays correct.
+            let derived_start = prev_tail + Self::prepad_len(prev_tail) as u64;
+            let entry_end = metadata_offset;
+
+            let entry_start = if entry_end > prev_tail
+                && entry_end - prev_tail == 1
+                && mmap[prev_tail as usize..entry_end as usize] == NULL_BYTE
+            {
+                prev_tail
+            } else {
+                derived_start
+            };
 
             if entry_start >= metadata_offset {
                 cursor -= 1;
@@ -350,7 +408,8 @@ impl DataStore {
             }
 
             let mut chain_valid = true;
-            let mut back_cursor = entry_start;
+            let mut back_cursor = prev_tail; // walk by tails
+            // size of current entry data region
             let mut total_size = (metadata_offset - entry_start) + METADATA_SIZE as u64;
 
             while back_cursor != 0 {
@@ -360,18 +419,42 @@ impl DataStore {
                 }
 
                 let prev_metadata_offset = back_cursor - METADATA_SIZE as u64;
-                let prev_metadata_bytes = &mmap[prev_metadata_offset as usize
-                    ..(prev_metadata_offset as usize + METADATA_SIZE)];
-                let prev_metadata = EntryMetadata::deserialize(prev_metadata_bytes);
-
-                let entry_size = prev_metadata_offset.saturating_sub(prev_metadata.prev_offset);
-                total_size += entry_size + METADATA_SIZE as u64;
-                if prev_metadata.prev_offset >= prev_metadata_offset {
+                if prev_metadata_offset as usize + METADATA_SIZE > mmap.len() {
                     chain_valid = false;
                     break;
                 }
 
-                back_cursor = prev_metadata.prev_offset;
+                let prev_metadata_bytes = &mmap[prev_metadata_offset as usize
+                    ..(prev_metadata_offset as usize + METADATA_SIZE)];
+                let prev_metadata = EntryMetadata::deserialize(prev_metadata_bytes);
+
+                let prev_prev_tail = prev_metadata.prev_offset;
+
+                // Size of the previous entry’s data region
+                let prev_entry_start = if prev_metadata_offset > prev_prev_tail
+                    && prev_metadata_offset - prev_prev_tail == 1
+                    && mmap[prev_prev_tail as usize..prev_metadata_offset as usize] == NULL_BYTE
+                {
+                    prev_prev_tail
+                } else {
+                    prev_prev_tail + Self::prepad_len(prev_prev_tail) as u64
+                };
+
+                if prev_entry_start >= prev_metadata_offset {
+                    chain_valid = false;
+                    break;
+                }
+
+                let entry_size = prev_metadata_offset.saturating_sub(prev_entry_start);
+
+                total_size += entry_size + METADATA_SIZE as u64;
+
+                if prev_prev_tail >= prev_metadata_offset {
+                    chain_valid = false;
+                    break;
+                }
+
+                back_cursor = prev_prev_tail;
             }
 
             if chain_valid && back_cursor == 0 && total_size <= file_len {
@@ -387,9 +470,10 @@ impl DataStore {
 
     /// Performs the core logic of reading an entry from the store.
     ///
-    /// This private helper centralizes the logic for both `read` and `batch_read`.
-    /// It takes all necessary context to perform a safe lookup, including the key,
-    /// its hash, the memory map, and a read guard for the key indexer.
+    /// This private helper centralizes the logic for both `read` and
+    /// `batch_read`. It takes all necessary context to perform a safe
+    /// lookup, including the key, its hash, the memory map, and a read
+    /// guard for the key indexer.
     ///
     /// # Parameters
     /// - `key`: The original key bytes used for tag verification.
@@ -399,8 +483,8 @@ impl DataStore {
     ///
     /// # Returns
     /// - `Some(EntryHandle)` if the key is found and all checks pass.
-    /// - `None` if the key is not found, a tag mismatch occurs (collision/corruption),
-    ///   or the entry is a tombstone.
+    /// - `None` if the key is not found, a tag mismatch occurs
+    ///   (collision/corruption), or the entry is a tombstone.
     #[inline]
     fn read_entry_with_context<'a>(
         &self,
@@ -417,7 +501,8 @@ impl DataStore {
             && tag != KeyIndexer::tag_from_key(non_hashed_key)
         {
             warn!(
-                "Tag mismatch detected for `non_hashed_key`, likely a hash collision or index corruption."
+                "Tag mismatch detected for `non_hashed_key`, likely a \
+                 hash collision or index corruption."
             );
             return None;
         }
@@ -429,14 +514,27 @@ impl DataStore {
 
         let metadata_bytes = &mmap_arc[offset..offset + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
-        let entry_start = metadata.prev_offset as usize;
+
+        // Derive aligned payload start from stored previous tail. Support
+        // tombstones (single NULL byte without pre-pad).
+        let prev_tail = metadata.prev_offset as u64;
+        let derived = prev_tail + Self::prepad_len(prev_tail) as u64;
         let entry_end = offset;
+
+        let mut entry_start = derived as usize;
+
+        if entry_end > prev_tail as usize
+            && entry_end - prev_tail as usize == 1
+            && mmap_arc[prev_tail as usize..entry_end] == NULL_BYTE
+        {
+            entry_start = prev_tail as usize;
+        }
 
         if entry_start >= entry_end || entry_end > mmap_arc.len() {
             return None;
         }
 
-        // Check for tombstone (deleted entry)
+        // Tombstone (single null byte)
         if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
             return None;
         }
@@ -456,38 +554,133 @@ impl DataStore {
     ///
     /// # Parameters:
     /// - `entry`: The **entry handle** to be copied.
-    /// - `target`: The **destination storage** where the entry should be copied.
+    /// - `target`: The **destination storage** where the entry should be
+    ///   copied.
     ///
     /// # Returns:
-    /// - `Ok(target_offset)`: The file offset where the copied entry was written.
+    /// - `Ok(target_offset)`: The file offset where the copied entry was
+    ///   written.
     /// - `Err(std::io::Error)`: If a write operation fails.
     ///
     /// # Notes:
-    /// - This is a **low-level function** used by `copy` and related operations.
+    /// - This is a **low-level function** used by `copy` and related
+    ///   operations.
     /// - The `entry` remains **unchanged** in the original storage.
     fn copy_handle(&self, entry: &EntryHandle, target: &DataStore) -> Result<u64> {
         let mut entry_stream = EntryStream::from(entry.clone_arc());
         target.write_stream_with_key_hash(entry.key_hash(), &mut entry_stream)
     }
 
-    // TODO: Determine thread count *before* running this OR [somehow] make it thread safe.
-    /// Compacts the storage by keeping only the latest version of each key.
+    /// Estimates the potential space savings from compaction.
+    ///
+    /// This method scans the storage file and calculates the difference
+    /// between the total file size and the size required to keep only
+    /// the latest versions of all keys.
+    ///
+    /// # How It Works:
+    /// - Iterates through the entries, tracking the **latest version** of
+    ///   each key.
+    /// - Ignores older versions of keys to estimate the **optimized**
+    ///   storage footprint.
+    /// - Returns the **difference** between the total file size and the
+    ///   estimated compacted size.
+    pub fn estimate_compaction_savings(&self) -> u64 {
+        let total_size = self.file_size().unwrap_or(0);
+        let mut unique_entry_size: u64 = 0;
+        let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
+
+        for entry in self.iter_entries() {
+            if seen_keys.insert(entry.key_hash()) {
+                unique_entry_size += entry.file_size() as u64;
+            }
+        }
+        total_size.saturating_sub(unique_entry_size)
+    }
+
+    /// Provides access to the shared memory-mapped file (`Arc<Mmap>`)
+    /// for testing.
+    ///
+    /// This method returns a cloned `Arc<Mmap>`, allowing test cases to
+    /// inspect the memory-mapped region while ensuring reference
+    /// counting remains intact.
+    ///
+    /// # Notes:
+    /// - The returned `Arc<Mmap>` ensures safe access without
+    ///   invalidating the mmap.
+    /// - This function is only available in **test** and **debug**
+    ///   builds.
+    #[cfg(any(test, debug_assertions))]
+    pub fn get_mmap_arc_for_testing(&self) -> Arc<Mmap> {
+        self.get_mmap_arc()
+    }
+
+    /// Provides direct access to the raw pointer of the underlying
+    /// memory map for testing.
+    ///
+    /// This method retrieves a raw pointer (`*const u8`) to the start of
+    /// the memory-mapped file. It is useful for validating zero-copy
+    /// behavior and memory alignment in test cases.
+    ///
+    /// # Safety Considerations:
+    /// - The pointer remains valid **as long as** the mmap is not
+    ///   remapped or dropped.
+    /// - Dereferencing this pointer outside of controlled test
+    ///   environments **is unsafe** and may result in undefined
+    ///   behavior.
+    ///
+    /// # Notes:
+    /// - This function is only available in **test** and **debug**
+    ///   builds.
+    #[cfg(any(test, debug_assertions))]
+    pub fn arc_ptr(&self) -> *const u8 {
+        self.get_mmap_arc().as_ptr()
+    }
+
+    #[inline]
+    fn get_mmap_arc(&self) -> Arc<Mmap> {
+        let guard = self.mmap.lock().unwrap();
+        let mmap_clone = guard.clone();
+        drop(guard);
+        mmap_clone
+    }
+
+    // --- Alignment helper -------------------------------------------------
+
+    /// Compute the number of pre-pad bytes required to align `offset` to
+    /// `PAYLOAD_ALIGNMENT`. `PAYLOAD_ALIGNMENT` is a power of two.
+    #[inline]
+    fn prepad_len(offset: u64) -> usize {
+        let a = PAYLOAD_ALIGNMENT;
+        ((a - (offset % a)) & (a - 1)) as usize
+    }
+
+    // ---------------------------------------------------------------------
+
+    // TODO: Determine thread count *before* running this OR [somehow]
+    // make it thread safe.
+    /// Compacts the storage by keeping only the latest version of each
+    /// key.
     ///
     /// # ⚠️ WARNING:
-    /// - **This function should only be used when a single thread is accessing the storage.**
-    /// - While `&mut self` prevents concurrent **mutations**, it **does not** prevent
-    ///   other threads from holding shared references (`&DataStore`) and performing reads.
-    /// - If the `DataStore` instance is wrapped in `Arc<DataStore>`, multiple threads
-    ///   may still hold **read** references while compaction is running, potentially
-    ///   leading to inconsistent reads.
-    /// - If stricter concurrency control is required, **manual synchronization should
-    ///   be enforced externally.**
+    /// - **This function should only be used when a single thread is
+    ///   accessing the storage.**
+    /// - While `&mut self` prevents concurrent **mutations**, it **does
+    ///   not** prevent other threads from holding shared references
+    ///   (`&DataStore`) and performing reads.
+    /// - If the `DataStore` instance is wrapped in `Arc<DataStore>`,
+    ///   multiple threads may still hold **read** references while
+    ///   compaction is running, potentially leading to inconsistent
+    ///   reads.
+    /// - If stricter concurrency control is required, **manual
+    ///   synchronization should be enforced externally.**
     ///
     /// # Behavior:
-    /// - Creates a **temporary compacted file** containing only the latest versions
-    ///   of stored keys.
-    /// - Swaps the original file with the compacted version upon success.
-    /// - Does **not** remove tombstone (deleted) entries due to the append-only model.
+    /// - Creates a **temporary compacted file** containing only the
+    ///   latest versions of stored keys.
+    /// - Swaps the original file with the compacted version upon
+    ///   success.
+    /// - Does **not** remove tombstone (deleted) entries due to the
+    ///   append-only model.
     ///
     /// # Returns:
     /// - `Ok(())` if compaction completes successfully.
@@ -509,13 +702,12 @@ impl DataStore {
 
         let size_before = self.file_size()?;
 
-        // Note: The current implementation should never increase space, but if an additional indexer
-        // is ever used, this may change.
+        // Note: The current implementation should never increase space,
+        // but if an additional indexer is ever used, this may change.
         //
         // Only write the static index if it actually saves space
         if size_before > compacted_data_size {
             info!("Compaction will save space. Writing static index.");
-            // let indexed_up_to = compacted_storage.tail_offset.load(Ordering::Acquire);
 
             let mut file_guard = compacted_storage
                 .file
@@ -524,7 +716,9 @@ impl DataStore {
             file_guard.flush()?;
         } else {
             info!(
-                "Compaction would increase file size (data w/ indexing: {compacted_data_size}). Skipping static index generation.",
+                "Compaction would increase file size \
+                 (data w/ indexing: {compacted_data_size}). \
+                 Skipping static index generation.",
             );
         }
 
@@ -534,67 +728,6 @@ impl DataStore {
         std::fs::rename(&compacted_path, &self.path)?;
         info!("Compaction file swap complete.");
         Ok(())
-    }
-
-    /// Estimates the potential space savings from compaction.
-    ///
-    /// This method scans the storage file and calculates the difference
-    /// between the total file size and the size required to keep only
-    /// the latest versions of all keys.
-    ///
-    /// # How It Works:
-    /// - Iterates through the entries, tracking the **latest version** of each key.
-    /// - Ignores older versions of keys to estimate the **optimized** storage footprint.
-    /// - Returns the **difference** between the total file size and the estimated compacted size.
-    pub fn estimate_compaction_savings(&self) -> u64 {
-        let total_size = self.file_size().unwrap_or(0);
-        let mut unique_entry_size: u64 = 0;
-        let mut seen_keys = HashSet::with_hasher(Xxh3BuildHasher);
-
-        for entry in self.iter_entries() {
-            if seen_keys.insert(entry.key_hash()) {
-                unique_entry_size += entry.file_size() as u64;
-            }
-        }
-        total_size.saturating_sub(unique_entry_size)
-    }
-
-    /// Provides access to the shared memory-mapped file (`Arc<Mmap>`) for testing.
-    ///
-    /// This method returns a cloned `Arc<Mmap>`, allowing test cases to inspect
-    /// the memory-mapped region while ensuring reference counting remains intact.
-    ///
-    /// # Notes:
-    /// - The returned `Arc<Mmap>` ensures safe access without invalidating the mmap.
-    /// - This function is only available in **test** and **debug** builds.
-    #[cfg(any(test, debug_assertions))]
-    pub fn get_mmap_arc_for_testing(&self) -> Arc<Mmap> {
-        self.get_mmap_arc()
-    }
-
-    /// Provides direct access to the raw pointer of the underlying memory map for testing.
-    ///
-    /// This method retrieves a raw pointer (`*const u8`) to the start of the memory-mapped file.
-    /// It is useful for validating zero-copy behavior and memory alignment in test cases.
-    ///
-    /// # Safety Considerations:
-    /// - The pointer remains valid **as long as** the mmap is not remapped or dropped.
-    /// - Dereferencing this pointer outside of controlled test environments **is unsafe**
-    ///   and may result in undefined behavior.
-    ///
-    /// # Notes:
-    /// - This function is only available in **test** and **debug** builds.
-    #[cfg(any(test, debug_assertions))]
-    pub fn arc_ptr(&self) -> *const u8 {
-        self.get_mmap_arc().as_ptr()
-    }
-
-    #[inline]
-    fn get_mmap_arc(&self) -> Arc<Mmap> {
-        let guard = self.mmap.lock().unwrap();
-        let mmap_clone = guard.clone();
-        drop(guard);
-        mmap_clone
     }
 }
 
@@ -609,7 +742,15 @@ impl DataStoreWriter for DataStore {
             .file
             .write()
             .map_err(|_| std::io::Error::other("Failed to acquire file lock"))?;
-        let prev_offset = self.tail_offset.load(Ordering::Acquire);
+        let prev_tail = self.tail_offset.load(Ordering::Acquire);
+
+        // Pre-align payload start so typed views can be zero-copy.
+        let prepad = Self::prepad_len(prev_tail);
+        if prepad > 0 {
+            // Pad with zeros; not part of logical payload.
+            let pad = [0u8; 64];
+            file.write_all(&pad[..prepad])?;
+        }
 
         let mut buffer = vec![0; WRITE_STREAM_BUFFER_SIZE];
         let mut total_written = 0;
@@ -637,16 +778,25 @@ impl DataStoreWriter for DataStore {
             ));
         }
 
+        if total_written == 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Payload cannot be empty.",
+            ));
+        }
+
         let checksum = checksum_state.finalize().to_le_bytes();
+        // Link to previous tail; readers derive aligned start.
         let metadata = EntryMetadata {
             key_hash,
-            prev_offset,
+            prev_offset: prev_tail,
             checksum,
         };
         file.write_all(&metadata.serialize())?;
         file.flush()?;
 
-        let tail_offset = prev_offset + total_written as u64 + METADATA_SIZE as u64;
+        let tail_offset = prev_tail + prepad as u64 + total_written as u64 + METADATA_SIZE as u64;
+
         self.reindex(
             &file,
             &[(key_hash, tail_offset - METADATA_SIZE as u64)],
@@ -665,7 +815,8 @@ impl DataStoreWriter for DataStore {
         self.batch_write_with_key_hashes(vec![(key_hash, payload)], false)
     }
 
-    // TODO: Consider change signature to: fn batch_write(&self, entries: Vec<(Vec<u8>, Vec<u8>)>) -> Result<u64> {
+    // TODO: Consider change signature to:
+    // fn batch_write(&self, entries: Vec<(Vec<u8>, Vec<u8>)>) -> Result<u64>
     fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let (keys, payloads): (Vec<_>, Vec<_>) = entries.iter().cloned().unzip();
         let hashes = compute_hash_batch(&keys);
@@ -673,7 +824,8 @@ impl DataStoreWriter for DataStore {
         self.batch_write_with_key_hashes(hashed_entries, false)
     }
 
-    // TODO: Consider change `prehashed_keys: Vec<(u64, &[u8])>` to `prehashed_keys: Vec<(u64, Vec<u8>)>`
+    // TODO: Consider change `prehashed_keys: Vec<(u64, &[u8])>` to
+    // `prehashed_keys: Vec<(u64, Vec<u8>)>`
     fn batch_write_with_key_hashes(
         &self,
         prehashed_keys: Vec<(u64, &[u8])>,
@@ -698,8 +850,33 @@ impl DataStoreWriter for DataStore {
                         "NULL-byte payloads cannot be written directly.",
                     ));
                 }
+                // Tombstone: write 1 byte, no pre-pad.
+                let link_to_prev_tail = tail_offset;
 
+                if payload.is_empty() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Payload cannot be empty.",
+                    ));
+                }
+
+                let checksum = compute_checksum(payload);
+                let metadata = EntryMetadata {
+                    key_hash,
+                    prev_offset: link_to_prev_tail,
+                    checksum,
+                };
+
+                let mut entry: Vec<u8> = vec![0u8; 1 + METADATA_SIZE];
+                entry[0] = NULL_BYTE[0];
+                entry[1..].copy_from_slice(&metadata.serialize());
+
+                buffer.extend_from_slice(&entry);
+
+                tail_offset += entry.len() as u64;
+                key_hash_offsets.push((key_hash, tail_offset - METADATA_SIZE as u64));
                 deleted_keys.insert(key_hash);
+                continue;
             }
 
             if payload.is_empty() {
@@ -709,11 +886,19 @@ impl DataStoreWriter for DataStore {
                 ));
             }
 
-            let prev_offset = tail_offset;
+            // Non-tombstone: pre-align current payload.
+            let link_to_prev_tail = tail_offset;
+            let prepad = Self::prepad_len(tail_offset);
+            if prepad > 0 {
+                let old_len = buffer.len();
+                buffer.resize(old_len + prepad, 0u8);
+                tail_offset += prepad as u64;
+            }
+
             let checksum = compute_checksum(payload);
             let metadata = EntryMetadata {
                 key_hash,
-                prev_offset,
+                prev_offset: link_to_prev_tail,
                 checksum,
             };
             let payload_len = payload.len();
@@ -759,7 +944,8 @@ impl DataStoreWriter for DataStore {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!(
-                    "Cannot copy entry to the same storage ({:?}). Use `rename` instead.",
+                    "Cannot copy entry to the same storage ({:?}). \
+                     Use `rename` instead.",
                     self.path
                 ),
             ));
@@ -789,7 +975,8 @@ impl DataStoreWriter for DataStore {
     }
 
     fn batch_delete_key_hashes(&self, prehashed_keys: &[u64]) -> Result<u64> {
-        // First, check which keys actually exist to avoid writing useless tombstones.
+        // First, check which keys actually exist to avoid writing
+        // useless tombstones.
         let keys_to_delete: Vec<u64> = {
             let key_indexer_guard = self
                 .key_indexer
@@ -803,18 +990,18 @@ impl DataStoreWriter for DataStore {
                 .collect()
         };
 
-        // If no keys were found to delete, we can exit early without any file I/O.
+        // If no keys were found to delete, exit early without any I/O.
         if keys_to_delete.is_empty() {
             return Ok(self.tail_offset.load(Ordering::Acquire));
         }
 
-        // Prepare the delete operations (a key hash + a null byte payload).
+        // Prepare the delete operations (a key hash + a null byte).
         let delete_ops: Vec<(u64, &[u8])> = keys_to_delete
             .iter()
             .map(|&key_hash| (key_hash, &NULL_BYTE as &[u8]))
             .collect();
 
-        // Use the underlying batch write method, allowing null bytes for tombstones.
+        // Use the underlying batch write method, allowing null bytes.
         self.batch_write_with_key_hashes(delete_ops, true)
     }
 }
@@ -827,7 +1014,8 @@ impl DataStoreReader for DataStore {
     }
 
     fn exists_with_key_hash(&self, prehashed_key: u64) -> Result<bool> {
-        // This is a lightweight wrapper around the read method, just like exists().
+        // This is a lightweight wrapper around the read method, just
+        // like exists().
         Ok(self.read_with_key_hash(prehashed_key)?.is_some())
     }
 
@@ -849,8 +1037,6 @@ impl DataStoreReader for DataStore {
             .map_err(|_| Error::other("key-index lock poisoned"))?;
         let mmap_arc = self.get_mmap_arc();
 
-        // Call the core logic with `None` for the key, as we are only using the hash
-        // and want to skip the tag verification check.
         Ok(self.read_entry_with_context(None, prehashed_key, &mmap_arc, &key_indexer_guard))
     }
 
@@ -869,8 +1055,19 @@ impl DataStoreReader for DataStore {
         let metadata_bytes = &mmap_arc[metadata_offset..metadata_offset + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
 
-        let entry_start = metadata.prev_offset as usize;
+        // Derive aligned start; support tombstone no-prepad case.
+        let prev_tail = metadata.prev_offset as u64;
+        let derived = prev_tail + Self::prepad_len(prev_tail) as u64;
         let entry_end = metadata_offset;
+
+        let mut entry_start = derived as usize;
+        if entry_end > prev_tail as usize
+            && entry_end - prev_tail as usize == 1
+            && mmap_arc[prev_tail as usize..entry_end] == NULL_BYTE
+        {
+            entry_start = prev_tail as usize;
+        }
+
         if entry_start >= entry_end || entry_end > mmap_arc.len() {
             return Ok(None);
         }
@@ -925,16 +1122,13 @@ impl DataStoreReader for DataStore {
                     })
                     .collect()
             }
-            // Case 2: We only have the hashes and must skip tag verification.
-            None => {
-                prehashed_keys
-                    .iter()
-                    .map(|key_hash| {
-                        // Correctly pass `None` as we don't have the original key
-                        self.read_entry_with_context(None, *key_hash, &mmap_arc, &key_indexer_guard)
-                    })
-                    .collect()
-            }
+            // Case 2: We only have the hashes and must skip tag check.
+            None => prehashed_keys
+                .iter()
+                .map(|key_hash| {
+                    self.read_entry_with_context(None, *key_hash, &mmap_arc, &key_indexer_guard)
+                })
+                .collect(),
         };
 
         Ok(results)

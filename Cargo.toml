@@ -35,6 +35,7 @@ xxhash-rust = { version = "0.8.15", features = ["xxh3", "const_xxh3"] }
 
 [dev-dependencies]
 bincode = { workspace = true }
+bytemuck = "1.23.2"
 criterion = { workspace = true }
 futures = { workspace = true }
 rand = { workspace = true }
