@@ -11,6 +11,7 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
 ## Table of Contents
 
 - [Zero-Copy Memory-Mapped Access](#zero-copy-memory-mapped-access)
+- [Fixed Payload Alignment (Zero-Copy Typed Slices)](#fixed-payload-alignment-zero-copy-typed-slices)
 - [Single-File Storage Container for Binary Data](#single-file-storage-container-for-binary-data)
   - [Nestable Storage (Recursive Embedding)](#nestable-storage-recursive-embedding)
   - [No Assumptions About Your Data or Resource-Wasting Serialization Overhead](#no-assumptions-about-your-data-or-resource-wasting-serialization-overhead)
@@ -44,6 +45,14 @@ Can be used as a command line interface (CLI) app, or as a library in another ap
 Unlike `FlatBuffers`, which also supports zero-copy reads but requires predefined schemas, `SIMD R Drive` operates without IDLs or schemas, enabling flexible, raw binary storage optimized for real-time applications.
 
 Additionally, `SIMD R Drive` is designed to handle datasets larger than available RAM by leveraging memory mapping. The system transparently accesses only the necessary portions of the file, reducing memory pressure and enabling efficient storage operations on large-scale datasets.
+
+## Fixed Payload Alignment (Zero-Copy Typed Slices)
+
+Every non-tombstone payload now starts at a fixed, power-of-two boundary (16 bytes by default, configurable). This guarantees that, when your payload length matches the element size, you can reinterpret bytes as typed slices (e.g., `&[u16]`, `&[u32]`, `&[u64]`, `&[u128]`) without copying.
+
+This change is transparent to the public API and works with all write modes, including streaming. The on-disk layout may include a few padding bytes per entry to maintain alignment. Tombstones are unaffected.
+
+Practical benefits include faster vectorized reads, simpler use of zero-copy helpers (e.g., casting libraries), and fewer fallback copies. If you need a stricter boundary for a target platform, adjust the [alignment constant](./src/storage_engine/constants.rs) and rebuild.
 
 ## Single-File Storage Container for Binary Data
 
