@@ -321,7 +321,7 @@ impl DataStore {
             // Derive aligned start from previous tail. For tombstones
             // (single NULL byte without pre-pad), also support legacy
             // no-prepad case.
-            let prev_tail = metadata.prev_offset as u64;
+            let prev_tail = metadata.prev_offset;
             let derived = prev_tail + Self::prepad_len(prev_tail) as u64;
             let entry_end = offset;
 
@@ -517,7 +517,7 @@ impl DataStore {
 
         // Derive aligned payload start from stored previous tail. Support
         // tombstones (single NULL byte without pre-pad).
-        let prev_tail = metadata.prev_offset as u64;
+        let prev_tail = metadata.prev_offset;
         let derived = prev_tail + Self::prepad_len(prev_tail) as u64;
         let entry_end = offset;
 
@@ -1056,7 +1056,7 @@ impl DataStoreReader for DataStore {
         let metadata = EntryMetadata::deserialize(metadata_bytes);
 
         // Derive aligned start; support tombstone no-prepad case.
-        let prev_tail = metadata.prev_offset as u64;
+        let prev_tail = metadata.prev_offset;
         let derived = prev_tail + Self::prepad_len(prev_tail) as u64;
         let entry_end = metadata_offset;
 

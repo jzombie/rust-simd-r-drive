@@ -83,7 +83,7 @@ impl Iterator for EntryIterator {
         // Stored `prev_offset` is the **previous tail**. Derive the
         // aligned payload start for regular values. For tombstones
         // (single NULL byte), also support the no-prepad case.
-        let prev_tail = metadata.prev_offset as u64;
+        let prev_tail = metadata.prev_offset;
         let derived = prev_tail + Self::prepad_len(prev_tail) as u64;
 
         let entry_end = metadata_offset;
