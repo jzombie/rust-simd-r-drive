@@ -116,7 +116,7 @@
 //!
 //! ## Performance Considerations
 //! - **Use memory-mapped reads** for best performance.
-//! - **Batch writes** to reduce file I/O overhead.
+//! - **Batch reads and writes** to reduce file I/O overhead.
 //! - **Avoid unnecessary locks** to maximize concurrency.
 //!
 //! ## Safety Notes

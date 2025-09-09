@@ -50,12 +50,32 @@ Older versions (≤3.9) are explicitly skipped during wheel builds.
   <img src="https://raw.githubusercontent.com/jzombie/rust-simd-r-drive/main/assets/storage-layout.png" title="Storage Layout" />
 </div>
 
-| Offset Range      | Field           | Size (Bytes) | Description                                       |
-|-------------------|-----------------|--------------|---------------------------------------------------|
-| `0 → N`           | **Payload**     | `N`          | Variable-length data                              |
-| `N → N + 8`       | **Key Hash**    | `8`          | 64-bit XXH3 hash of the key (fast lookups)        |
-| `N + 8 → N + 16`  | **Prev Offset** | `8`          | Absolute offset pointing to the previous version  |
-| `N + 16 → N + 20` | **Checksum**    | `4`          | 32-bit CRC32C checksum for integrity verification |
+Aligned entry (non-tombstone):
+
+| Offset Range   | Field              | Size (Bytes) | Description                       |
+|----------------|--------------------|--------------|-----------------------------------|
+| `P .. P+pad`   | Pre-Pad (optional) | `pad`        | Zero bytes to align payload start |
+| `P+pad .. N`   | Payload            | `N-(P+pad)`  | Variable-length data              |
+| `N .. N+8`     | Key Hash           | `8`          | 64-bit XXH3 key hash              |
+| `N+8 .. N+16`  | Prev Offset        | `8`          | Absolute offset of previous tail  |
+| `N+16 .. N+20` | Checksum           | `4`          | CRC32C of payload                 |
+
+Where:
+- `pad = (A - (prev_tail % A)) & (A - 1)`, `A = PAYLOAD_ALIGNMENT`.
+- The next entry starts at `N + 20`.
+
+Tombstone (deletion marker):
+
+| Offset Range  | Field    | Size (Bytes) | Description            |
+|---------------|----------|--------------|------------------------|
+| `T .. T+1`    | Payload  | `1`          | Single byte `0x00`     |
+| `T+1 .. T+21` | Metadata | `20`         | Key hash, prev, crc32c |
+
+Notes:
+- Using the previous tail in `Prev Offset` lets us insert pre-pad while
+  keeping chain traversal unambiguous.
+- Readers compute `payload_start = prev_offset + prepad_len(prev_offset)`
+  and use the current metadata position as `payload_end`.
 
 ## Installation
 

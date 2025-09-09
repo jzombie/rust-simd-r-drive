@@ -8,16 +8,32 @@ use crate::constants::*;
 ///
 /// ## Entry Storage Layout
 ///
-/// Each entry consists of a **variable-sized payload** followed by a **fixed-size metadata block**.
-/// The metadata is stored **at the end** of the entry to simplify sequential writes and enable
-/// efficient recovery.
+/// Aligned entry (non-tombstone):
 ///
-/// - **Offset `0` → `N`**: **Payload** (variable-length data)
-/// - **Offset `N` → `N + 8`**: **Key Hash** (64-bit XXH3 hash of the key, used for fast lookups)
-/// - **Offset `N + 8` → `N + 16`**: **Prev Offset** (absolute file offset pointing to the previous version)
-/// - **Offset `N + 16` → `N + 20`**: **Checksum** (full 32-bit CRC32C checksum for integrity verification)
+/// | Offset Range   | Field              | Size (Bytes) | Description                       |
+/// |----------------|--------------------|--------------|-----------------------------------|
+/// | `P .. P+pad`   | Pre-Pad (optional) | `pad`        | Zero bytes to align payload start |
+/// | `P+pad .. N`   | Payload            | `N-(P+pad)`  | Variable-length data              |
+/// | `N .. N+8`     | Key Hash           | `8`          | 64-bit XXH3 key hash              |
+/// | `N+8 .. N+16`  | Prev Offset        | `8`          | Absolute offset of previous tail  |
+/// | `N+16 .. N+20` | Checksum           | `4`          | CRC32C of payload                 |
 ///
-/// **Total Size**: `N + 20` bytes, where `N` is the length of the payload.
+/// Where:
+/// - `pad = (A - (prev_tail % A)) & (A - 1)`, `A = PAYLOAD_ALIGNMENT`.
+/// - The next entry starts at `N + 20`.
+///
+/// Tombstone (deletion marker):
+///
+/// | Offset Range  | Field    | Size (Bytes) | Description            |
+/// |---------------|----------|--------------|------------------------|
+/// | `T .. T+1`    | Payload  | `1`          | Single byte `0x00`     |
+/// | `T+1 .. T+21` | Metadata | `20`         | Key hash, prev, crc32c |
+///
+/// Notes:
+/// - Using the previous tail in `Prev Offset` lets us insert pre-pad while
+///   keeping chain traversal unambiguous.
+/// - Readers compute `payload_start = prev_offset + prepad_len(prev_offset)`
+///   and use the current metadata position as `payload_end`.
 ///
 /// <img src="https://github.com/jzombie/rust-simd-r-drive/blob/main/assets/storage-layout.png" alt="Storage Layout" />
 ///

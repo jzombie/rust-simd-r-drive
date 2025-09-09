@@ -13,7 +13,8 @@ use std::sync::Arc;
 /// offsets stored in each entry.
 ///
 /// ## Behavior:
-/// - **Starts at `tail_offset`** and moves backward using the `prev_offset` field.
+/// - **Starts at `tail_offset`** and moves backward using the
+///   `prev_offset` field.
 /// - **Ensures unique keys** by tracking seen hashes in a `HashSet`.
 /// - **Skips deleted entries**, which are represented by empty data.
 /// - **Stops when reaching an invalid or out-of-bounds offset.**
@@ -26,9 +27,10 @@ pub struct EntryIterator {
 impl EntryIterator {
     /// Creates a new iterator for scanning storage entries.
     ///
-    /// Initializes an iterator starting at the provided `tail_offset` and
-    /// moving backward through the storage file. The iterator ensures that
-    /// only the most recent version of each key is returned.
+    /// Initializes an iterator starting at the provided `tail_offset`
+    /// and moving backward through the storage file. The iterator
+    /// ensures that only the most recent version of each key is
+    /// returned.
     ///
     /// # Parameters:
     /// - `mmap`: A reference to the memory-mapped file.
@@ -43,6 +45,12 @@ impl EntryIterator {
             seen_keys: HashSet::with_hasher(Xxh3BuildHasher),
         }
     }
+
+    #[inline]
+    fn prepad_len(offset: u64) -> usize {
+        let a = PAYLOAD_ALIGNMENT;
+        ((a - (offset % a)) & (a - 1)) as usize
+    }
 }
 
 impl Iterator for EntryIterator {
@@ -50,9 +58,10 @@ impl Iterator for EntryIterator {
 
     /// Advances the iterator to the next valid entry.
     ///
-    /// Reads and parses the metadata for the current entry, determines its
-    /// boundaries, and extracts its data. If the key has already been seen,
-    /// the iterator skips it to ensure that only the latest version is returned.
+    /// Reads and parses the metadata for the current entry, determines
+    /// its boundaries, and extracts its data. If the key has already
+    /// been seen, the iterator skips it to ensure that only the latest
+    /// version is returned.
     ///
     /// # Returns:
     /// - `Some(&[u8])` containing the entry data if valid.
@@ -65,29 +74,47 @@ impl Iterator for EntryIterator {
 
         // Locate metadata at the current cursor position
         let metadata_offset = (self.cursor - METADATA_SIZE as u64) as usize;
+        if metadata_offset + METADATA_SIZE > self.mmap.len() {
+            return None;
+        }
         let metadata_bytes = &self.mmap[metadata_offset..metadata_offset + METADATA_SIZE];
         let metadata = EntryMetadata::deserialize(metadata_bytes);
 
-        let entry_start = metadata.prev_offset as usize;
+        // Stored `prev_offset` is the **previous tail**. Derive the
+        // aligned payload start for regular values. For tombstones
+        // (single NULL byte), also support the no-prepad case.
+        let prev_tail = metadata.prev_offset;
+        let derived = prev_tail + Self::prepad_len(prev_tail) as u64;
+
         let entry_end = metadata_offset;
+        let mut entry_start = derived as usize;
+
+        // Tombstone (legacy, no-prepad).
+        if entry_end > prev_tail as usize
+            && entry_end - prev_tail as usize == 1
+            && self.mmap[prev_tail as usize..entry_end] == NULL_BYTE
+        {
+            entry_start = prev_tail as usize;
+        }
 
         // Ensure valid entry bounds before reading
         if entry_start >= entry_end || entry_end > self.mmap.len() {
             return None;
         }
 
-        // Move cursor backward to follow the chain
-        self.cursor = metadata.prev_offset; // Move cursor backward
+        // Move cursor backward to follow the chain (by tails)
+        self.cursor = metadata.prev_offset;
 
-        // Skip duplicate keys (ensuring only the latest value is returned)
+        // Skip duplicate keys (ensuring only the latest value is
+        // returned)
         if !self.seen_keys.insert(metadata.key_hash) {
             return self.next(); // Skip if already seen
         }
 
         let entry_data = &self.mmap[entry_start..entry_end];
 
-        // Skip deleted entries (denoted by empty data)
-        if entry_data == NULL_BYTE {
+        // Skip deleted entries (denoted by single null byte)
+        if entry_end - entry_start == 1 && entry_data == NULL_BYTE {
             return self.next();
         }
 
