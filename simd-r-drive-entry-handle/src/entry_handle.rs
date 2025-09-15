@@ -350,3 +350,9 @@ impl EntryHandle {
         &self.mmap_arc
     }
 }
+
+impl AsRef<[u8]> for EntryHandle {
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
