@@ -351,6 +351,81 @@ impl EntryHandle {
     }
 }
 
+/// Zero-copy Arrow Buffer views over this entry.
+///
+/// Safety: the pointer comes from an `Arc<Mmap)` and stays valid for the
+/// life of the returned `Buffer` via the captured owner. The owner is an
+/// `Arc<EntryHandle>`, which keeps the underlying `Arc<Mmap>` alive.
+#[cfg(feature = "arrow")]
+impl EntryHandle {
+    /// View the payload as an Arrow `Buffer` without copying.
+    ///
+    /// Feature: `arrow`
+    ///
+    /// Returns a zero-copy `arrow::buffer::Buffer` whose contents point at
+    /// the same bytes as `self.as_slice()`. The returned `Buffer` captures
+    /// an `Arc<EntryHandle>` internally, which keeps the `Arc<Mmap)` alive
+    /// for the lifetime of the `Buffer`.
+    ///
+    /// No allocation or memcpy of the payload occurs. The only work here is
+    /// constructing the `Buffer` and cloning the `Arc` owner.
+    ///
+    /// Safety
+    /// ------
+    /// Internally uses `Buffer::from_custom_allocation`, which assumes:
+    /// - `self.as_slice().as_ptr()` is valid for `self.size()` bytes.
+    /// - The memory remains valid and immutable for the `Buffer` lifetime.
+    /// - The pointer is suitably aligned for `u8`.
+    ///
+    /// Panics
+    /// ------
+    /// Rust guarantees `&[u8]::as_ptr()` is non-null, even for empty slices.
+    /// The `NonNull::new(...).expect(...)` check is defensive and should
+    /// never panic.
+    pub fn as_arrow_buffer(&self) -> arrow::buffer::Buffer {
+        use arrow::buffer::Buffer;
+        use std::ptr::NonNull;
+        use std::sync::Arc;
+
+        // Pointer to the start of the payload.
+        let ptr = NonNull::new(self.as_slice().as_ptr() as *mut u8).expect("non-null slice ptr");
+
+        // Owner keeps the mmap alive for the Buffer's lifetime.
+        unsafe { Buffer::from_custom_allocation(ptr, self.size(), Arc::new(self.clone())) }
+    }
+
+    /// Convert this handle into an Arrow `Buffer` without copying.
+    ///
+    /// Feature: `arrow`
+    ///
+    /// Like [`as_arrow_buffer`](Self::as_arrow_buffer) but consumes `self`
+    /// to avoid one extra `Arc` clone. This is otherwise identical to the
+    /// borrowing variant and still performs zero copies of the payload.
+    ///
+    /// Safety
+    /// ------
+    /// Same assumptions as [`as_arrow_buffer`](Self::as_arrow_buffer):
+    /// - Pointer is valid for `len` bytes and remains immutable while the
+    ///   `Buffer` lives.
+    /// - Alignment is suitable for `u8`.
+    ///
+    /// Panics
+    /// ------
+    /// See [`as_arrow_buffer`](Self::as_arrow_buffer). The check is
+    /// defensive and should never panic.
+    pub fn into_arrow_buffer(self) -> arrow::buffer::Buffer {
+        use arrow::buffer::Buffer;
+        use std::ptr::NonNull;
+        use std::sync::Arc;
+
+        let len: usize = self.size();
+        let ptr = NonNull::new(self.as_slice().as_ptr() as *mut u8).expect("non-null slice ptr");
+
+        // Move self into the owner to avoid an extra Arc bump later.
+        unsafe { Buffer::from_custom_allocation(ptr, len, Arc::new(self)) }
+    }
+}
+
 impl AsRef<[u8]> for EntryHandle {
     fn as_ref(&self) -> &[u8] {
         self.as_slice()

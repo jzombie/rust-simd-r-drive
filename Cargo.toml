@@ -51,6 +51,9 @@ default = []
 expose-internal-api = []
 parallel = ["rayon"]
 
+# Proxy: when users enable simd-r-drive/arrow, it enables the dep's arrow.
+arrow = ["simd-r-drive-entry-handle/arrow"]
+
 [[bench]]
 name = "storage_benchmark"
 harness = false
