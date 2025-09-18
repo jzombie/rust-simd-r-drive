@@ -27,6 +27,8 @@ The format is based on Keep a Changelog and this project adheres to
   `src/storage_engine/constants.rs` via:
   - `PAYLOAD_ALIGN_LOG2`
   - `PAYLOAD_ALIGNMENT = 1 << PAYLOAD_ALIGN_LOG2`
+- Experimental `arrow` feature which exposes `as_arrow_buffer` and `into_arrow_buffer`
+  methods in `EntryHandle`.
 
 ### Changed
 - Internal on-disk layout: each non-tombstone payload may be preceded by
