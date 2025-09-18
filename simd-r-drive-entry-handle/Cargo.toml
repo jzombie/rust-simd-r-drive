@@ -11,8 +11,10 @@ keywords.workspace = true
 publish.workspace = true
 
 [dependencies]
+arrow = { workspace = true, optional = true }
 crc32fast = { workspace = true }
 memmap2 = { workspace = true }
 
 [features]
 expose-internal-api = []
+arrow = ["dep:arrow"]
