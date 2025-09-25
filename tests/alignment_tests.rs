@@ -67,47 +67,68 @@ fn assert_bytemuck_view_u128(bytes: &[u8]) {
 }
 
 #[cfg(target_arch = "x86_64")]
-fn assert_simd_16_byte_loadable(bytes: &[u8]) {
+fn assert_simd_64_byte_loadable(bytes: &[u8]) {
+    // Enforce 64B-aligned base for clean cacheline-friendly loads.
     assert!(
-        (bytes.as_ptr() as usize).is_multiple_of(16),
-        "SIMD pointer must be 16-byte aligned"
+        (bytes.as_ptr() as usize).is_multiple_of(64),
+        "SIMD pointer must be 64-byte aligned"
     );
-    let lanes = bytes.len() / 16;
+    // Process only the full 64B lanes; ignore any tail < 64B.
+    let lanes = bytes.len() / 64;
+    if lanes == 0 {
+        return;
+    }
     unsafe {
         for i in 0..lanes {
-            let p = bytes.as_ptr().add(i * 16) as *const __m128i;
-            let v = _mm_load_si128(p);
-            core::hint::black_box(v);
+            let base = bytes.as_ptr().add(i * 64);
+            let p0 = base.add(0) as *const __m128i;
+            let p1 = base.add(16) as *const __m128i;
+            let p2 = base.add(32) as *const __m128i;
+            let p3 = base.add(48) as *const __m128i;
+            let v0 = _mm_load_si128(p0);
+            let v1 = _mm_load_si128(p1);
+            let v2 = _mm_load_si128(p2);
+            let v3 = _mm_load_si128(p3);
+            core::hint::black_box((v0, v1, v2, v3));
         }
     }
 }
 
 #[cfg(target_arch = "aarch64")]
-fn assert_simd_16_byte_loadable(bytes: &[u8]) {
+fn assert_simd_64_byte_loadable(bytes: &[u8]) {
+    // Enforce 64B-aligned base for clean cacheline-friendly loads.
     assert!(
-        (bytes.as_ptr() as usize).is_multiple_of(16),
-        "SIMD pointer must be 16-byte aligned"
+        (bytes.as_ptr() as usize).is_multiple_of(64),
+        "SIMD pointer must be 64-byte aligned"
     );
-    let lanes = bytes.len() / 16;
+    // Process only the full 64B lanes; ignore any tail < 64B.
+    let lanes = bytes.len() / 64;
+    if lanes == 0 {
+        return;
+    }
     unsafe {
         for i in 0..lanes {
-            let p = bytes.as_ptr().add(i * 16);
-            let v0 = vld1q_u8(p);
-            core::hint::black_box(v0);
-            let p_vec = p as *const uint8x16_t;
-            let v1: uint8x16_t = core::ptr::read(p_vec);
-            core::hint::black_box(v1);
+            let base = bytes.as_ptr().add(i * 64);
+            let v0 = vld1q_u8(base.add(0));
+            let v1 = vld1q_u8(base.add(16));
+            let v2 = vld1q_u8(base.add(32));
+            let v3 = vld1q_u8(base.add(48));
+            // Also test an aligned typed read path.
+            let p0 = base.add(0) as *const uint8x16_t;
+            let r0: uint8x16_t = core::ptr::read(p0);
+            core::hint::black_box((v0, v1, v2, v3, r0));
         }
     }
 }
 
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-fn assert_simd_16_byte_loadable(bytes: &[u8]) {
-    // Portable fallback: re-assert address and u128 view conditions.
+fn assert_simd_64_byte_loadable(bytes: &[u8]) {
+    // Portable fallback: enforce 64B alignment; if we have >= 64B,
+    // prove we could read at least one 16B lane safely.
     assert_payload_addr_aligned(bytes);
-    if bytes.len() >= 16 && bytes.len() % 16 == 0 {
+    if bytes.len() >= 64 {
         assert_can_view_as::<u128>(bytes);
-        assert_bytemuck_view_u128(bytes);
+        let _: &[u128] = try_cast_slice(bytes).expect("cast &[u8]->&[u128] failed");
     }
 }
 
@@ -160,10 +181,10 @@ fn byte_alignment_unaligned_then_overwrite_and_simd() {
     // Phase 2: delete one string (tombstone, no pre-pad).
     store.delete(b"k_s2").unwrap();
 
-    // Phase 3: overwrite with 16B-multiple payloads.
-    let s1_aligned = vec![0xA5u8; 2 * 16]; // 32 bytes
-    let s3_aligned = vec![0xB6u8; 3 * 16]; // 48 bytes
-    let u32_aligned = vec![0xCCu8; 16 * 4]; // 64 bytes
+    // Phase 3: overwrite with 64B-multiple payloads.
+    let s1_aligned = vec![0xA5u8; 1 * 64]; // 64 bytes
+    let s3_aligned = vec![0xB6u8; 2 * 64]; // 128 bytes
+    let u32_aligned = vec![0xCCu8; 1 * 64]; // 64 bytes
 
     store.write(b"k_s1", &s1_aligned).unwrap();
     store.write(b"k_s3", &s3_aligned).unwrap();
@@ -198,7 +219,7 @@ fn byte_alignment_unaligned_then_overwrite_and_simd() {
     assert_bytemuck_view_u64(e_u64_new.as_slice());
     assert_bytemuck_view_u128(e_u128_new.as_slice());
 
-    // SIMD loads or portable fallback.
+    // SIMD 64B lanes (or portable fallback).
     for bytes in [
         e_s1_new.as_slice(),
         e_s3_new.as_slice(),
@@ -206,8 +227,8 @@ fn byte_alignment_unaligned_then_overwrite_and_simd() {
         e_u64_new.as_slice(),
         e_u128_new.as_slice(),
     ] {
-        if bytes.len() >= 16 {
-            assert_simd_16_byte_loadable(bytes);
+        if bytes.len() >= 64 {
+            assert_simd_64_byte_loadable(bytes);
         }
     }
 
@@ -215,8 +236,8 @@ fn byte_alignment_unaligned_then_overwrite_and_simd() {
     for entry in store.iter_entries() {
         let bytes = entry.as_slice();
         assert_payload_addr_aligned(bytes);
-        if bytes.len() >= 16 {
-            assert_simd_16_byte_loadable(bytes);
+        if bytes.len() >= 64 {
+            assert_simd_64_byte_loadable(bytes);
         }
     }
 
