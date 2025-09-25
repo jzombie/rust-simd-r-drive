@@ -4,6 +4,8 @@
 
 `SIMD R Drive` is a high-performance, thread-safe storage engine using a single-file storage container optimized for zero-copy binary access.
 
+Payloads are written at fixed 64-byte aligned boundaries, ensuring efficient zero-copy access and predictable performance for SIMD and cache-friendly workloads.
+
 Can be used as a command line interface (CLI) app, or as a library in another application. Continuously tested on Mac, Linux, and Windows.
 
 [Documentation](https://docs.rs/simd-r-drive/latest/simd_r_drive/)
@@ -48,11 +50,13 @@ Additionally, `SIMD R Drive` is designed to handle datasets larger than availabl
 
 ## Fixed Payload Alignment (Zero-Copy Typed Slices)
 
-Every non-tombstone payload now starts at a fixed, power-of-two boundary (16 bytes by default, configurable). This guarantees that, when your payload length matches the element size, you can reinterpret bytes as typed slices (e.g., `&[u16]`, `&[u32]`, `&[u64]`, `&[u128]`) without copying.
+Every non-tombstone payload now begins on a fixed, power-of-two boundary (64 bytes by default). This matches the size of a typical CPU cacheline and ensures SIMD/vector loads (AVX, AVX-512, SVE, etc.) can operate at full speed without crossing cacheline boundaries.
 
-This change is transparent to the public API and works with all write modes, including streaming. The on-disk layout may include a few padding bytes per entry to maintain alignment. Tombstones are unaffected.
+When your payload length matches the element size, you can safely reinterpret the bytes as typed slices (e.g., &[u16], &[u32], &[u64], &[u128]) without copying.
 
-Practical benefits include faster vectorized reads, simpler use of zero-copy helpers (e.g., casting libraries), and fewer fallback copies. If you need a stricter boundary for a target platform, adjust the [alignment constant](./src/storage_engine/constants.rs) and rebuild.
+The on-disk layout may include a few padding bytes per entry to maintain alignment. Tombstones are unaffected.
+
+Practical benefits include cache-friendly zero-copy reads, predictable SIMD performance, simpler use of casting libraries, and fewer fallback copies. If a different boundary is required for your hardware, adjust the [alignment constant](./simd-r-drive-entry-handle/src/constants.rs) and rebuild.
 
 ## Single-File Storage Container for Binary Data
 
@@ -102,6 +106,8 @@ Think of it as a self-contained binary filesystem—capable of storing and retri
 <div align="center">
   <img src="./assets/storage-layout.png" title="Storage Layout" />
 </div>
+
+_Note: Illustration is conceptual and does not show the 64-byte aligned  boundaries used in the actual on-disk format. In practice, every payload is padded to start on a fixed 64-byte boundary for cacheline and SIMD efficiency._
 
 Aligned entry (non-tombstone):
 

@@ -59,7 +59,7 @@ where
         Cow::Borrowed(aligned)
     } else {
         assert!(
-            bytes.len() % N == 0,
+            bytes.len().is_multiple_of(N),
             "Input length must be a multiple of element size"
         );
 

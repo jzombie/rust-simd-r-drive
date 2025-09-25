@@ -387,11 +387,20 @@ impl EntryHandle {
         use std::ptr::NonNull;
         use std::sync::Arc;
 
-        // Pointer to the start of the payload.
-        let ptr = NonNull::new(self.as_slice().as_ptr() as *mut u8).expect("non-null slice ptr");
+        let slice = self.as_slice();
+        #[cfg(any(test, debug_assertions))]
+        {
+            use crate::{
+                constants::PAYLOAD_ALIGNMENT, debug_assert_aligned, debug_assert_aligned_offset,
+            };
+            // Assert actual pointer alignment.
+            debug_assert_aligned(slice.as_ptr(), PAYLOAD_ALIGNMENT as usize);
+            // Assert derived file offset alignment.
+            debug_assert_aligned_offset(self.range.start as u64);
+        }
 
-        // Owner keeps the mmap alive for the Buffer's lifetime.
-        unsafe { Buffer::from_custom_allocation(ptr, self.size(), Arc::new(self.clone())) }
+        let ptr = NonNull::new(slice.as_ptr() as *mut u8).expect("non-null slice ptr");
+        unsafe { Buffer::from_custom_allocation(ptr, slice.len(), Arc::new(self.clone())) }
     }
 
     /// Convert this handle into an Arrow `Buffer` without copying.
@@ -418,11 +427,20 @@ impl EntryHandle {
         use std::ptr::NonNull;
         use std::sync::Arc;
 
-        let len: usize = self.size();
-        let ptr = NonNull::new(self.as_slice().as_ptr() as *mut u8).expect("non-null slice ptr");
+        let slice = self.as_slice();
+        #[cfg(any(test, debug_assertions))]
+        {
+            use crate::{
+                constants::PAYLOAD_ALIGNMENT, debug_assert_aligned, debug_assert_aligned_offset,
+            };
+            // Assert actual pointer alignment.
+            debug_assert_aligned(slice.as_ptr(), PAYLOAD_ALIGNMENT as usize);
+            // Assert derived file offset alignment.
+            debug_assert_aligned_offset(self.range.start as u64);
+        }
 
-        // Move self into the owner to avoid an extra Arc bump later.
-        unsafe { Buffer::from_custom_allocation(ptr, len, Arc::new(self)) }
+        let ptr = NonNull::new(slice.as_ptr() as *mut u8).expect("non-null slice ptr");
+        unsafe { Buffer::from_custom_allocation(ptr, slice.len(), Arc::new(self)) }
     }
 }
 
