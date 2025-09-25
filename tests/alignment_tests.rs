@@ -25,7 +25,7 @@ fn assert_payload_addr_aligned(bytes: &[u8]) {
     let ptr = bytes.as_ptr() as usize;
     let a = PAYLOAD_ALIGNMENT as usize;
     assert!(
-        ptr % a == 0,
+        ptr.is_multiple_of(a),
         "payload start address is not {}-byte aligned",
         a
     );
@@ -42,13 +42,13 @@ fn assert_can_view_as<T: Copy>(bytes: &[u8]) {
     );
     let ptr = bytes.as_ptr() as usize;
     assert!(
-        ptr % a_t == 0,
+        ptr.is_multiple_of(a_t),
         "payload addr {} is not aligned to T (align {})",
         ptr,
         a_t
     );
     assert!(
-        bytes.len() % size_of::<T>() == 0,
+        bytes.len().is_multiple_of(size_of::<T>()),
         "payload length {} is not a multiple of {}",
         bytes.len(),
         size_of::<T>()
@@ -85,7 +85,7 @@ fn assert_simd_16_byte_loadable(bytes: &[u8]) {
 #[cfg(target_arch = "aarch64")]
 fn assert_simd_16_byte_loadable(bytes: &[u8]) {
     assert!(
-        (bytes.as_ptr() as usize) % 16 == 0,
+        (bytes.as_ptr() as usize).is_multiple_of(16),
         "SIMD pointer must be 16-byte aligned"
     );
     let lanes = bytes.len() / 16;
