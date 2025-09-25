@@ -69,7 +69,7 @@ fn assert_bytemuck_view_u128(bytes: &[u8]) {
 #[cfg(target_arch = "x86_64")]
 fn assert_simd_16_byte_loadable(bytes: &[u8]) {
     assert!(
-        (bytes.as_ptr() as usize) % 16 == 0,
+        (bytes.as_ptr() as usize).is_multiple_of(16),
         "SIMD pointer must be 16-byte aligned"
     );
     let lanes = bytes.len() / 16;
