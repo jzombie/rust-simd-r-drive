@@ -48,11 +48,13 @@ Additionally, `SIMD R Drive` is designed to handle datasets larger than availabl
 
 ## Fixed Payload Alignment (Zero-Copy Typed Slices)
 
-Every non-tombstone payload now starts at a fixed, power-of-two boundary (64 bytes by default). This guarantees that, when your payload length matches the element size, you can reinterpret bytes as typed slices (e.g., `&[u16]`, `&[u32]`, `&[u64]`, `&[u128]`) without copying.
+Every non-tombstone payload now begins on a fixed, power-of-two boundary (64 bytes by default). This matches the size of a typical CPU cacheline and ensures SIMD/vector loads (AVX, AVX-512, SVE, etc.) can operate at full speed without crossing cacheline boundaries.
 
-This change is transparent to the public API and works with all write modes, including streaming. The on-disk layout may include a few padding bytes per entry to maintain alignment. Tombstones are unaffected.
+When your payload length matches the element size, you can safely reinterpret the bytes as typed slices (e.g., &[u16], &[u32], &[u64], &[u128]) without copying.
 
-Practical benefits include faster vectorized reads, simpler use of zero-copy helpers (e.g., casting libraries), and fewer fallback copies. If you need a stricter boundary for a target platform, adjust the [alignment constant](./src/storage_engine/constants.rs) and rebuild.
+The on-disk layout may include a few padding bytes per entry to maintain alignment. Tombstones are unaffected.
+
+Practical benefits include cache-friendly zero-copy reads, predictable SIMD performance, simpler use of casting libraries, and fewer fallback copies. If a different boundary is required for your hardware, adjust the [alignment constant](./simd-r-drive-entry-handle/src/constants.rs) and rebuild.
 
 ## Single-File Storage Container for Binary Data
 
