@@ -2532,3 +2532,19 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[patch.unused]]
+name = "muxio-rpc-service"
+version = "0.10.0-alpha"
+
+[[patch.unused]]
+name = "muxio-rpc-service-caller"
+version = "0.10.0-alpha"
+
+[[patch.unused]]
+name = "muxio-tokio-rpc-client"
+version = "0.10.0-alpha"
+
+[[patch.unused]]
+name = "muxio-tokio-rpc-server"
+version = "0.10.0-alpha"
