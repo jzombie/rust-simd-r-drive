@@ -182,9 +182,9 @@ fn byte_alignment_unaligned_then_overwrite_and_simd() {
     store.delete(b"k_s2").unwrap();
 
     // Phase 3: overwrite with 64B-multiple payloads.
-    let s1_aligned = vec![0xA5u8; 1 * 64]; // 64 bytes
+    let s1_aligned = vec![0xA5u8; 64]; // 64 bytes
     let s3_aligned = vec![0xB6u8; 2 * 64]; // 128 bytes
-    let u32_aligned = vec![0xCCu8; 1 * 64]; // 64 bytes
+    let u32_aligned = vec![0xCCu8; 64]; // 64 bytes
 
     store.write(b"k_s1", &s1_aligned).unwrap();
     store.write(b"k_s3", &s3_aligned).unwrap();
