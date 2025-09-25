@@ -15,7 +15,39 @@ The format is based on Keep a Changelog and this project adheres to
 ### Migration
 - If there are breaking changes, put a short, actionable checklist here.
 
-## [0.14.0-alpha] - 2024-09-08
+---
+
+## [0.15.0-alpha] - 2025-09-25
+### Breaking
+- Default payload alignment increased from 16 bytes to 64 bytes to ensure
+  SIMD- and cacheline-safe zero-copy access across SSE/AVX/AVX-512 code
+  paths. Readers/writers compiled with `<= 0.14.x-alpha` that assume
+  16-byte alignment will not be able to parse 0.15.x stores correctly.
+
+### Added
+- Debug/test-only assertions (`assert_aligned`, `assert_aligned_offset`)
+  to validate both pointer- and offset-level alignment invariants.
+
+### Changed
+- Updated documentation and examples to reflect the new 64-byte default
+  `PAYLOAD_ALIGNMENT` (still configurable in
+  `src/storage_engine/constants.rs`).
+- `EntryHandle::as_arrow_buffer` and `into_arrow_buffer` now check both
+  pointer and offset alignment when compiled in test or debug mode.
+
+### Migration
+- Stores created with 0.15.x are not backward-compatible with
+  0.14.x readers/writers due to the alignment change.
+- To migrate:
+  1. Read entries with your existing 0.14.x binary.
+  2. Rewrite into a fresh 0.15.x store (which will apply 64-byte
+     alignment).
+  3. Deploy upgraded readers before upgrading writers in multi-service
+     environments.
+
+---
+
+## [0.14.0-alpha] - 2025-09-08
 ### Breaking
 - Files written by 0.14.0-alpha use padded payload starts for fixed alignment.
   Older readers (<= 0.13.x-alpha) may misinterpret pre-pad bytes as part of the
