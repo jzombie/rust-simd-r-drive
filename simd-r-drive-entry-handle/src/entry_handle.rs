@@ -390,11 +390,13 @@ impl EntryHandle {
         let slice = self.as_slice();
         #[cfg(any(test, debug_assertions))]
         {
-            use crate::{assert_aligned, assert_aligned_offset, constants::PAYLOAD_ALIGNMENT};
+            use crate::{
+                constants::PAYLOAD_ALIGNMENT, debug_assert_aligned, debug_assert_aligned_offset,
+            };
             // Assert actual pointer alignment.
-            assert_aligned(slice.as_ptr(), PAYLOAD_ALIGNMENT as usize);
+            debug_assert_aligned(slice.as_ptr(), PAYLOAD_ALIGNMENT as usize);
             // Assert derived file offset alignment.
-            assert_aligned_offset(self.range.start as u64);
+            debug_assert_aligned_offset(self.range.start as u64);
         }
 
         let ptr = NonNull::new(slice.as_ptr() as *mut u8).expect("non-null slice ptr");
@@ -428,11 +430,13 @@ impl EntryHandle {
         let slice = self.as_slice();
         #[cfg(any(test, debug_assertions))]
         {
-            use crate::{assert_aligned, assert_aligned_offset, constants::PAYLOAD_ALIGNMENT};
+            use crate::{
+                constants::PAYLOAD_ALIGNMENT, debug_assert_aligned, debug_assert_aligned_offset,
+            };
             // Assert actual pointer alignment.
-            assert_aligned(slice.as_ptr(), PAYLOAD_ALIGNMENT as usize);
+            debug_assert_aligned(slice.as_ptr(), PAYLOAD_ALIGNMENT as usize);
             // Assert derived file offset alignment.
-            assert_aligned_offset(self.range.start as u64);
+            debug_assert_aligned_offset(self.range.start as u64);
         }
 
         let ptr = NonNull::new(slice.as_ptr() as *mut u8).expect("non-null slice ptr");

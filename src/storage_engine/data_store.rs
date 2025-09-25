@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use tracing::{debug, info, warn};
 
 #[cfg(any(test, debug_assertions))]
-use simd_r_drive_entry_handle::assert_aligned_offset;
+use simd_r_drive_entry_handle::debug_assert_aligned_offset;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -409,7 +409,7 @@ impl DataStore {
             } else {
                 #[cfg(any(test, debug_assertions))]
                 {
-                    assert_aligned_offset(derived_start);
+                    debug_assert_aligned_offset(derived_start);
                 }
 
                 derived_start
@@ -554,7 +554,7 @@ impl DataStore {
 
         #[cfg(any(test, debug_assertions))]
         {
-            assert_aligned_offset(entry_start as u64);
+            debug_assert_aligned_offset(entry_start as u64);
         }
 
         Some(EntryHandle {
@@ -1092,7 +1092,7 @@ impl DataStoreReader for DataStore {
 
         #[cfg(any(test, debug_assertions))]
         {
-            assert_aligned_offset(entry_start as u64);
+            debug_assert_aligned_offset(entry_start as u64);
         }
 
         Ok(Some(EntryHandle {
