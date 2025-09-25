@@ -349,7 +349,7 @@ impl DataStore {
 
             #[cfg(any(test, debug_assertions))]
             {
-                assert_aligned_offset(entry_start as u64, PAYLOAD_ALIGNMENT);
+                assert_aligned_offset(entry_start as u64);
             }
 
             Some(EntryHandle {
