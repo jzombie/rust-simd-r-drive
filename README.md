@@ -48,7 +48,7 @@ Additionally, `SIMD R Drive` is designed to handle datasets larger than availabl
 
 ## Fixed Payload Alignment (Zero-Copy Typed Slices)
 
-Every non-tombstone payload now starts at a fixed, power-of-two boundary (16 bytes by default, configurable). This guarantees that, when your payload length matches the element size, you can reinterpret bytes as typed slices (e.g., `&[u16]`, `&[u32]`, `&[u64]`, `&[u128]`) without copying.
+Every non-tombstone payload now starts at a fixed, power-of-two boundary (64 bytes by default). This guarantees that, when your payload length matches the element size, you can reinterpret bytes as typed slices (e.g., `&[u16]`, `&[u32]`, `&[u64]`, `&[u128]`) without copying.
 
 This change is transparent to the public API and works with all write modes, including streaming. The on-disk layout may include a few padding bytes per entry to maintain alignment. Tombstones are unaffected.
 

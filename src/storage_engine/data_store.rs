@@ -17,6 +17,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use tracing::{debug, info, warn};
 
+#[cfg(any(test, debug_assertions))]
+use simd_r_drive_entry_handle::assert_aligned_offset;
+
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -344,6 +347,11 @@ impl DataStore {
                 return None;
             }
 
+            #[cfg(any(test, debug_assertions))]
+            {
+                assert_aligned_offset(entry_start as u64, PAYLOAD_ALIGNMENT);
+            }
+
             Some(EntryHandle {
                 mmap_arc: mmap_arc.clone(),
                 range: entry_start..entry_end,
@@ -399,6 +407,11 @@ impl DataStore {
             {
                 prev_tail
             } else {
+                #[cfg(any(test, debug_assertions))]
+                {
+                    assert_aligned_offset(derived_start);
+                }
+
                 derived_start
             };
 
@@ -537,6 +550,11 @@ impl DataStore {
         // Tombstone (single null byte)
         if entry_end - entry_start == 1 && mmap_arc[entry_start..entry_end] == NULL_BYTE {
             return None;
+        }
+
+        #[cfg(any(test, debug_assertions))]
+        {
+            assert_aligned_offset(entry_start as u64);
         }
 
         Some(EntryHandle {
@@ -1070,6 +1088,11 @@ impl DataStoreReader for DataStore {
 
         if entry_start >= entry_end || entry_end > mmap_arc.len() {
             return Ok(None);
+        }
+
+        #[cfg(any(test, debug_assertions))]
+        {
+            assert_aligned_offset(entry_start as u64);
         }
 
         Ok(Some(EntryHandle {
