@@ -107,6 +107,8 @@ Think of it as a self-contained binary filesystem—capable of storing and retri
   <img src="./assets/storage-layout.png" title="Storage Layout" />
 </div>
 
+_Note: Illustration is conceptual and does not show the 64-byte aligned  boundaries used in the actual on-disk format. In practice, every payload is padded to start on a fixed 64-byte boundary for cacheline and SIMD efficiency._
+
 Aligned entry (non-tombstone):
 
 | Offset Range   | Field              | Size (Bytes) | Description                       |
