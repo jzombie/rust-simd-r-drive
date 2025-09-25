@@ -19,7 +19,7 @@ pub fn assert_aligned_offset(off: u64) {
         "PAYLOAD_ALIGNMENT must be a power of two"
     );
     debug_assert!(
-        off % PAYLOAD_ALIGNMENT == 0,
+        off.is_multiple_of(PAYLOAD_ALIGNMENT),
         "derived payload start not {}-byte aligned (got {})",
         PAYLOAD_ALIGNMENT,
         off
