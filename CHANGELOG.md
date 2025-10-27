@@ -15,6 +15,11 @@ The format is based on Keep a Changelog and this project adheres to
 ### Migration
 - If there are breaking changes, put a short, actionable checklist here.
 
+
+## [0.15.5-alpha] - 2025-10-27
+### Changed
+- Bumped Apache Arrow dependency to 57.0.0. (No other functional changes.)
+
 ---
 
 ## [0.15.0-alpha] - 2025-09-25
