@@ -8,7 +8,7 @@ Payloads are written at fixed 64-byte aligned boundaries, ensuring efficient zer
 
 Can be used as a command line interface (CLI) app, or as a library in another application. Continuously tested on Mac, Linux, and Windows.
 
-[Documentation](https://docs.rs/simd-r-drive/latest/simd_r_drive/)
+[Documentation](https://docs.rs/simd-r-drive/latest/simd_r_drive/) / [Book](https://docs.simd-r-drive.zenosmosis.com/)
 
 ## Table of Contents
 
