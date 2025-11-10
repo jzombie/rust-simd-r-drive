@@ -1,4 +1,4 @@
-# SIMD R Drive [![made-with-rust][rust-logo]][rust-src-page] [![crates.io][crates-badge]][crates-page] [![Documentation][docs-badge]][docs-page] [![MIT licensed][license-badge]][license-page]
+# SIMD R Drive [![made-with-rust][rust-logo]][rust-src-page] [![Ask DeepWiki][deepwiki-badge]][deepwiki-page] [![crates.io][crates-badge]][crates-page] [![Documentation][docs-badge]][docs-page] [![MIT licensed][license-badge]][license-page]
 
 **Work in progress.**
 
@@ -270,6 +270,9 @@ Licensed under the [Apache-2.0 License](./LICENSE).
 
 [rust-src-page]: https://www.rust-lang.org/
 [rust-logo]: https://img.shields.io/badge/Made%20with-Rust-black?&logo=Rust
+
+[deepwiki-page]: https://deepwiki.com/jzombie/rust-simd-r-drive
+[deepwiki-badge]: https://deepwiki.com/badge.svg
 
 [crates-page]: https://crates.io/crates/simd-r-drive
 [crates-badge]: https://img.shields.io/crates/v/simd-r-drive.svg
