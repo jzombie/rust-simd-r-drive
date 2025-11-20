@@ -1,6 +1,6 @@
 [workspace.package]
 authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
-version = "0.15.5-alpha"
+version = "0.16.0-alpha"
 edition = "2024"
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
@@ -54,6 +54,9 @@ parallel = ["rayon"]
 # Proxy: when users enable simd-r-drive/arrow, it enables the dep's arrow.
 arrow = ["simd-r-drive-entry-handle/arrow"]
 
+# Proxy: when users enable simd-r-drive/bytes, it enables the dep's bytes.
+bytes = ["simd-r-drive-entry-handle/bytes"]
+
 [[bench]]
 name = "storage_benchmark"
 harness = false
@@ -79,18 +82,19 @@ resolver = "2"
 
 [workspace.dependencies]
 # Intra-workspace crates
-simd-r-drive = { path = ".", version = "0.15.5-alpha" }
-simd-r-drive-entry-handle = { path = "./simd-r-drive-entry-handle", version = "0.15.5-alpha" }
-simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.15.5-alpha" }
-simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.15.5-alpha" }
+simd-r-drive = { path = ".", version = "0.16.0-alpha" }
+simd-r-drive-entry-handle = { path = "./simd-r-drive-entry-handle", version = "0.16.0-alpha" }
+simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.16.0-alpha" }
+simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.16.0-alpha" }
 muxio-tokio-rpc-client = "0.9.0-alpha"
 muxio-tokio-rpc-server = "0.9.0-alpha"
 muxio-rpc-service = "0.9.0-alpha"
 muxio-rpc-service-caller = "0.9.0-alpha"
 
 # Third-party crates (note, not all dependencies are used in the base drive)
-arrow = { version = "57.0.0", default-features = false }
+arrow = { version = "56.2.0", default-features = false }
 async-trait = "0.1.88"
+bytes = "1.11.0"
 bincode = "1.3.3" # TODO: Replace with `bitcode`
 bitcode = "0.6.6"
 clap = "4.5.40"

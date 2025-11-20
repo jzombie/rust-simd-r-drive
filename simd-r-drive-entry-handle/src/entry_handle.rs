@@ -449,3 +449,110 @@ impl AsRef<[u8]> for EntryHandle {
         self.as_slice()
     }
 }
+
+/// Zero-copy Bytes views over this entry.
+///
+/// A wrapper type that owns an EntryHandle and provides AsRef<[u8]> for bytes::Bytes::from_owner
+#[cfg(feature = "bytes")]
+struct BytesOwner(Arc<EntryHandle>);
+
+#[cfg(feature = "bytes")]
+impl AsRef<[u8]> for BytesOwner {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
+
+/// Safety: the pointer comes from an `Arc<Mmap>` and stays valid for the
+/// life of the returned `Bytes` via the captured owner. The owner is an
+/// `Arc<EntryHandle>`, which keeps the underlying `Arc<Mmap>` alive.
+#[cfg(feature = "bytes")]
+impl EntryHandle {
+    /// View the payload as a `bytes::Bytes` without copying.
+    ///
+    /// Feature: `bytes`
+    ///
+    /// Returns a zero-copy `bytes::Bytes` whose contents point at
+    /// the same bytes as `self.as_slice()`. The returned `Bytes` captures
+    /// an `Arc<EntryHandle>` internally, which keeps the `Arc<Mmap>` alive
+    /// for the lifetime of the `Bytes`.
+    ///
+    /// No allocation or memcpy of the payload occurs. The only work here is
+    /// constructing the `Bytes` and cloning the `Arc` owner.
+    ///
+    /// Safety
+    /// ------
+    /// Uses `Bytes::from_owner` with a wrapper type that holds an `Arc<EntryHandle>`.
+    /// The memory remains valid because:
+    /// - The slice is backed by `Arc<Mmap>` which outlives the returned `Bytes`
+    /// - The handle is cloned and kept alive internally via the BytesOwner
+    /// - The memory is immutable for the lifetime of the `Bytes`
+    ///
+    /// Panics
+    /// ------
+    /// This method should never panic as Rust guarantees `&[u8]::as_ptr()`
+    /// is valid for the lifetime of the slice.
+    pub fn as_bytes(&self) -> bytes::Bytes {
+        use bytes::Bytes;
+        use std::sync::Arc;
+
+        #[cfg(any(test, debug_assertions))]
+        {
+            use crate::{
+                constants::PAYLOAD_ALIGNMENT, debug_assert_aligned, debug_assert_aligned_offset,
+            };
+            let slice = self.as_slice();
+            // Assert actual pointer alignment.
+            debug_assert_aligned(slice.as_ptr(), PAYLOAD_ALIGNMENT as usize);
+            // Assert derived file offset alignment.
+            debug_assert_aligned_offset(self.range.start as u64);
+        }
+
+        // Create an owner that implements AsRef<[u8]> and keeps the mmap alive
+        let owner = BytesOwner(Arc::new(self.clone()));
+
+        // from_owner will create a zero-copy Bytes backed by our owner
+        Bytes::from_owner(owner)
+    }
+
+    /// Convert this handle into a `bytes::Bytes` without copying.
+    ///
+    /// Feature: `bytes`
+    ///
+    /// Like [`as_bytes`](Self::as_bytes) but consumes `self`
+    /// to avoid one extra `Arc` clone. This is otherwise identical to the
+    /// borrowing variant and still performs zero copies of the payload.
+    ///
+    /// Safety
+    /// ------
+    /// Same assumptions as [`as_bytes`](Self::as_bytes):
+    /// - Pointer is valid for `len` bytes and remains immutable while the
+    ///   `Bytes` lives.
+    /// - Alignment is suitable for `u8`.
+    ///
+    /// Panics
+    /// ------
+    /// See [`as_bytes`](Self::as_bytes). This method should never panic.
+    pub fn into_bytes(self) -> bytes::Bytes {
+        use bytes::Bytes;
+        use std::sync::Arc;
+
+        #[cfg(any(test, debug_assertions))]
+        {
+            use crate::{
+                constants::PAYLOAD_ALIGNMENT, debug_assert_aligned, debug_assert_aligned_offset,
+            };
+            let slice = self.as_slice();
+            // Assert actual pointer alignment.
+            debug_assert_aligned(slice.as_ptr(), PAYLOAD_ALIGNMENT as usize);
+            // Assert derived file offset alignment.
+            debug_assert_aligned_offset(self.range.start as u64);
+        }
+
+        // Move self into an Arc via the owner
+        let owner = BytesOwner(Arc::new(self));
+
+        // from_owner will create a zero-copy Bytes backed by our owner
+        Bytes::from_owner(owner)
+    }
+}
