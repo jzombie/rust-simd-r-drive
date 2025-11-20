@@ -16,9 +16,16 @@ The format is based on Keep a Changelog and this project adheres to
 - If there are breaking changes, put a short, actionable checklist here.
 
 
-## [0.15.5-alpha] - 2025-10-27
+## [0.16.0-alpha] - 2025-11-19
+### Added
+- Added feature-gated `bytes` integration for zero-copy conversion to `bytes::Bytes` (v1.11.0).
+  - New methods: `EntryHandle::as_bytes()` and `EntryHandle::into_bytes()`.
+  - Enable with `features = ["bytes"]` in your `Cargo.toml`.
+  - Perfect for network protocols and async I/O scenarios.
+
 ### Changed
 - Bumped Apache Arrow dependency to 57.0.0. (No other functional changes.)
+- Updated `simd-r-drive-entry-handle` README with feature documentation and usage examples.
 
 ---
 

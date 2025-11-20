@@ -447,9 +447,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.10.1"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
+checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
 
 [[package]]
 name = "cast"
@@ -1793,7 +1793,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.15.5-alpha"
+version = "0.16.0-alpha"
 dependencies = [
  "async-trait",
  "bincode",
@@ -1821,16 +1821,17 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-entry-handle"
-version = "0.15.5-alpha"
+version = "0.16.0-alpha"
 dependencies = [
  "arrow",
+ "bytes",
  "crc32fast",
  "memmap2",
 ]
 
 [[package]]
 name = "simd-r-drive-extensions"
-version = "0.15.5-alpha"
+version = "0.16.0-alpha"
 dependencies = [
  "bincode",
  "doc-comment",
@@ -1842,7 +1843,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-muxio-service-definition"
-version = "0.15.5-alpha"
+version = "0.16.0-alpha"
 dependencies = [
  "bitcode",
  "muxio-rpc-service",
@@ -1850,7 +1851,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-client"
-version = "0.15.5-alpha"
+version = "0.16.0-alpha"
 dependencies = [
  "async-trait",
  "muxio-rpc-service",
@@ -1864,7 +1865,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-server"
-version = "0.15.5-alpha"
+version = "0.16.0-alpha"
 dependencies = [
  "clap",
  "indoc",
