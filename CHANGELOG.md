@@ -24,7 +24,7 @@ The format is based on Keep a Changelog and this project adheres to
   - Perfect for network protocols and async I/O scenarios.
 
 ### Changed
-- Bumped Apache Arrow dependency to 57.0.0. (No other functional changes.)
+- Regresses Apache Arrow dependency to 56.2.0 to be compatible with current [datafusion](https://crates.io/crates/datafusion) crate release.
 - Updated `simd-r-drive-entry-handle` README with feature documentation and usage examples.
 
 ---

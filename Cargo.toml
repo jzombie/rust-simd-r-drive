@@ -92,7 +92,7 @@ muxio-rpc-service = "0.9.0-alpha"
 muxio-rpc-service-caller = "0.9.0-alpha"
 
 # Third-party crates (note, not all dependencies are used in the base drive)
-arrow = { version = "57.0.0", default-features = false }
+arrow = { version = "56.2.0", default-features = false }
 async-trait = "0.1.88"
 bytes = "1.11.0"
 bincode = "1.3.3" # TODO: Replace with `bitcode`
