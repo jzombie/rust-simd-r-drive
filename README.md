@@ -1,4 +1,4 @@
-# SIMD R Drive [![made-with-rust][rust-logo]][rust-src-page] [![Ask DeepWiki][deepwiki-badge]][deepwiki-page] [![crates.io][crates-badge]][crates-page] [![Documentation][docs-badge]][docs-page] [![MIT licensed][license-badge]][license-page]
+# SIMD R Drive [![made-with-rust][rust-logo]][rust-src-page] [![Ask DeepWiki][deepwiki-badge]][deepwiki-page] [![crates.io][crates-badge]][crates-page] [![Documentation][docs-badge]][docs-page] [![Apache 2.0 licensed][license-badge]][license-page]
 
 **Work in progress.**
 
