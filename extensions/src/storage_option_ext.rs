@@ -1,7 +1,6 @@
 use crate::constants::{OPTION_PREFIX, OPTION_TOMBSTONE_MARKER};
 use crate::{deserialize_option, serialize_option};
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use bitcode::{Decode, Encode};
 use simd_r_drive::{
     DataStore,
     traits::{DataStoreReader, DataStoreWriter},
@@ -29,7 +28,7 @@ pub const TEST_OPTION_PREFIX: &[u8] = OPTION_PREFIX;
 /// - **Binary-safe**: Avoids unintended interpretation of missing values.
 ///
 /// ## Implementation Details
-/// - **`Some(value)`**: Serialized using `bincode`.
+/// - **`Some(value)`**: Serialized using `bitcode`.
 /// - **`None`**: Explicitly stored using a dedicated tombstone marker (`[0xFF, 0xFE]`).
 ///
 /// ## Example Usage
@@ -58,7 +57,7 @@ pub const TEST_OPTION_PREFIX: &[u8] = OPTION_PREFIX;
 pub trait StorageOptionExt {
     /// Writes an `Option<T>` into the `DataStore`, ensuring `None` values are preserved.
     ///
-    /// - `Some(value)`: Serialized using `bincode`.
+    /// - `Some(value)`: Serialized using `bitcode`.
     /// - `None`: Stored in a way that allows correct retrieval.
     ///
     /// ## Arguments
@@ -87,7 +86,7 @@ pub trait StorageOptionExt {
     /// // Write `None` (tombstone)
     /// storage.write_option::<i32>(b"key_with_none_value", None).unwrap();
     /// ```
-    fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> std::io::Result<u64>;
+    fn write_option<T: Encode>(&self, key: &[u8], value: Option<&T>) -> std::io::Result<u64>;
 
     /// Reads an `Option<T>` from storage.
     ///
@@ -136,12 +135,12 @@ pub trait StorageOptionExt {
     ///
     /// # Safety
     /// - This function **allocates memory** for deserialization.
-    fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, std::io::Error>;
+    fn read_option<T: for<'a> Decode<'a>>(&self, key: &[u8]) -> Result<Option<T>, std::io::Error>;
 }
 
 /// Implements `StorageOptionExt` for `DataStore`
 impl StorageOptionExt for DataStore {
-    fn write_option<T: Serialize>(&self, key: &[u8], value: Option<&T>) -> io::Result<u64> {
+    fn write_option<T: Encode>(&self, key: &[u8], value: Option<&T>) -> io::Result<u64> {
         let namespace_hasher =
             OPTION_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(OPTION_PREFIX)));
         let namespaced_key = namespace_hasher.namespace(key);
@@ -150,7 +149,7 @@ impl StorageOptionExt for DataStore {
         self.write(&namespaced_key, &serialized)
     }
 
-    fn read_option<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>, io::Error> {
+    fn read_option<T: for<'a> Decode<'a>>(&self, key: &[u8]) -> Result<Option<T>, io::Error> {
         let namespace_hasher =
             OPTION_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(OPTION_PREFIX)));
         let namespaced_key = namespace_hasher.namespace(key);

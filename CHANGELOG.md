@@ -16,6 +16,14 @@ The format is based on Keep a Changelog and this project adheres to
 - If there are breaking changes, put a short, actionable checklist here.
 
 
+## [0.16.0-alpha] - 2026-03-23
+### Changed
+- Replaced `bincode` with `bitcode` for serialization in extension utilities and related tests.
+- Updated dependency versions across workspace crates and refreshed lockfiles to current compatible releases.
+
+---
+
+
 ## [0.15.5-alpha] - 2025-10-27
 ### Changed
 - Bumped Apache Arrow dependency to 57.0.0. (No other functional changes.)

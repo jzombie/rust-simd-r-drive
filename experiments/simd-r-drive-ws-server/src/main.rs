@@ -39,7 +39,7 @@ async fn main() -> std::io::Result<()> {
         })?));
     info!("MAIN: DataStore opened and wrapped in Arc<RwLock>.");
 
-    let rpc_server = RpcServer::new();
+    let rpc_server = RpcServer::new(None);
     let endpoint = rpc_server.endpoint();
 
     let arc_write = Arc::clone(&store);
@@ -54,7 +54,7 @@ async fn main() -> std::io::Result<()> {
 
     let _ = join!(
         endpoint.register_prebuffered(Write::METHOD_ID, {
-            move |_, bytes: Vec<u8>| {
+            move |bytes: Vec<u8>, _| {
                 let store_mutex = Arc::clone(&arc_write);
                 async move {
                     let resp = task::spawn_blocking(move || {
@@ -72,7 +72,7 @@ async fn main() -> std::io::Result<()> {
             }
         }),
         endpoint.register_prebuffered(BatchWrite::METHOD_ID, {
-            move |_, bytes: Vec<u8>| {
+            move |bytes: Vec<u8>, _| {
                 let store_mutex = Arc::clone(&arc_batch_write);
                 async move {
                     let resp = task::spawn_blocking(move || {
@@ -95,7 +95,7 @@ async fn main() -> std::io::Result<()> {
             }
         }),
         endpoint.register_prebuffered(Read::METHOD_ID, {
-            move |_, bytes: Vec<u8>| {
+            move |bytes: Vec<u8>, _| {
                 let store_mutex = Arc::clone(&arc_read);
                 async move {
                     let resp = task::spawn_blocking(move || {
@@ -115,7 +115,7 @@ async fn main() -> std::io::Result<()> {
             }
         }),
         endpoint.register_prebuffered(BatchRead::METHOD_ID, {
-            move |_, bytes: Vec<u8>| {
+            move |bytes: Vec<u8>, _| {
                 let store_mutex = Arc::clone(&arc_batch_read);
                 async move {
                     let resp = task::spawn_blocking(move || {
@@ -145,7 +145,7 @@ async fn main() -> std::io::Result<()> {
             }
         }),
         endpoint.register_prebuffered(Delete::METHOD_ID, {
-            move |_, bytes: Vec<u8>| {
+            move |bytes: Vec<u8>, _| {
                 let store_mutex = Arc::clone(&arc_delete);
                 async move {
                     let resp = task::spawn_blocking(move || {
@@ -163,7 +163,7 @@ async fn main() -> std::io::Result<()> {
             }
         }),
         endpoint.register_prebuffered(Len::METHOD_ID, {
-            move |_, _bytes: Vec<u8>| {
+            move |_bytes: Vec<u8>, _| {
                 let store_mutex = Arc::clone(&arc_len);
                 async move {
                     let resp = task::spawn_blocking(move || {
@@ -180,7 +180,7 @@ async fn main() -> std::io::Result<()> {
             }
         }),
         endpoint.register_prebuffered(IsEmpty::METHOD_ID, {
-            move |_, _bytes: Vec<u8>| {
+            move |_bytes: Vec<u8>, _| {
                 let store_mutex = Arc::clone(&arc_empty);
                 async move {
                     let resp = task::spawn_blocking(move || {
@@ -197,7 +197,7 @@ async fn main() -> std::io::Result<()> {
             }
         }),
         endpoint.register_prebuffered(FileSize::METHOD_ID, {
-            move |_, _bytes: Vec<u8>| {
+            move |_bytes: Vec<u8>, _| {
                 let store_mutex = Arc::clone(&arc_file_size);
                 async move {
                     let resp = task::spawn_blocking(move || {
@@ -214,7 +214,7 @@ async fn main() -> std::io::Result<()> {
             }
         }),
         endpoint.register_prebuffered(Exists::METHOD_ID, {
-            move |_, bytes: Vec<u8>| {
+            move |bytes: Vec<u8>, _| {
                 let store_mutex = Arc::clone(&arc_exists);
                 async move {
                     let resp = task::spawn_blocking(move || {

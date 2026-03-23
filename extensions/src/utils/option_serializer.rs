@@ -1,12 +1,10 @@
 use crate::constants::OPTION_TOMBSTONE_MARKER;
-use bincode;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use bitcode::{Decode, Encode};
 use std::io::{self, ErrorKind};
 
 /// Serializes an `Option<T>` into a binary representation compatible with `SIMD R Drive`.
 ///
-/// - If `Some(value)`, serializes the value using `bincode`.
+/// - If `Some(value)`, serializes the value using `bitcode`.
 /// - If `None`, returns a tombstone marker (`[0xFF, 0xFE]`).
 ///
 /// ## Returns
@@ -23,10 +21,9 @@ use std::io::{self, ErrorKind};
 /// assert_ne!(some_value, none_value);
 /// assert_eq!(none_value, vec![0xFF, 0xFE]); // Tombstone marker for `None`
 /// ```
-pub fn serialize_option<T: Serialize>(value: Option<&T>) -> io::Result<Vec<u8>> {
+pub fn serialize_option<T: Encode>(value: Option<&T>) -> io::Result<Vec<u8>> {
     match value {
-        Some(v) => bincode::serialize(v)
-            .map_err(|_| io::Error::new(ErrorKind::InvalidData, "Failed to serialize Option<T>")),
+        Some(v) => Ok(bitcode::encode(v)),
         None => Ok(OPTION_TOMBSTONE_MARKER.to_vec()),
     }
 }
@@ -55,12 +52,12 @@ pub fn serialize_option<T: Serialize>(value: Option<&T>) -> io::Result<Vec<u8>> 
 /// assert_eq!(deserialized_some, Some(42));
 /// assert_eq!(deserialized_none, None);
 /// ```
-pub fn deserialize_option<T: DeserializeOwned>(data: &[u8]) -> Result<Option<T>, io::Error> {
+pub fn deserialize_option<T: for<'a> Decode<'a>>(data: &[u8]) -> Result<Option<T>, io::Error> {
     if data == OPTION_TOMBSTONE_MARKER {
         return Ok(None);
     }
 
-    bincode::deserialize::<T>(data)
+    bitcode::decode::<T>(data)
         .map(Some)
         .map_err(|_| io::Error::new(ErrorKind::InvalidData, "Failed to deserialize Option<T>"))
 }

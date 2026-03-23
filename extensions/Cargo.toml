@@ -11,10 +11,10 @@ keywords.workspace = true
 publish.workspace = true
 
 [dependencies]
-bincode = { workspace = true }
+bitcode = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 simd-r-drive = { workspace = true }
-walkdir = { workspace = true}
+walkdir = { workspace = true }
 
 [dev-dependencies]
 doc-comment = { workspace = true }
