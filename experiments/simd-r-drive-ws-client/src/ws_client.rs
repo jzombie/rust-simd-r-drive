@@ -10,10 +10,15 @@ use simd_r_drive_muxio_service_definition::prebuffered::{
     IsEmptyRequestParams, Len, LenRequestParams, Read, ReadRequestParams, Write,
     WriteRequestParams,
 };
-use std::io::Result;
+use std::io::{Error, Result};
+use std::sync::Arc;
+
+fn rpc_error_to_io(error: muxio_rpc_service::error::RpcServiceError) -> Error {
+    Error::other(error.to_string())
+}
 
 pub struct WsClient {
-    rpc_client: RpcClient,
+    rpc_client: Arc<RpcClient>,
 }
 
 impl WsClient {
@@ -29,7 +34,7 @@ impl WsClient {
         &self,
         handler: impl Fn(RpcTransportState) + Send + Sync + 'static,
     ) {
-        self.rpc_client.set_state_change_handler(handler);
+        let _ = self.rpc_client.set_state_change_handler(handler);
     }
 }
 
@@ -49,13 +54,14 @@ impl AsyncDataStoreWriter for WsClient {
 
     async fn write(&self, key: &[u8], payload: &[u8]) -> Result<u64> {
         let response_params = Write::call(
-            &self.rpc_client,
+            self.rpc_client.as_ref(),
             WriteRequestParams {
                 key: key.to_vec(),
                 payload: payload.to_vec(),
             },
         )
-        .await?;
+        .await
+        .map_err(rpc_error_to_io)?;
 
         Ok(response_params.tail_offset)
     }
@@ -66,7 +72,7 @@ impl AsyncDataStoreWriter for WsClient {
 
     async fn batch_write(&self, entries: &[(&[u8], &[u8])]) -> Result<u64> {
         let response_params = BatchWrite::call(
-            &self.rpc_client,
+            self.rpc_client.as_ref(),
             BatchWriteRequestParams {
                 entries: entries
                     .iter()
@@ -74,7 +80,8 @@ impl AsyncDataStoreWriter for WsClient {
                     .collect(),
             },
         )
-        .await?;
+        .await
+        .map_err(rpc_error_to_io)?;
 
         Ok(response_params.tail_offset)
     }
@@ -100,8 +107,12 @@ impl AsyncDataStoreWriter for WsClient {
     }
 
     async fn delete(&self, key: &[u8]) -> Result<u64> {
-        let resp =
-            Delete::call(&self.rpc_client, DeleteRequestParams { key: key.to_vec() }).await?;
+        let resp = Delete::call(
+            self.rpc_client.as_ref(),
+            DeleteRequestParams { key: key.to_vec() },
+        )
+        .await
+        .map_err(rpc_error_to_io)?;
 
         Ok(resp.tail_offset)
     }
@@ -121,8 +132,12 @@ impl AsyncDataStoreReader for WsClient {
     type EntryHandleType = Vec<u8>;
 
     async fn exists(&self, key: &[u8]) -> Result<bool> {
-        let response_params =
-            Exists::call(&self.rpc_client, ExistsRequestParams { key: key.to_vec() }).await?;
+        let response_params = Exists::call(
+            self.rpc_client.as_ref(),
+            ExistsRequestParams { key: key.to_vec() },
+        )
+        .await
+        .map_err(rpc_error_to_io)?;
 
         Ok(response_params.exists)
     }
@@ -132,8 +147,12 @@ impl AsyncDataStoreReader for WsClient {
     }
 
     async fn read(&self, key: &[u8]) -> Result<Option<Self::EntryHandleType>> {
-        let response_params =
-            Read::call(&self.rpc_client, ReadRequestParams { key: key.to_vec() }).await?;
+        let response_params = Read::call(
+            self.rpc_client.as_ref(),
+            ReadRequestParams { key: key.to_vec() },
+        )
+        .await
+        .map_err(rpc_error_to_io)?;
 
         Ok(response_params.entry_payload)
     }
@@ -151,12 +170,13 @@ impl AsyncDataStoreReader for WsClient {
 
     async fn batch_read(&self, keys: &[&[u8]]) -> Result<Vec<Option<Self::EntryHandleType>>> {
         let batch_read_result = BatchRead::call(
-            &self.rpc_client,
+            self.rpc_client.as_ref(),
             BatchReadRequestParams {
                 keys: keys.iter().map(|key| key.to_vec()).collect(),
             },
         )
-        .await?;
+        .await
+        .map_err(rpc_error_to_io)?;
 
         Ok(batch_read_result.entries_payloads)
     }
@@ -174,19 +194,25 @@ impl AsyncDataStoreReader for WsClient {
     }
 
     async fn len(&self) -> Result<usize> {
-        let response_params = Len::call(&self.rpc_client, LenRequestParams {}).await?;
+        let response_params = Len::call(self.rpc_client.as_ref(), LenRequestParams {})
+            .await
+            .map_err(rpc_error_to_io)?;
 
         Ok(response_params.total_entries)
     }
 
     async fn is_empty(&self) -> Result<bool> {
-        let response_params = IsEmpty::call(&self.rpc_client, IsEmptyRequestParams {}).await?;
+        let response_params = IsEmpty::call(self.rpc_client.as_ref(), IsEmptyRequestParams {})
+            .await
+            .map_err(rpc_error_to_io)?;
 
         Ok(response_params.is_empty)
     }
 
     async fn file_size(&self) -> Result<u64> {
-        let response_params = FileSize::call(&self.rpc_client, FileSizeRequestParams {}).await?;
+        let response_params = FileSize::call(self.rpc_client.as_ref(), FileSizeRequestParams {})
+            .await
+            .map_err(rpc_error_to_io)?;
 
         Ok(response_params.file_size)
     }
