@@ -34,7 +34,7 @@ impl WsClient {
         &self,
         handler: impl Fn(RpcTransportState) + Send + Sync + 'static,
     ) {
-        let _ = self.rpc_client.set_state_change_handler(handler);
+        std::mem::drop(self.rpc_client.set_state_change_handler(handler));
     }
 }
 
