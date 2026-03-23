@@ -332,7 +332,8 @@ mod tests {
             .read(key)
             .unwrap()
             .expect("Failed to read stored data");
-        let retrieved: TestData = bitcode::decode(&raw_bytes).expect("Failed to deserialize TestData");
+        let retrieved: TestData =
+            bitcode::decode(&raw_bytes).expect("Failed to deserialize TestData");
         assert_eq!(
             retrieved, test_value,
             "Non-prefixed value should be retrievable as a plain `T`"

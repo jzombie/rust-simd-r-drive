@@ -11,12 +11,12 @@ keywords.workspace = true
 publish.workspace = true
 
 [dependencies]
-simd-r-drive = { workspace = true }
-simd-r-drive-muxio-service-definition = { workspace = true }
-muxio-tokio-rpc-server = { workspace = true }
-muxio-rpc-service = { workspace = true }
-tokio = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
-tracing = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 indoc = { workspace = true }
+muxio-rpc-service = { workspace = true }
+muxio-tokio-rpc-server = { workspace = true }
+simd-r-drive = { workspace = true }
+simd-r-drive-muxio-service-definition = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }

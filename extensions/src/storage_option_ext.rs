@@ -135,10 +135,7 @@ pub trait StorageOptionExt {
     ///
     /// # Safety
     /// - This function **allocates memory** for deserialization.
-    fn read_option<T: for<'a> Decode<'a>>(
-        &self,
-        key: &[u8],
-    ) -> Result<Option<T>, std::io::Error>;
+    fn read_option<T: for<'a> Decode<'a>>(&self, key: &[u8]) -> Result<Option<T>, std::io::Error>;
 }
 
 /// Implements `StorageOptionExt` for `DataStore`

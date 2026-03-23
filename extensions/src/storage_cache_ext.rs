@@ -52,12 +52,7 @@ pub trait StorageCacheExt {
 
 /// Implements TTL-based caching for `DataStore`
 impl StorageCacheExt for DataStore {
-    fn write_with_ttl<T: Encode>(
-        &self,
-        key: &[u8],
-        value: &T,
-        ttl_secs: u64,
-    ) -> io::Result<u64> {
+    fn write_with_ttl<T: Encode>(&self, key: &[u8], value: &T, ttl_secs: u64) -> io::Result<u64> {
         let namespace_hasher =
             TTL_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(TTL_PREFIX)));
         let namespaced_key = namespace_hasher.namespace(key);
