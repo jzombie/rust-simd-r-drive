@@ -1,6 +1,5 @@
 use crate::constants::TTL_PREFIX;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use bitcode::{Decode, Encode};
 use simd_r_drive::{
     DataStore,
     traits::{DataStoreReader, DataStoreWriter},
@@ -35,7 +34,7 @@ pub trait StorageCacheExt {
     /// ## Returns
     /// - `Ok(offset)`: The **file offset** where the data was written.
     /// - `Err(std::io::Error)`: If the write operation fails.
-    fn write_with_ttl<T: Serialize>(&self, key: &[u8], value: &T, ttl_secs: u64) -> Result<u64>;
+    fn write_with_ttl<T: Encode>(&self, key: &[u8], value: &T, ttl_secs: u64) -> Result<u64>;
 
     /// Reads a value, checking TTL expiration.
     ///
@@ -48,12 +47,12 @@ pub trait StorageCacheExt {
     /// - `Ok(Some(T))`: If the TTL is still valid and the value is readable.
     /// - `Ok(None)`: If the TTL has expired and the entry has been evicted.
     /// - `Err(std::io::Error)`: If the key is missing or deserialization fails.
-    fn read_with_ttl<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>>;
+    fn read_with_ttl<T: for<'a> Decode<'a>>(&self, key: &[u8]) -> Result<Option<T>>;
 }
 
 /// Implements TTL-based caching for `DataStore`
 impl StorageCacheExt for DataStore {
-    fn write_with_ttl<T: Serialize>(
+    fn write_with_ttl<T: Encode>(
         &self,
         key: &[u8],
         value: &T,
@@ -70,14 +69,13 @@ impl StorageCacheExt for DataStore {
             .saturating_add(ttl_secs); // Avoid overflow
 
         let mut data = expiration_timestamp.to_le_bytes().to_vec();
-        let serialized_value = bincode::serialize(value)
-            .map_err(|_| io::Error::new(ErrorKind::InvalidData, "Serialization failed"))?;
+        let serialized_value = bitcode::encode(value);
         data.extend_from_slice(&serialized_value);
 
         self.write(&namespaced_key, &data)
     }
 
-    fn read_with_ttl<T: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<T>> {
+    fn read_with_ttl<T: for<'a> Decode<'a>>(&self, key: &[u8]) -> Result<Option<T>> {
         let namespace_hasher =
             TTL_NAMESPACE_HASHER.get_or_init(|| Arc::new(NamespaceHasher::new(TTL_PREFIX)));
         let namespaced_key = namespace_hasher.namespace(key);
@@ -104,7 +102,7 @@ impl StorageCacheExt for DataStore {
                     return Ok(None);
                 }
 
-                bincode::deserialize::<T>(&data[8..])
+                bitcode::decode::<T>(&data[8..])
                     .map(Some)
                     .map_err(|_| io::Error::new(ErrorKind::InvalidData, "Deserialization failed"))
             }

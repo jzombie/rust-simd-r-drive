@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
 
-    use serde::{Deserialize, Serialize};
+    use bitcode::{Decode, Encode};
     use simd_r_drive::{
         DataStore,
         traits::{DataStoreReader, DataStoreWriter},
@@ -10,7 +10,7 @@ mod tests {
 
     #[test]
     fn test_compact_storage_with_mixed_types() {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        #[derive(Encode, Decode, Debug, PartialEq)]
         struct CustomStruct {
             id: u32,
             name: String,
@@ -62,8 +62,8 @@ mod tests {
         let temp_payload2 = 789u64.to_le_bytes();
 
         // Serialize structured data
-        let struct_payload1_serialized = bincode::serialize(&struct_payload1).unwrap();
-        let struct_payload2_serialized = bincode::serialize(&struct_payload2).unwrap();
+        let struct_payload1_serialized = bitcode::encode(&struct_payload1);
+        let struct_payload2_serialized = bitcode::encode(&struct_payload2);
 
         // Step 1: Append Initial Entries
         storage.write(key1, text_payload1).expect("Append failed");
@@ -123,8 +123,8 @@ mod tests {
             .read(key3)
             .unwrap()
             .expect("Failed to retrieve struct");
-        let deserialized_struct: CustomStruct = bincode::deserialize(retrieved_struct.as_slice())
-            .expect("Failed to deserialize struct");
+        let deserialized_struct: CustomStruct =
+            bitcode::decode(retrieved_struct.as_slice()).expect("Failed to deserialize struct");
         assert_eq!(deserialized_struct, struct_payload2);
 
         // Check file size before compaction
@@ -172,8 +172,8 @@ mod tests {
             .read(key3)
             .unwrap()
             .expect("Failed to retrieve struct");
-        let deserialized_struct: CustomStruct = bincode::deserialize(retrieved_struct.as_slice())
-            .expect("Failed to deserialize struct");
+        let deserialized_struct: CustomStruct =
+            bitcode::decode(retrieved_struct.as_slice()).expect("Failed to deserialize struct");
         assert_eq!(deserialized_struct, struct_payload2);
     }
 }

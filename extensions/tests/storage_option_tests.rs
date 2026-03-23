@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use serde::{Deserialize, Serialize};
+    use bitcode::{Decode, Encode};
     use simd_r_drive::{
         DataStore,
         traits::{DataStoreReader, DataStoreWriter},
@@ -12,7 +12,7 @@ mod tests {
     use std::io::ErrorKind;
     use tempfile::tempdir;
 
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+    #[derive(Debug, Encode, Decode, PartialEq, Eq)]
     struct TestData {
         id: u32,
         name: String,
@@ -314,7 +314,7 @@ mod tests {
 
         // Directly write a non-option value to the base storage
         storage
-            .write(key, &bincode::serialize(&test_value).unwrap())
+            .write(key, &bitcode::encode(&test_value))
             .expect("Failed to write non-option value");
 
         let namespace_hasher = NamespaceHasher::new(TEST_OPTION_PREFIX);
@@ -332,8 +332,7 @@ mod tests {
             .read(key)
             .unwrap()
             .expect("Failed to read stored data");
-        let retrieved: TestData =
-            bincode::deserialize(&raw_bytes).expect("Failed to deserialize TestData");
+        let retrieved: TestData = bitcode::decode(&raw_bytes).expect("Failed to deserialize TestData");
         assert_eq!(
             retrieved, test_value,
             "Non-prefixed value should be retrievable as a plain `T`"

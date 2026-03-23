@@ -47,7 +47,7 @@ assert!(storage.read_option::<i32>(b"non_existent_key").is_err());
 #### Notes
 
 - Uses a predefined tombstone marker (`[0xFF, 0xFE]`) to represent `None`.
-- Values are serialized using [bincode](https://crates.io/crates/bincode).
+- Values are serialized using [bitcode](https://crates.io/crates/bitcode).
 - ⚠️ Unlike [SIMD R Drive](https://crates.io/crates/simd-r-drive), values are non-zero-copy, as they require deserialization.
 
 ### Working with TTL-based Caching
@@ -82,7 +82,7 @@ assert_eq!(
 #### Notes
 
 - TTL values are stored as a **binary prefix** before the actual value.
-- Values are serialized using [bincode](https://crates.io/crates/bincode).
+- Values are serialized using [bitcode](https://crates.io/crates/bitcode).
 - ⚠️ Unlike [SIMD R Drive](https://crates.io/crates/simd-r-drive), values are non-zero-copy, as they require deserialization.
 - TTL-based storage will **automatically evict expired values upon read** to prevent stale data.
 

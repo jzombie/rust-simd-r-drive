@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use bitcode::{Decode, Encode};
 use simd_r_drive::{
     DataStore,
     traits::{DataStoreReader, DataStoreWriter},
@@ -10,7 +10,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use tempfile::tempdir;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq)]
 struct TestData {
     id: u32,
     name: String,
@@ -161,10 +161,7 @@ fn test_read_with_ttl_on_regular_write_fails() {
 
     // Write without TTL
     storage
-        .write(
-            key,
-            &bincode::serialize(&data).expect("Failed to serialize"),
-        )
+        .write(key, &bitcode::encode(&data))
         .expect("Failed to write without TTL");
 
     // Try to read it using read_with_ttl
@@ -316,7 +313,7 @@ fn test_ttl_prefixing_does_not_affect_regular_storage() {
 
     // Directly write without TTL
     storage
-        .write(key, &bincode::serialize(&test_value).unwrap())
+        .write(key, &bitcode::encode(&test_value))
         .expect("Failed to write without TTL");
 
     // Ensure reading from TTL-prefixed key fails (since it was not stored with TTL)
@@ -328,6 +325,6 @@ fn test_ttl_prefixing_does_not_affect_regular_storage() {
     );
 
     // Ensure we can still retrieve the non-TTL stored value
-    let retrieved: TestData = bincode::deserialize(&storage.read(key).unwrap().unwrap()).unwrap();
+    let retrieved: TestData = bitcode::decode(&storage.read(key).unwrap().unwrap()).unwrap();
     assert_eq!(retrieved, test_value, "Non-TTL value should be retrievable");
 }
