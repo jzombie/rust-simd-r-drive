@@ -63,7 +63,7 @@ simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-mux
 simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.16.0-alpha" }
 tempfile = "3.27.0"
 thousands = "0.2.0"
-tokio = "1.50.0" # Tokio is not used in base `SIMD R Drive`, only extensions
+tokio = "1.51.0" # Tokio is not used in base `SIMD R Drive`, only extensions
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 walkdir = "2"
