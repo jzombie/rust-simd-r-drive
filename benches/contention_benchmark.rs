@@ -7,7 +7,7 @@
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main, measurement::WallTime};
 use futures::future::join_all;
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 use simd_r_drive::{DataStore, traits::DataStoreWriter};
 use std::{path::PathBuf, sync::Arc};
 use tempfile::tempdir;

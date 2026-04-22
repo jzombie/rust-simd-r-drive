@@ -4,13 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
-## [Unreleased]
+## [0.16.1-alpha] - 2026-04-21
 
 ### Added
 ### Changed
+- Bumped workspace dependency versions: `rand` from `0.9.2` to `0.10.1`, and `tokio` from `1.51.0` to `1.51.1`.
 ### Deprecated
 ### Removed
 ### Fixed
+- Updated benchmark imports to use `rand::RngExt` so benchmark targets compile cleanly with `rand` `0.10.x`.
 ### Security
 ### Migration
 - If there are breaking changes, put a short, actionable checklist here.
