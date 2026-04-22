@@ -184,7 +184,7 @@ fn verify_batch(storage: &DataStore, keys_buf: &mut Vec<Vec<u8>>) -> usize {
     let key_refs: Vec<&[u8]> = keys_buf.iter().map(|k| k.as_slice()).collect();
     let handles = storage.batch_read(&key_refs).expect("batch_read failed"); // ← unwrap the Result
 
-    for (k_bytes, opt_handle) in keys_buf.iter().zip(handles.into_iter()) {
+    for (k_bytes, opt_handle) in keys_buf.iter().zip(handles) {
         let handle = opt_handle.expect("Missing batch entry");
         let stored = u64::from_le_bytes(handle.as_slice().try_into().unwrap());
 
