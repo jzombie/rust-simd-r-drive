@@ -27,7 +27,7 @@ exclude = [
 resolver = "2"
 [workspace.package]
 authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
-version = "0.16.0-alpha"
+version = "0.16.1-alpha"
 edition = "2024"
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
@@ -57,10 +57,10 @@ rayon = "1.11.0"
 serde = "1.0.228"
 serde_json = "1.0.149"
 serial_test = "3.4.0"
-simd-r-drive = { path = ".", version = "0.16.0-alpha" }
-simd-r-drive-entry-handle = { path = "./simd-r-drive-entry-handle", version = "0.16.0-alpha" }
-simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.16.0-alpha" }
-simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.16.0-alpha" }
+simd-r-drive = { path = ".", version = "0.16.1-alpha" }
+simd-r-drive-entry-handle = { path = "./simd-r-drive-entry-handle", version = "0.16.1-alpha" }
+simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.16.1-alpha" }
+simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.16.1-alpha" }
 tempfile = "3.27.0"
 thousands = "0.2.0"
 tokio = "1.51.1" # Tokio is not used in base `SIMD R Drive`, only extensions
