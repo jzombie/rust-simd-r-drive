@@ -2,7 +2,7 @@
 //! engine.  It writes 1 M entries, then exercises sequential, random
 //! and *vectorized* (`batch_read`) lookup paths.
 
-use rand::{Rng, rng}; // `rng()` & `random_range` are the new, non-deprecated names
+use rand::{RngExt, rng}; // `rng()` & `random_range` are the new, non-deprecated names
 use simd_r_drive::{
     DataStore,
     traits::{DataStoreReader, DataStoreWriter},
