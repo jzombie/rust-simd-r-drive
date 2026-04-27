@@ -40,7 +40,7 @@ arrow = { version = "58.1.0", default-features = false }
 async-trait = "0.1.89"
 bitcode = "0.6.9"
 bytemuck = "1.25.0"
-clap = "4.6.0"
+clap = "4.6.1"
 crc32fast = "1.5.0"
 criterion = "0.8.2"
 dashmap = "6.1.0"
