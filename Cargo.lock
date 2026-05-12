@@ -304,9 +304,9 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "axum"
-version = "0.8.8"
+version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b52af3cb4058c895d37317bb27508dccc8e5f2d39454016b297bf4a400597b8"
+checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core",
  "base64",
@@ -331,7 +331,7 @@ dependencies = [
  "sha1",
  "sync_wrapper",
  "tokio",
- "tokio-tungstenite 0.28.0",
+ "tokio-tungstenite",
  "tower",
  "tower-layer",
  "tower-service",
@@ -1247,9 +1247,9 @@ dependencies = [
 
 [[package]]
 name = "muxio"
-version = "0.10.1-alpha"
+version = "0.10.2-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4450362ac91d1dfedfb15baed074828cb86466d0d8e65f7eb515f300c3676b17"
+checksum = "0067fd1b8c17a2cfccf51a0b8c61a6e84b3436716aa2a2affab5433a8a1c7931"
 dependencies = [
  "chrono",
  "once_cell",
@@ -1258,9 +1258,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service"
-version = "0.10.1-alpha"
+version = "0.10.2-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c786a4b12cb9fbc3a1223dbb1c4028ea0d043cc3e80999511a46486431884918"
+checksum = "e1224bafac03ecf7f65bba793f241bb64d2c1ff4b4685661e86e66d206296ba1"
 dependencies = [
  "async-trait",
  "bitcode",
@@ -1272,9 +1272,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service-caller"
-version = "0.10.1-alpha"
+version = "0.10.2-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e60660019927f07f74c06b1e8367f7a187367ba11f582a268e5b4b7ce3e7e1cb"
+checksum = "bf731c0594134fe1142512d5791874b82c1cca582bce1cae170c101709f39fde"
 dependencies = [
  "async-trait",
  "futures",
@@ -1286,9 +1286,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service-endpoint"
-version = "0.10.1-alpha"
+version = "0.10.2-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "883a57cb41cf4efa8f65369b0a02ed96a3224bf5e0c5a0ede911588ef9a1f44c"
+checksum = "69de88e8a66e86f23a3d1cc7f9bd9331929e28413880c2a8e27ee33df8ab34a6"
 dependencies = [
  "async-trait",
  "bitcode",
@@ -1302,9 +1302,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-tokio-rpc-client"
-version = "0.10.1-alpha"
+version = "0.10.2-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1f04b7a3836dd274118342e7a561b00357a00d22e808fc18a93e3785324032f"
+checksum = "79e3f69f9c9ced258985af00f963e4f1f33f50d349c21d083a5f64fa13a0e8ec"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1315,15 +1315,15 @@ dependencies = [
  "muxio-rpc-service-caller",
  "muxio-rpc-service-endpoint",
  "tokio",
- "tokio-tungstenite 0.29.0",
+ "tokio-tungstenite",
  "tracing",
 ]
 
 [[package]]
 name = "muxio-tokio-rpc-server"
-version = "0.10.1-alpha"
+version = "0.10.2-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69163dd330ace689771bcfef6f5238b3b4d2637b6f240ea614e23b6d4dc8cd50"
+checksum = "f3368dd8b489844742ac72af6802d2f0121ddfc6df5b30ce4e245b3b41bbe3ae"
 dependencies = [
  "async-trait",
  "axum",
@@ -1334,7 +1334,7 @@ dependencies = [
  "muxio-rpc-service-caller",
  "muxio-rpc-service-endpoint",
  "tokio",
- "tokio-tungstenite 0.29.0",
+ "tokio-tungstenite",
  "tracing",
 ]
 
@@ -2055,9 +2055,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.51.1"
+version = "1.52.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f66bf9585cda4b724d3e78ab34b73fb2bbaba9011b9bfdf69dc836382ea13b8c"
+checksum = "8fc7f01b389ac15039e4dc9531aa973a135d7a4135281b12d7c1bc79fd57fffe"
 dependencies = [
  "bytes",
  "libc",
@@ -2083,18 +2083,6 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d25a406cddcc431a75d3d9afc6a7c0f7428d4891dd973e4d54c56b46127bf857"
-dependencies = [
- "futures-util",
- "log",
- "tokio",
- "tungstenite 0.28.0",
-]
-
-[[package]]
-name = "tokio-tungstenite"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f72a05e828585856dacd553fba484c242c46e391fb0e58917c942ee9202915c"
@@ -2102,7 +2090,7 @@ dependencies = [
  "futures-util",
  "log",
  "tokio",
- "tungstenite 0.29.0",
+ "tungstenite",
 ]
 
 [[package]]
@@ -2227,23 +2215,6 @@ dependencies = [
 
 [[package]]
 name = "tungstenite"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8628dcc84e5a09eb3d8423d6cb682965dea9133204e8fb3efee74c2a0c259442"
-dependencies = [
- "bytes",
- "data-encoding",
- "http",
- "httparse",
- "log",
- "rand 0.9.3",
- "sha1",
- "thiserror",
- "utf-8",
-]
-
-[[package]]
-name = "tungstenite"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c01152af293afb9c7c2a57e4b559c5620b421f6d133261c60dd2d0cdb38e6b8"
@@ -2275,12 +2246,6 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
-
-[[package]]
-name = "utf-8"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "utf8parse"
