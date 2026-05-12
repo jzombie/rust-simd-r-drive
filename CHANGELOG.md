@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
+## [0.16.2-alpha] - 2026-05-11
+
+### Added
+### Changed
+- Bumped `arrow` from `58.1.0` to `58.3.0`.
+- Bumped `clap` from `4.6.0` to `4.6.1`.
+- Bumped `muxio`-family crates from `0.10.1-alpha` to `0.10.2-alpha`.
+- Bumped `rayon` from `1.11.0` to `1.12.0`.
+- Bumped `tokio` from `1.51.1` to `1.52.3`.
+- Refreshed `Cargo.lock` to reflect updated transitive dependencies (`hashbrown` `0.17.1`, consolidated `tokio-tungstenite`/`tungstenite` versions).
+### Deprecated
+### Removed
+### Fixed
+### Security
+### Migration
+
 ## [0.16.1-alpha] - 2026-04-21
 
 ### Added
