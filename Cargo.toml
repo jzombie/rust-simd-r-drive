@@ -27,7 +27,7 @@ exclude = [
 resolver = "2"
 [workspace.package]
 authors = ["Jeremy Harris <jeremy.harris@zenosmosis.com>"]
-version = "0.16.2-alpha"
+version = "0.16.3-alpha"
 edition = "2024"
 repository = "https://github.com/jzombie/rust-simd-r-drive"
 license = "Apache-2.0"
@@ -36,14 +36,14 @@ keywords = ["storage-engine", "binary-storage", "append-only", "simd", "mmap"]
 publish = true
 
 [workspace.dependencies]
-arrow = { version = "58.3.0", default-features = false }
+arrow = { version = "59.0.0", default-features = false }
 async-trait = "0.1.89"
 bitcode = "0.6.9"
 bytemuck = "1.25.0"
 clap = "4.6.1"
 crc32fast = "1.5.0"
 criterion = "0.8.2"
-dashmap = "6.1.0"
+dashmap = "6.2.1"
 doc-comment = "0.3.4"
 futures = "0.3.32"
 indoc = "2.0.7"
@@ -55,12 +55,12 @@ muxio-tokio-rpc-server = "0.10.2-alpha"
 rand = "0.10.1"
 rayon = "1.12.0"
 serde = "1.0.228"
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 serial_test = "3.5.0"
-simd-r-drive = { path = ".", version = "0.16.2-alpha" }
-simd-r-drive-entry-handle = { path = "./simd-r-drive-entry-handle", version = "0.16.2-alpha" }
-simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.16.2-alpha" }
-simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.16.2-alpha" }
+simd-r-drive = { path = ".", version = "0.16.3-alpha" }
+simd-r-drive-entry-handle = { path = "./simd-r-drive-entry-handle", version = "0.16.3-alpha" }
+simd-r-drive-muxio-service-definition = { path = "./experiments/simd-r-drive-muxio-service-definition", version = "0.16.3-alpha" }
+simd-r-drive-ws-client = { path = "./experiments/simd-r-drive-ws-client", version = "0.16.3-alpha" }
 tempfile = "3.27.0"
 thousands = "0.2.0"
 tokio = "1.52.3" # Tokio is not used in base `SIMD R Drive`, only extensions

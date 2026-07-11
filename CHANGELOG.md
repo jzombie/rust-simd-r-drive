@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
+## [0.16.3-alpha] - 2026-07-11
+
+### Added
+- Hash stability tests (`tests/hash_stability_tests.rs`) that enforce hardcoded xxh3 hash values to guard against silent regressions if the `xxhash-rust` dependency is updated or replaced.
+
+### Changed
+- Bumped `arrow` from `58.3.0` to `59.0.0`.
+- Bumped `dashmap` from `6.1.0` to `6.2.1`.
+- Bumped `serde_json` from `1.0.149` to `1.0.150`.
+- Bumped `serial_test` from `3.4.0` to `3.5.0`.
+- Bumped `crossbeam-epoch` from `0.9.18` to `0.9.20` (fixes RUSTSEC-2026-0204).
+
+### Deprecated
+### Removed
+### Fixed
+### Security
+### Migration
+
 ## [0.16.2-alpha] - 2026-05-11
 
 ### Added
