@@ -639,9 +639,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.18"
+version = "0.9.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b82ac4a3c2ca9c3460964f020e1402edd5753411d7737aa39c3714ad1b5420e"
+checksum = "2d6914041f254d6e9176c01941b21115dcfb7089e55135a35411081bd106ef3f"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -1847,7 +1847,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.16.2-alpha"
+version = "0.16.3-alpha"
 dependencies = [
  "async-trait",
  "bitcode",
@@ -1875,7 +1875,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-entry-handle"
-version = "0.16.2-alpha"
+version = "0.16.3-alpha"
 dependencies = [
  "arrow",
  "crc32fast",
@@ -1884,7 +1884,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-extensions"
-version = "0.16.2-alpha"
+version = "0.16.3-alpha"
 dependencies = [
  "bitcode",
  "doc-comment",
@@ -1896,7 +1896,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-muxio-service-definition"
-version = "0.16.2-alpha"
+version = "0.16.3-alpha"
 dependencies = [
  "bitcode",
  "muxio-rpc-service",
@@ -1904,7 +1904,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-client"
-version = "0.16.2-alpha"
+version = "0.16.3-alpha"
 dependencies = [
  "async-trait",
  "muxio-rpc-service",
@@ -1918,7 +1918,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-server"
-version = "0.16.2-alpha"
+version = "0.16.3-alpha"
 dependencies = [
  "clap",
  "indoc",

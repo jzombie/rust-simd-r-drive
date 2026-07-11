@@ -14,6 +14,7 @@ The format is based on Keep a Changelog and this project adheres to
 - Bumped `dashmap` from `6.1.0` to `6.2.1`.
 - Bumped `serde_json` from `1.0.149` to `1.0.150`.
 - Bumped `serial_test` from `3.4.0` to `3.5.0`.
+- Bumped `crossbeam-epoch` from `0.9.18` to `0.9.20` (fixes RUSTSEC-2026-0204).
 
 ### Deprecated
 ### Removed
