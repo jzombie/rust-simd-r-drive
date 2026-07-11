@@ -1,9 +1,9 @@
-/// Hash stability tests.
-///
-/// These tests enforce hardcoded xxh3 hash values to guard against silent
-/// regressions if the `xxhash-rust` dependency is updated, replaced, or its
-/// feature flags change. Every assertion locks down a specific input→output
-/// mapping so that any hash change will cause a test failure.
+//! Hash stability tests.
+//!
+//! These tests enforce hardcoded xxh3 hash values to guard against silent
+//! regressions if the `xxhash-rust` dependency is updated, replaced, or its
+//! feature flags change. Every assertion locks down a specific input→output
+//! mapping so that any hash change will cause a test failure.
 
 #[cfg(test)]
 mod hash_stability {
