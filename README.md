@@ -211,7 +211,7 @@ Write data using different methods optimized for various use cases.
 
 ### Single Entry
 
-Writes a single key-value pair to the storage in an atomic operation.  Write are immediately flushed to disk.
+Writes a single key-value pair to the storage in an atomic operation.  Writes are immediately flushed to disk.
 
 ### Batch Entry
 
