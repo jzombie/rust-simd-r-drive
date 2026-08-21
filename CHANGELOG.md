@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 - Added `.DS_Store` and `.codegraph` to `.gitignore`.
 - Replaced `chunks_exact(N)` with `as_chunks::<N>()` in `align_or_copy` to satisfy current clippy lints (no functional change).
 
+### Fixed
+- Clarified the crate-level "Safety Notes" (#99): appending via the engine API is always safe (the store re-maps the file internally after each write); the "do not resize while in use" warning refers to resizing the storage file out-of-band while the store is open.
+
 ### Migration
 
 **Note**: The following migration is only necessary if using the wire protocol handled by [Muxio](https://crates.io/crates/muxio).
