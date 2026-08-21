@@ -113,9 +113,9 @@ checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
 name = "arrow"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffaaa3e009861fd829d0a24dd6f115aa8e4634324bb092147d43baafe69ca4a7"
+checksum = "b952ca5a8046ad741b60f142d6eca4aeebcad615694202bc64c5341f23e32c5b"
 dependencies = [
  "arrow-arith",
  "arrow-array",
@@ -131,9 +131,9 @@ dependencies = [
 
 [[package]]
 name = "arrow-arith"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ac95125e1d71c4a252b5a9c729aef111e80418f08aaa6dbabd1ba66918247fc"
+checksum = "64a13b8d3008c4e9063c597a08f46446fe3fd5789277127672d6c0bdbb43b1ff"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -145,9 +145,9 @@ dependencies = [
 
 [[package]]
 name = "arrow-array"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c60c79628e9a97cb90d7a0dc3e944f216a902f837d4ecabc14d524bddbbc137"
+checksum = "9486151b2f0785bafc6fa04fc5c99fcb4495455662e58787ea32eaaed33c4192"
 dependencies = [
  "ahash",
  "arrow-buffer",
@@ -163,9 +163,9 @@ dependencies = [
 
 [[package]]
 name = "arrow-buffer"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6026f638c400e9878c1b1cc05c3cfd46fbf381285916ab408678701c1df46c1a"
+checksum = "c4776577a87794bfdf0b4e90e2ea12454fa7738ea2823c4be5b9d1851da7b434"
 dependencies = [
  "bytes",
  "half",
@@ -175,9 +175,9 @@ dependencies = [
 
 [[package]]
 name = "arrow-cast"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c82c236c3caf8df5664284f3f1fbe89938852163998c3fdbf37e84ac220445e9"
+checksum = "a9ad451ce4f98710828a455b96991b8f031deb2e67f5fcad6773f017e4a69c3a"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -196,9 +196,9 @@ dependencies = [
 
 [[package]]
 name = "arrow-data"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bd568aa70c4ec5947027b0d5caee94877433b661a0bb9e8ddceeeb5f0c9b1ab"
+checksum = "b38fe43e2e8704360f1464e6e8cc4fc381ef02cc4fb0192afa8df1aaa0115c66"
 dependencies = [
  "arrow-buffer",
  "arrow-schema",
@@ -209,9 +209,9 @@ dependencies = [
 
 [[package]]
 name = "arrow-ord"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a79cf73ad2eba8686ec2aa9bbf8671208e509025f166afc040cedbd94ffe4983"
+checksum = "0e13dbdc2a9c053c10c7baa6e30faee04a180aa7ce88e471835850ce37abd20b"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -222,9 +222,9 @@ dependencies = [
 
 [[package]]
 name = "arrow-row"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cea0f7d8ed6182f14952761e2c0f989852d5aa334fcbc49f73a9f2247c25b879"
+checksum = "4d5a1f8c733d15260b305683472ee8ad89c62cbd706703ca873b90d051b41592"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -235,15 +235,15 @@ dependencies = [
 
 [[package]]
 name = "arrow-schema"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80b3e786a0dd9103acd583a6fb486dbf2f3268466cc0bd571dcf34cef231c1f1"
+checksum = "d9e4969dc350d571766247143ab36a5187d095d3d3690970408bc630d47c69e5"
 
 [[package]]
 name = "arrow-select"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "067a67e0361f6c31f4a7248759f36ca4ca71b187a941ed4d49da1c7d3d4db624"
+checksum = "402770dba90865359d98d1ef92ef16e23d75c0cca9c2c880c8a05468b7743bf9"
 dependencies = [
  "ahash",
  "arrow-array",
@@ -255,9 +255,9 @@ dependencies = [
 
 [[package]]
 name = "arrow-string"
-version = "59.0.0"
+version = "59.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99bc95847f3ff62a2b03d6f8ce2e3e78f01362060549a2a311898dd442f6256d"
+checksum = "a2b0afbb8b9016700938291123df30838b89decc3213dba00852021988b170d3"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -328,10 +328,10 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_urlencoded",
- "sha1",
+ "sha1 0.10.6",
  "sync_wrapper",
  "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.29.0",
  "tower",
  "tower-layer",
  "tower-service",
@@ -403,6 +403,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "block-buffer"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
+dependencies = [
+ "hybrid-array",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -410,9 +419,9 @@ checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 
 [[package]]
 name = "bytemuck"
-version = "1.25.0"
+version = "1.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8efb64bd706a16a1bdde310ae86b351e4d21550d98d056f22f8a7f7a2183fec"
+checksum = "d6aedf8ae72766347502cf3cb4f41cf5e9cc37d28bee90f1fdaaae15f9cf9424"
 
 [[package]]
 name = "bytes"
@@ -460,9 +469,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c673075a2e0e5f4a1dde27ce9dee1ea4558c7ffe648f576438a20ca1d2acc4b0"
 dependencies = [
  "iana-time-zone",
- "js-sys",
  "num-traits",
- "wasm-bindgen",
  "windows-link",
 ]
 
@@ -538,6 +545,12 @@ name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
+
+[[package]]
+name = "const-oid"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
 name = "const-random"
@@ -669,6 +682,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crypto-common"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce6e4c961d6cd6c9a86db418387425e8bdeaf05b3c8bc1411e6dca4c252f1453"
+dependencies = [
+ "hybrid-array",
+]
+
+[[package]]
 name = "dashmap"
 version = "6.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -694,8 +716,19 @@ version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
- "block-buffer",
- "crypto-common",
+ "block-buffer 0.10.4",
+ "crypto-common 0.1.7",
+]
+
+[[package]]
+name = "digest"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
+dependencies = [
+ "block-buffer 0.12.1",
+ "const-oid",
+ "crypto-common 0.2.2",
 ]
 
 [[package]]
@@ -985,6 +1018,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
+name = "hybrid-array"
+version = "0.4.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "707114b52a152fa7bdb290cd7cd5912d9467273b6d74e21b8d81aca1f8533f6b"
+dependencies = [
+ "typenum",
+]
+
+[[package]]
 name = "hyper"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1252,39 +1294,35 @@ dependencies = [
 ]
 
 [[package]]
-name = "muxio"
-version = "0.10.2-alpha"
+name = "muxio-core"
+version = "0.15.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0067fd1b8c17a2cfccf51a0b8c61a6e84b3436716aa2a2affab5433a8a1c7931"
+checksum = "4f9b11bd1bb6e19b167da0a9a37fbeb99383761bb26e57b123332d8693303d34"
 dependencies = [
- "chrono",
  "once_cell",
  "tracing",
 ]
 
 [[package]]
 name = "muxio-rpc-service"
-version = "0.10.2-alpha"
+version = "0.15.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1224bafac03ecf7f65bba793f241bb64d2c1ff4b4685661e86e66d206296ba1"
+checksum = "1e023b3d6ff25a7d8c1dd3b92545f99e4c8108fa59e33552f5a3a640e4385d3e"
 dependencies = [
- "async-trait",
  "bitcode",
- "futures",
- "muxio",
  "num_enum",
  "xxhash-rust",
 ]
 
 [[package]]
 name = "muxio-rpc-service-caller"
-version = "0.10.2-alpha"
+version = "0.15.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf731c0594134fe1142512d5791874b82c1cca582bce1cae170c101709f39fde"
+checksum = "e58f0db8f97f5a3e4dda182d8c6e2a5b3de43061438a199d5497080de6f8865a"
 dependencies = [
  "async-trait",
  "futures",
- "muxio",
+ "muxio-core",
  "muxio-rpc-service",
  "tokio",
  "tracing",
@@ -1292,55 +1330,54 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service-endpoint"
-version = "0.10.2-alpha"
+version = "0.15.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69de88e8a66e86f23a3d1cc7f9bd9331929e28413880c2a8e27ee33df8ab34a6"
+checksum = "69dee75c2e18bd4c10be8ecb501779cb797a29cadbbbe8d25284c55dfc8b89c3"
 dependencies = [
  "async-trait",
  "bitcode",
+ "bytes",
  "futures",
- "muxio",
+ "muxio-core",
  "muxio-rpc-service",
- "muxio-rpc-service-caller",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "muxio-tokio-rpc-client"
-version = "0.10.2-alpha"
+version = "0.15.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79e3f69f9c9ced258985af00f963e4f1f33f50d349c21d083a5f64fa13a0e8ec"
+checksum = "d9ff2fa80676ee99b2b083abe43155d1f56737effc47a4f85ed731b02f0254d0"
 dependencies = [
  "async-trait",
  "bytes",
  "futures",
  "futures-util",
- "muxio",
+ "muxio-core",
  "muxio-rpc-service",
  "muxio-rpc-service-caller",
  "muxio-rpc-service-endpoint",
  "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.30.0",
  "tracing",
 ]
 
 [[package]]
 name = "muxio-tokio-rpc-server"
-version = "0.10.2-alpha"
+version = "0.15.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3368dd8b489844742ac72af6802d2f0121ddfc6df5b30ce4e245b3b41bbe3ae"
+checksum = "46bb59b73a3991595c74e0cdea568d9ee1c3fdea72efcd10beffe4ca0762428c"
 dependencies = [
  "async-trait",
  "axum",
  "bytes",
  "futures-util",
- "muxio",
+ "muxio-core",
  "muxio-rpc-service",
  "muxio-rpc-service-caller",
  "muxio-rpc-service-endpoint",
  "tokio",
- "tokio-tungstenite",
  "tracing",
 ]
 
@@ -1580,9 +1617,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2e8e8bcc7961af1fdac401278c6a831614941f6164ee3bf4ce61b7edb162207"
+checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
 dependencies = [
  "chacha20",
  "getrandom 0.4.2",
@@ -1817,7 +1854,18 @@ checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
- "digest",
+ "digest 0.10.7",
+]
+
+[[package]]
+name = "sha1"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aacc4cc499359472b4abe1bf11d0b12e688af9a805fa5e3016f9a386dc2d0214"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -1847,7 +1895,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.16.3-alpha"
+version = "0.17.0-alpha"
 dependencies = [
  "async-trait",
  "bitcode",
@@ -1859,7 +1907,7 @@ dependencies = [
  "futures",
  "indoc",
  "memmap2",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rayon",
  "serde",
  "serde_json",
@@ -1875,7 +1923,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-entry-handle"
-version = "0.16.3-alpha"
+version = "0.17.0-alpha"
 dependencies = [
  "arrow",
  "crc32fast",
@@ -1884,7 +1932,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-extensions"
-version = "0.16.3-alpha"
+version = "0.17.0-alpha"
 dependencies = [
  "bitcode",
  "doc-comment",
@@ -1896,7 +1944,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-muxio-service-definition"
-version = "0.16.3-alpha"
+version = "0.17.0-alpha"
 dependencies = [
  "bitcode",
  "muxio-rpc-service",
@@ -1904,7 +1952,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-client"
-version = "0.16.3-alpha"
+version = "0.17.0-alpha"
 dependencies = [
  "async-trait",
  "muxio-rpc-service",
@@ -1918,7 +1966,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-server"
-version = "0.16.3-alpha"
+version = "0.17.0-alpha"
 dependencies = [
  "clap",
  "indoc",
@@ -2080,7 +2128,19 @@ dependencies = [
  "futures-util",
  "log",
  "tokio",
- "tungstenite",
+ "tungstenite 0.29.0",
+]
+
+[[package]]
+name = "tokio-tungstenite"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17a073bfed563fa236697a068031408a93cd9522e08abf9933ead3e73411bd71"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite 0.30.0",
 ]
 
 [[package]]
@@ -2215,15 +2275,31 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.9.3",
- "sha1",
+ "sha1 0.10.6",
+ "thiserror",
+]
+
+[[package]]
+name = "tungstenite"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e48ac77174b19c110a50ab2128b24215ac9cb40e0e12e093fb602d175c569d22"
+dependencies = [
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.10.2",
+ "sha1 0.11.0",
  "thiserror",
 ]
 
 [[package]]
 name = "typenum"
-version = "1.19.0"
+version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
+checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "unicode-ident"
@@ -2576,9 +2652,9 @@ dependencies = [
 
 [[package]]
 name = "xxhash-rust"
-version = "0.8.15"
+version = "0.8.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fdd20c5420375476fbd4394763288da7eb0cc0b8c11deed431a91562af7335d3"
+checksum = "4d93c89cdc2d3a63c3ec48ffe926931bdc069eafa8e4402fe6d8f790c9d1e576"
 
 [[package]]
 name = "zerocopy"

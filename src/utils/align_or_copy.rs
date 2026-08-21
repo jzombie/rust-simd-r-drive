@@ -65,8 +65,10 @@ where
 
         Cow::Owned(
             bytes
-                .chunks_exact(N)
-                .map(|chunk| from_le_bytes(chunk.try_into().unwrap()))
+                .as_chunks::<N>()
+                .0
+                .iter()
+                .map(|chunk| from_le_bytes(*chunk))
                 .collect(),
         )
     }

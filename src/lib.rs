@@ -120,7 +120,14 @@
 //! - **Avoid unnecessary locks** to maximize concurrency.
 //!
 //! ## Safety Notes
-//! - Memory-mapped files should not be resized while in use.
+//! - Memory-mapped files should not be resized **externally** while in use.
+//!   Appending entries through this crate's API is always safe: internally,
+//!   the engine re-maps the storage file after each write and retires stale
+//!   mappings once in-flight readers have finished with them. This warning
+//!   instead applies to resizing the underlying storage file out-of-band
+//!   (e.g., truncating it via `File::set_len` or external tools) while the
+//!   store is open — doing so can invalidate active mappings and cause
+//!   undefined behavior (typically a `SIGBUS` fault).
 //! - Ensure proper file synchronization after writes.
 //!
 //! ## License

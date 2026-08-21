@@ -1,8 +1,10 @@
 **/target
 *.bin
+.DS_Store
 
 # Used for debugging and experimentation
 /data
+.codegraph
 
 out.txt
 
