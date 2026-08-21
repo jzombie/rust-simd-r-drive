@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 - Replaced `chunks_exact(N)` with `as_chunks::<N>()` in `align_or_copy` to satisfy current clippy lints (no functional change).
 
 ### Fixed
+- Fixed a potential reader/writer deadlock in `DataStore` that could hang concurrent workloads indefinitely (observed as CI timeouts on macOS). `reindex` acquired the mmap mutex before the key-index write lock while readers held a key-index read guard across the mmap lock — an ABBA cycle. Locks are now always acquired in a single global order (`file` → `key_indexer` → `mmap`) across read, batch-read, and write paths.
 - Clarified the crate-level "Safety Notes" (#99): appending via the engine API is always safe (the store re-maps the file internally after each write); the "do not resize while in use" warning refers to resizing the storage file out-of-band while the store is open.
 
 ### Migration

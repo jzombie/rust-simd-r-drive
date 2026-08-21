@@ -217,10 +217,16 @@ impl DataStore {
     ///   structures.
     ///
     /// # Locks Acquired:
-    /// - `mmap` (`Mutex<Arc<Mmap>>`) is locked to update the
-    ///   memory-mapped file.
     /// - `key_indexer` (`RwLock<HashMap<u64, u64>>`) is locked to
     ///   modify key mappings.
+    /// - `mmap` (`Mutex<Arc<Mmap>>`) is locked last (and held only
+    ///   briefly) to swap in the remapped view.
+    ///
+    /// Locks are always acquired in the global order
+    /// `file` → `key_indexer` → `mmap`, mirroring the reader paths,
+    /// which take a `key_indexer` read guard before cloning the mmap
+    /// arc. Acquiring these locks in any other order can deadlock
+    /// readers against writers.
     fn reindex(
         &self,
         write_guard: &std::sync::RwLockWriteGuard<'_, BufWriter<File>>,
@@ -229,11 +235,11 @@ impl DataStore {
         deleted_keys: Option<&HashSet<u64>>,
     ) -> std::io::Result<()> {
         let new_mmap = Self::init_mmap(write_guard)?;
-        let mut mmap_guard = self.mmap.lock().unwrap();
         let mut key_indexer_guard = self
             .key_indexer
             .write()
             .map_err(|_| std::io::Error::other("Failed to acquire index lock"))?;
+        let mut mmap_guard = self.mmap.lock().unwrap();
 
         for (key_hash, offset) in key_hash_offsets.iter() {
             if deleted_keys
@@ -1113,11 +1119,11 @@ impl DataStoreReader for DataStore {
         prehashed_keys: &[u64],
         non_hashed_keys: Option<&[&[u8]]>,
     ) -> Result<Vec<Option<EntryHandle>>> {
-        let mmap_arc = self.get_mmap_arc();
         let key_indexer_guard = self
             .key_indexer
             .read()
             .map_err(|_| Error::other("Key-index lock poisoned during `batch_read`"))?;
+        let mmap_arc = self.get_mmap_arc();
 
         // Use a match to handle the two possible scenarios
         let results = match non_hashed_keys {
