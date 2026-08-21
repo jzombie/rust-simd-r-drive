@@ -1,8 +1,19 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-The format is based on Keep a Changelog and this project adheres to
+The format is based on [Keep a Changelog](https://keepachangelog.com/) and this project adheres to
 (or is loosely based on) Semantic Versioning.
+
+## [Unreleased]
+
+### Changed
+- Bumped `arrow` from `59.0.0` to `59.1.0`.
+- Bumped `bytemuck` from `1.25.0` to `1.25.1`.
+- Bumped `xxhash-rust` from `0.8.15` to `0.8.16`.
+- Bumped `muxio`-family crates from `0.10.2-alpha` to `0.15.0-alpha` (the base `muxio` crate is superseded by `muxio-core`; pulls in `tungstenite`/`tokio-tungstenite` `0.30` alongside the existing `0.29`).
+- Refreshed `Cargo.lock` to reflect updated transitive dependencies (e.g., `rand` `0.10.2`, `typenum` `1.20.1`).
+- Added `.DS_Store` and `.codegraph` to `.gitignore`.
+- Replaced `chunks_exact(N)` with `as_chunks::<N>()` in `align_or_copy` to satisfy current clippy lints (no functional change).
 
 ## [0.16.3-alpha] - 2026-07-11
 
