@@ -3,9 +3,14 @@ name: Rust Tests
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
-    branches: [main]
+  workflow_dispatch:
+
+# Ensure only one run per branch/PR at a time. If new commits are pushed,
+# older jobs will be automatically canceled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
