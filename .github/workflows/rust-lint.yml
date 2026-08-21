@@ -1,6 +1,12 @@
 name: Rust Lint
 
-on: [push, pull_request]
+on: [pull_request]
+
+# Ensure only one run per branch/PR at a time. If new commits are pushed,
+# older jobs will be automatically canceled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
