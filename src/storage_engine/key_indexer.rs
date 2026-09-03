@@ -105,6 +105,15 @@ impl KeyIndexer {
         self.index.clear();
     }
 
+    /// Pre-allocates capacity for additional entries.
+    ///
+    /// Used by dynamic tail sampling to eliminate HashMap resize overhead
+    /// after observing actual entry density from the first 1000 entries.
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        self.index.reserve(additional);
+    }
+
     /// Inserts a new key hash and offset into the index, with collision detection.
     ///
     /// This method checks the tag of an existing entry before overwriting. If the
