@@ -70,10 +70,10 @@ impl DataStore {
     /// 1. **Opens the file** in read/write mode (creating it if
     ///    necessary).
     /// 2. **Maps the file** into memory using `mmap` for fast access.
-    /// 3. **Recovers the valid chain**, ensuring **data integrity**.
+    /// 3. **Recovers the valid chain** and **builds the key index**
+    ///    in a single backward pass.
     /// 4. **Re-maps** the file after recovery to reflect the correct
     ///    state.
-    /// 5. **Builds an in-memory index** for **fast key lookups**.
     ///
     /// # Parameters:
     /// - `path`: The **file path** where the storage is located.
@@ -86,7 +86,9 @@ impl DataStore {
         let file_len = file.get_ref().metadata()?.len();
 
         let mmap = Self::init_mmap(&file)?;
-        let final_len = Self::recover_valid_chain(&mmap, file_len)?;
+
+        let mut key_indexer = KeyIndexer::with_capacity(INDEX_BASELINE_CAPACITY);
+        let final_len = Self::recover_valid_chain(&mmap, file_len, &mut key_indexer)?;
 
         if final_len < file_len {
             warn!(
@@ -104,8 +106,6 @@ impl DataStore {
         }
 
         let mmap_arc = Arc::new(mmap);
-        let mmap_for_indexer: &'static Mmap = unsafe { &*(Arc::as_ptr(&mmap_arc)) };
-        let key_indexer = KeyIndexer::build(mmap_for_indexer, final_len);
 
         Ok(Self {
             file: Arc::new(RwLock::new(file)),
@@ -366,27 +366,28 @@ impl DataStore {
         })
     }
 
-    /// Recovers the **latest valid chain** of entries from the storage
-    /// file.
+    /// Recovers the valid chain and builds the key index in a single
+    /// backward pass.
     ///
-    /// This function **scans backward** through the file, verifying that
-    /// each entry correctly references the previous offset. It
-    /// determines the **last valid storage position** to ensure data
-    /// integrity.
-    ///
-    /// # How It Works:
-    /// - Scans from the last written offset **backward**.
-    /// - Ensures each entry correctly points to its **previous offset**.
-    /// - Stops at the **deepest valid chain** that reaches offset `0`.
+    /// Walks backward from `file_len`, validating the `prev_offset` linked
+    /// chain. During the walk, inserts each entry's key hash and offset
+    /// into the provided `KeyIndexer` using `entry().or_insert()`.
+    /// If a candidate tail's chain is invalid, the indexer is cleared and
+    /// the next candidate is tried.
     ///
     /// # Parameters:
     /// - `mmap`: A reference to the **memory-mapped file**.
     /// - `file_len`: The **current size** of the file in bytes.
+    /// - `indexer`: A mutable reference to the key indexer to populate.
     ///
     /// # Returns:
     /// - `Ok(final_valid_offset)`: The last **valid** byte offset.
     /// - `Err(std::io::Error)`: If a file read or integrity check fails
-    fn recover_valid_chain(mmap: &Mmap, file_len: u64) -> Result<u64> {
+    fn recover_valid_chain(
+        mmap: &Mmap,
+        file_len: u64,
+        indexer: &mut KeyIndexer,
+    ) -> Result<u64> {
         if file_len < METADATA_SIZE as u64 {
             return Ok(0);
         }
@@ -431,6 +432,9 @@ impl DataStore {
             // size of current entry data region
             let mut total_size = (metadata_offset - entry_start) + METADATA_SIZE as u64;
 
+            // Index the tail entry (newest version) during chain walk.
+            indexer.insert_if_absent(metadata.key_hash, metadata_offset);
+
             while back_cursor != 0 {
                 if back_cursor < METADATA_SIZE as u64 {
                     chain_valid = false;
@@ -473,6 +477,9 @@ impl DataStore {
                     break;
                 }
 
+                // Index each older entry during chain walk.
+                indexer.insert_if_absent(prev_metadata.key_hash, prev_metadata_offset);
+
                 back_cursor = prev_prev_tail;
             }
 
@@ -481,6 +488,8 @@ impl DataStore {
                 break;
             }
 
+            // Candidate failed — clear index and try next offset.
+            indexer.clear();
             cursor -= 1;
         }
 

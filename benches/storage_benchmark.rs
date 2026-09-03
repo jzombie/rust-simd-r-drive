@@ -35,6 +35,7 @@ fn main() {
 
     println!("Running storage benchmark…");
     benchmark_append_entries(&path);
+    benchmark_open_time(&path);
     benchmark_sequential_reads(&path);
     benchmark_random_reads(&path);
     benchmark_batch_reads(&path);
@@ -89,6 +90,62 @@ fn flush_batch(storage: &DataStore, batch: &mut Vec<(Vec<u8>, Vec<u8>)>) {
         .collect();
     storage.batch_write(&refs).expect("Batch write failed");
     batch.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Open-time (cold + warm cache)
+// ---------------------------------------------------------------------------
+
+fn evict_page_cache() {
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("purge").status();
+        match status {
+            Ok(s) if s.success() => {}
+            _ => eprintln!("WARNING: cold-cache eviction failed; results reflect warm cache"),
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let status = std::process::Command::new("sh")
+            .args(["-c", "echo 3 > /proc/sys/vm/drop_caches"])
+            .status();
+        match status {
+            Ok(s) if s.success() => {}
+            _ => eprintln!("WARNING: cold-cache eviction failed; results reflect warm cache"),
+        }
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    {
+        eprintln!("WARNING: cold-cache eviction not supported on this platform; results reflect warm cache");
+    }
+}
+
+fn benchmark_open_time(path: &Path) {
+    const WARM_OPENS: usize = 5;
+
+    // Cold cache
+    evict_page_cache();
+    let start = Instant::now();
+    let _storage = DataStore::open(path).expect("Failed to open storage (cold)");
+    let cold_dt = start.elapsed();
+    println!(
+        "Open (cold cache):  {:#.3}s",
+        cold_dt.as_secs_f64(),
+    );
+    drop(_storage);
+
+    // Warm cache
+    let start = Instant::now();
+    for _ in 0..WARM_OPENS {
+        let _s = DataStore::open(path).expect("Failed to open storage (warm)");
+    }
+    let warm_dt = start.elapsed();
+    println!(
+        "Open (warm cache):  {:#.3}s avg ({} runs)",
+        warm_dt.as_secs_f64() / WARM_OPENS as f64,
+        WARM_OPENS,
+    );
 }
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 # Used for debugging and experimentation
 /data
 .codegraph
-
+*.patch
 out.txt
 
 # Local Cargo overrides
