@@ -170,11 +170,9 @@ impl DataStore {
     }
 
     fn init_mmap(file: &BufWriter<File>) -> Result<Mmap> {
-        let mmap = unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }?;
-        // Hint the kernel to start async readahead across all NVMe channels.
-        // Converts demand-paged random faults into parallel sequential I/O.
-        let _ = mmap.advise(memmap2::Advice::Sequential);
-        Ok(mmap)
+        // Safety: file is opened in read/write mode and held open for the
+        // lifetime of the Mmap.
+        unsafe { memmap2::MmapOptions::new().map(file.get_ref()) }
     }
 
     /// Re-maps the storage file and updates the key index after a write
