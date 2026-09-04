@@ -455,13 +455,13 @@ impl DataStore {
         // Safe slice into the window buffer with explicit bounds check.
         // Returns Err on boundary violations instead of panicking.
         #[inline]
-        fn window_slice<'a>(
-            buf: &'a [u8],
+        fn window_slice(
+            buf: &[u8],
             win_start: u64,
             win_end: u64,
             offset: u64,
             len: u64,
-        ) -> Result<&'a [u8]> {
+        ) -> Result<&[u8]> {
             if offset < win_start || offset + len > win_end {
                 return Err(Error::new(
                     std::io::ErrorKind::InvalidData,
@@ -587,9 +587,10 @@ impl DataStore {
             entry_count += 1;
             if entry_count == 1_000 {
                 let bytes_scanned = scan_start.saturating_sub(back_cursor);
-                let avg_entry_size = bytes_scanned / entry_count as u64;
-                if avg_entry_size > 0 {
-                    let estimated = back_cursor / avg_entry_size;
+                if let Some(avg_entry_size) = bytes_scanned.checked_div(entry_count as u64)
+                    && avg_entry_size > 0
+                    && let Some(estimated) = back_cursor.checked_div(avg_entry_size)
+                {
                     indexer.reserve(estimated as usize);
                 }
             }

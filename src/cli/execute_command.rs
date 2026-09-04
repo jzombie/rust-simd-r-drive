@@ -249,7 +249,7 @@ pub fn execute_command(cli: &Cli) {
                     format_bytes(savings_estimate)
                 );
             } else {
-                println!("{:<25} {}", "COMPACTION SAVINGS:", "(use --detailed)");
+                println!("{:<25} (use --detailed)", "COMPACTION SAVINGS:");
             }
 
             println!("{:=<50}", ""); // Footer
