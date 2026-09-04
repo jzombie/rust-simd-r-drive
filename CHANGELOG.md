@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
+## [0.17.1-alpha] - 2026-09-04
+
+### Changed
+- Unified `recover_valid_chain` and `KeyIndexer::build` into a single backward pass using a 64 MB sliding window with `pread` (cross-platform: `read_exact_at` on Unix, `seek_read` loop on Windows). Eliminates the second full-file scan during `DataStore::open()`.
+- Replaced `Xxh3BuildHasher` with `IdentityHasher` in `KeyIndexer` — zero-cost passthrough for pre-hashed `u64` keys, removing redundant XXH3 re-hashing on every index insertion.
+- Added dynamic tail-sampling for HashMap capacity: after the first 1,000 entries, the observed average entry size is used to `reserve()` the estimated remaining capacity in one call.
+- Moved `estimate_compaction_savings()` behind a `--detailed` flag on the `info` CLI subcommand. Default `info` now performs an O(1) lookup instead of a full O(N) entry scan.
+- Added `RecoveryResult` struct and `KeyIndexer::clear()` / `insert_if_absent()` / `reserve()` methods for cleaner recovery internals.
+- Bumped `arrow` from `59.1.0` to `59.2.0`.
+- Bumped `tokio` from `1.52.3` to `1.53.1`.
+- Bumped `serde_json` from `1.0.150` to `1.0.151`.
+- Bumped `clap` from `4.6.1` to `4.6.6`.
+- Bumped `serial_test` from `3.5.0` to `4.0.1`.
+
+### Added
+- Sliding window bounds validation in `fill_window` and `window_slice` — returns `Err(InvalidData)` on corrupt offsets instead of panicking, allowing recovery to skip invalid candidate tails gracefully.
+- `debug!`-level telemetry in `recover_valid_chain` logging `window_fills`, `bytes_read`, and `entry_count` for profiling recovery I/O.
+- Unit tests for `KeyIndexer::clear()` capacity retention and `insert_if_absent` first-wins semantics.
+
+### Removed
+- Removed `KeyIndexer::build` (superseded by single-pass indexing in `recover_valid_chain`).
+- Removed `RecoveryResult` struct (unused).
+- Removed `madvise(Sequential)` from `init_mmap` — was counterproductive when recovery uses `pread` instead of mmap.
+
 ## [0.17.0-alpha] - 2026-08-21
 
 ### Changed
