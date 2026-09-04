@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
-## [Unreleased]
+## [0.17.1-alpha] - 2026-09-04
 
 ### Changed
 - Unified `recover_valid_chain` and `KeyIndexer::build` into a single backward pass using a 64 MB sliding window with `pread` (cross-platform: `read_exact_at` on Unix, `seek_read` loop on Windows). Eliminates the second full-file scan during `DataStore::open()`.

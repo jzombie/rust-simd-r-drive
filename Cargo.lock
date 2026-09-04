@@ -1901,7 +1901,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.17.0-alpha"
+version = "0.17.1-alpha"
 dependencies = [
  "async-trait",
  "bitcode",
@@ -1929,7 +1929,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-entry-handle"
-version = "0.17.0-alpha"
+version = "0.17.1-alpha"
 dependencies = [
  "arrow",
  "crc32fast",
@@ -1938,7 +1938,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-extensions"
-version = "0.17.0-alpha"
+version = "0.17.1-alpha"
 dependencies = [
  "bitcode",
  "doc-comment",
@@ -1950,7 +1950,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-muxio-service-definition"
-version = "0.17.0-alpha"
+version = "0.17.1-alpha"
 dependencies = [
  "bitcode",
  "muxio-rpc-service",
@@ -1958,7 +1958,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-client"
-version = "0.17.0-alpha"
+version = "0.17.1-alpha"
 dependencies = [
  "async-trait",
  "muxio-rpc-service",
@@ -1972,7 +1972,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-server"
-version = "0.17.0-alpha"
+version = "0.17.1-alpha"
 dependencies = [
  "clap",
  "indoc",
