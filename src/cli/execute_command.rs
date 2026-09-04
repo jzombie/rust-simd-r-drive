@@ -224,14 +224,11 @@ pub fn execute_command(cli: &Cli) {
             }
         }
 
-        Commands::Info => {
+        Commands::Info { detailed } => {
             let storage = DataStore::open_existing(&cli.storage).expect("Failed to open storage");
 
             // Retrieve storage file size
             let storage_size = storage.file_size().unwrap_or(0);
-
-            // Get compaction savings estimate
-            let savings_estimate = storage.estimate_compaction_savings();
 
             // Count active entries
             let entry_count = storage.len();
@@ -242,11 +239,18 @@ pub fn execute_command(cli: &Cli) {
 
             println!("{:<25} {}", "TOTAL SIZE:", format_bytes(storage_size));
             println!("{:<25} {}", "ACTIVE ENTRIES:", entry_count.unwrap());
-            println!(
-                "{:<25} {}",
-                "COMPACTION SAVINGS:",
-                format_bytes(savings_estimate)
-            );
+
+            if *detailed {
+                // Full scan — slow on large files
+                let savings_estimate = storage.estimate_compaction_savings();
+                println!(
+                    "{:<25} {}",
+                    "COMPACTION SAVINGS:",
+                    format_bytes(savings_estimate)
+                );
+            } else {
+                println!("{:<25} (use --detailed)", "COMPACTION SAVINGS:");
+            }
 
             println!("{:=<50}", ""); // Footer
         }
