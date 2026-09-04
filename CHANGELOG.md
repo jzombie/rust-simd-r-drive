@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
+## [Unreleased]
+
+### Changed
+- Unified `recover_valid_chain` and `KeyIndexer::build` into a single backward pass using a 64 MB sliding window with `pread` (cross-platform: `read_exact_at` on Unix, `seek_read` loop on Windows). Eliminates the second full-file scan during `DataStore::open()`.
+- Replaced `Xxh3BuildHasher` with `IdentityHasher` in `KeyIndexer` — zero-cost passthrough for pre-hashed `u64` keys, removing redundant XXH3 re-hashing on every index insertion.
+- Added dynamic tail-sampling for HashMap capacity: after the first 1,000 entries, the observed average entry size is used to `reserve()` the estimated remaining capacity in one call.
+- Moved `estimate_compaction_savings()` behind a `--detailed` flag on the `info` CLI subcommand. Default `info` now performs an O(1) lookup instead of a full O(N) entry scan.
+- Added `RecoveryResult` struct and `KeyIndexer::clear()` / `insert_if_absent()` / `reserve()` methods for cleaner recovery internals.
+
+### Added
+- Sliding window bounds validation in `fill_window` and `window_slice` — returns `Err(InvalidData)` on corrupt offsets instead of panicking, allowing recovery to skip invalid candidate tails gracefully.
+- `debug!`-level telemetry in `recover_valid_chain` logging `window_fills`, `bytes_read`, and `entry_count` for profiling recovery I/O.
+- Unit tests for `KeyIndexer::clear()` capacity retention and `insert_if_absent` first-wins semantics.
+
+### Removed
+- Removed `KeyIndexer::build` (superseded by single-pass indexing in `recover_valid_chain`).
+- Removed `RecoveryResult` struct (unused).
+- Removed `madvise(Sequential)` from `init_mmap` — was counterproductive when recovery uses `pread` instead of mmap.
+
 ## [0.17.0-alpha] - 2026-08-21
 
 ### Changed

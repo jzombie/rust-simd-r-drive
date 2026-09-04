@@ -55,7 +55,11 @@ pub enum Commands {
     Compact,
 
     /// Get current state of storage file
-    Info,
+    Info {
+        /// Show compaction savings estimate (runs a full scan, slow on large files)
+        #[arg(long)]
+        detailed: bool,
+    },
 
     /// Access the metadata of a key
     Metadata {

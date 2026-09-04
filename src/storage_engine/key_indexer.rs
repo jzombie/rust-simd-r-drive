@@ -1,10 +1,7 @@
-use crate::storage_engine::constants::*;
-use crate::storage_engine::digest::{Xxh3BuildHasher, compute_hash};
-use memmap2::Mmap;
-use simd_r_drive_entry_handle::EntryMetadata;
+use crate::storage_engine::digest::{IdentityBuildHasher, compute_hash};
+use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::Values;
-use std::collections::{HashMap, HashSet};
 
 /// Number of high bits reserved for collision-detection tag (16 bits).
 ///
@@ -55,10 +52,21 @@ const OFFSET_MASK: u64 = (1u64 << (64 - TAG_BITS)) - 1;
 /// - Small and predictable performance cost (~2 bit ops + 1 compare)
 pub struct KeyIndexer {
     /// Index: key_hash → packed (tag | offset)
-    index: HashMap<u64, u64, Xxh3BuildHasher>,
+    index: HashMap<u64, u64, IdentityBuildHasher>,
 }
 
 impl KeyIndexer {
+    /// Creates a new empty `KeyIndexer` with the given capacity.
+    #[inline]
+    pub fn with_capacity(estimated_entries: usize) -> Self {
+        Self {
+            index: HashMap::with_capacity_and_hasher(
+                estimated_entries,
+                IdentityBuildHasher::default(),
+            ),
+        }
+    }
+
     /// Returns a 16-bit tag from the upper bits of a key hash.
     #[inline]
     pub fn tag_from_hash(key_hash: u64) -> u16 {
@@ -92,35 +100,21 @@ impl KeyIndexer {
         (tag, offset)
     }
 
-    /// Scans the file backwards and builds a tag-aware hash index.
+    /// Clears all entries from the index while retaining allocated capacity.
     ///
-    /// The most recent version of each key hash is kept.
-    pub fn build(mmap: &Mmap, tail_offset: u64) -> Self {
-        let mut index = HashMap::with_hasher(Xxh3BuildHasher);
-        let mut seen = HashSet::with_hasher(Xxh3BuildHasher);
-        let mut cursor = tail_offset;
+    /// This is used during candidate tail recovery to reset state between
+    /// retry attempts without triggering heap deallocation/reallocation.
+    pub fn clear(&mut self) {
+        self.index.clear();
+    }
 
-        while cursor >= METADATA_SIZE as u64 {
-            let meta_off = cursor as usize - METADATA_SIZE;
-            let meta_bytes = &mmap[meta_off..meta_off + METADATA_SIZE];
-            let meta = EntryMetadata::deserialize(meta_bytes);
-
-            if seen.contains(&meta.key_hash) {
-                cursor = meta.prev_offset;
-                continue;
-            }
-
-            seen.insert(meta.key_hash);
-            let tag = Self::tag_from_hash(meta.key_hash);
-            index.insert(meta.key_hash, Self::pack(tag, meta_off as u64));
-
-            if meta.prev_offset == 0 {
-                break;
-            }
-            cursor = meta.prev_offset;
-        }
-
-        Self { index }
+    /// Pre-allocates capacity for additional entries.
+    ///
+    /// Used by dynamic tail sampling to eliminate HashMap resize overhead
+    /// after observing actual entry density from the first 1000 entries.
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        self.index.reserve(additional);
     }
 
     /// Inserts a new key hash and offset into the index, with collision detection.
@@ -177,6 +171,19 @@ impl KeyIndexer {
         self.index.remove(key_hash).map(|v| Self::unpack(v).1)
     }
 
+    /// Inserts a key hash and offset only if the key is not already present.
+    ///
+    /// Uses the HashMap `entry().or_insert()` API for a single hash lookup.
+    /// Since the backward scan visits newest entries first, the first
+    /// insertion naturally keeps the latest version.
+    #[inline]
+    pub fn insert_if_absent(&mut self, key_hash: u64, offset: u64) {
+        let tag = Self::tag_from_hash(key_hash);
+        self.index
+            .entry(key_hash)
+            .or_insert(Self::pack(tag, offset));
+    }
+
     #[inline]
     pub fn len(&self) -> usize {
         self.index.len()
@@ -197,5 +204,36 @@ impl KeyIndexer {
     #[inline]
     pub fn values(&self) -> Values<'_, u64, u64> {
         self.index.values()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clear_retains_capacity() {
+        let mut indexer = KeyIndexer::with_capacity(1000);
+        for i in 0..500u64 {
+            indexer.insert_if_absent(i, i * 100);
+        }
+        let capacity_before = indexer.index.capacity();
+        assert!(capacity_before >= 500);
+
+        indexer.clear();
+
+        assert_eq!(indexer.len(), 0);
+        assert_eq!(indexer.index.capacity(), capacity_before);
+    }
+
+    #[test]
+    fn insert_if_absent_keeps_first() {
+        let mut indexer = KeyIndexer::with_capacity(100);
+        let key = 42u64;
+        indexer.insert_if_absent(key, 100);
+        indexer.insert_if_absent(key, 200);
+
+        let (_, offset) = KeyIndexer::unpack(indexer.get_packed(&key).copied().unwrap());
+        assert_eq!(offset, 100, "first insertion should win");
     }
 }

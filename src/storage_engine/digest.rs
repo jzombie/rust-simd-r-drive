@@ -5,4 +5,4 @@ mod compute_hash;
 pub use compute_hash::{compute_hash, compute_hash_batch};
 
 mod xxh3_build_hasher;
-pub use xxh3_build_hasher::{Xxh3BuildHasher, Xxh3Hasher};
+pub use xxh3_build_hasher::{IdentityBuildHasher, IdentityHasher, Xxh3BuildHasher, Xxh3Hasher};
