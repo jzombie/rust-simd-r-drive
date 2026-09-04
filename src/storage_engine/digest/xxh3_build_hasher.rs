@@ -1,4 +1,4 @@
-use std::hash::{BuildHasher, Hasher};
+use std::hash::{BuildHasher, BuildHasherDefault, Hasher};
 use xxhash_rust::xxh3::xxh3_64;
 
 /// Custom Hasher using XXH3
@@ -28,3 +28,30 @@ impl BuildHasher for Xxh3BuildHasher {
         Xxh3Hasher::default()
     }
 }
+
+/// Zero-cost passthrough hasher for pre-hashed `u64` keys.
+///
+/// Used in `KeyIndexer` where keys are already XXH3 hashes — running
+/// them through another hasher is redundant.
+#[derive(Default)]
+pub struct IdentityHasher(u64);
+
+impl Hasher for IdentityHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    #[inline]
+    fn write(&mut self, _bytes: &[u8]) {
+        unreachable!("KeyIndexer only hashes u64 keys");
+    }
+
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.0 = i;
+    }
+}
+
+/// `BuildHasher` adapter for `IdentityHasher`.
+pub type IdentityBuildHasher = BuildHasherDefault<IdentityHasher>;

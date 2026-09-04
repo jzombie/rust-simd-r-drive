@@ -84,11 +84,14 @@ impl DataStore {
     pub fn open(path: &Path) -> Result<Self> {
         let file = Self::open_file_in_append_mode(path)?;
         let file_len = file.get_ref().metadata()?.len();
+        debug!(file_len, "opened file");
 
         let mmap = Self::init_mmap(&file)?;
+        debug!("mmap initialized");
 
         let mut key_indexer = KeyIndexer::with_capacity(INDEX_BASELINE_CAPACITY);
         let final_len = Self::recover_valid_chain(&mmap, file.get_ref(), file_len, &mut key_indexer)?;
+        debug!(entries = key_indexer.len(), "chain recovered + index built");
 
         if final_len < file_len {
             warn!(
@@ -402,7 +405,7 @@ impl DataStore {
             file_len: u64,
             offset: u64,
             len: u64,
-        ) -> Result<()> {
+        ) -> Result<usize> {
             let need_end = offset.checked_add(len).ok_or_else(|| {
                 Error::new(std::io::ErrorKind::InvalidData, "offset + len overflow")
             })?;
@@ -416,7 +419,7 @@ impl DataStore {
                 ));
             }
             if offset >= *win_start && need_end <= *win_end {
-                return Ok(());
+                return Ok(0); // cache hit — 0 bytes read
             }
             // Anchor window end at the furthest byte we need, extend backward.
             let new_end = need_end;
@@ -444,7 +447,7 @@ impl DataStore {
             }
             *win_start = new_start;
             *win_end = new_end;
-            Ok(())
+            Ok(read_len) // bytes actually read from disk
         }
 
         // Safe slice into the window buffer with explicit bounds check.
@@ -473,18 +476,20 @@ impl DataStore {
         let mut best_valid_offset = None;
         let mut entry_count: usize = 0;
         let scan_start = file_len;
+        let mut window_fills: usize = 0;
+        let mut bytes_read: u64 = 0;
 
         while cursor >= METADATA_SIZE as u64 {
             let metadata_offset = cursor - METADATA_SIZE as u64;
 
             // Ensure window covers the tail entry's metadata (20 bytes).
             // On corrupt offset → skip this candidate.
-            if fill_window(
+            match fill_window(
                 file, &mut buf, &mut win_start, &mut win_end,
                 file_len, metadata_offset, METADATA_SIZE as u64,
-            ).is_err() {
-                cursor -= 1;
-                continue;
+            ) {
+                Ok(bytes) => { if bytes > 0 { window_fills += 1; bytes_read += bytes as u64; } }
+                Err(_) => { cursor -= 1; continue; }
             }
 
             let metadata = match window_slice(&buf, win_start, win_end, metadata_offset, METADATA_SIZE as u64) {
@@ -506,14 +511,17 @@ impl DataStore {
                     file, &mut buf, &mut win_start, &mut win_end,
                     file_len, prev_tail, 1,
                 ) {
-                    Ok(()) => match window_slice(&buf, win_start, win_end, prev_tail, 1) {
-                        Ok(s) if s[0] == NULL_BYTE[0] => prev_tail,
-                        _ => {
-                            #[cfg(any(test, debug_assertions))]
-                            { debug_assert_aligned_offset(derived_start); }
-                            derived_start
+                    Ok(bytes) => {
+                        if bytes > 0 { window_fills += 1; bytes_read += bytes as u64; }
+                        match window_slice(&buf, win_start, win_end, prev_tail, 1) {
+                            Ok(s) if s[0] == NULL_BYTE[0] => prev_tail,
+                            _ => {
+                                #[cfg(any(test, debug_assertions))]
+                                { debug_assert_aligned_offset(derived_start); }
+                                derived_start
+                            }
                         }
-                    },
+                    }
                     Err(_) => {
                         #[cfg(any(test, debug_assertions))]
                         { debug_assert_aligned_offset(derived_start); }
@@ -564,12 +572,17 @@ impl DataStore {
                     prev_metadata_offset + METADATA_SIZE as u64,
                     back_cursor,
                 );
-                if fill_window(
+                match fill_window(
                     file, &mut buf, &mut win_start, &mut win_end,
                     file_len, prev_metadata_offset, need_end - prev_metadata_offset,
-                ).is_err() {
-                    chain_valid = false;
-                    break;
+                ) {
+                    Ok(bytes) => {
+                        if bytes > 0 {
+                            window_fills += 1;
+                            bytes_read += bytes as u64;
+                        }
+                    }
+                    Err(_) => { chain_valid = false; break; }
                 }
 
                 let prev_metadata = match window_slice(&buf, win_start, win_end, prev_metadata_offset, METADATA_SIZE as u64) {
@@ -586,10 +599,13 @@ impl DataStore {
                         file, &mut buf, &mut win_start, &mut win_end,
                         file_len, prev_prev_tail, 1,
                     ) {
-                        Ok(()) => match window_slice(&buf, win_start, win_end, prev_prev_tail, 1) {
-                            Ok(s) if s[0] == NULL_BYTE[0] => prev_prev_tail,
-                            _ => prev_prev_tail + Self::prepad_len(prev_prev_tail) as u64,
-                        },
+                        Ok(bytes) => {
+                            if bytes > 0 { window_fills += 1; bytes_read += bytes as u64; }
+                            match window_slice(&buf, win_start, win_end, prev_prev_tail, 1) {
+                                Ok(s) if s[0] == NULL_BYTE[0] => prev_prev_tail,
+                                _ => prev_prev_tail + Self::prepad_len(prev_prev_tail) as u64,
+                            }
+                        }
                         Err(_) => prev_prev_tail + Self::prepad_len(prev_prev_tail) as u64,
                     }
                 } else {
@@ -624,6 +640,13 @@ impl DataStore {
             indexer.clear();
             cursor -= 1;
         }
+
+        debug!(
+            window_fills,
+            bytes_read = bytes_read / (1024 * 1024),
+            entry_count,
+            "recover_valid_chain complete"
+        );
 
         Ok(best_valid_offset.unwrap_or(0))
     }

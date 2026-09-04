@@ -1,4 +1,4 @@
-use crate::storage_engine::digest::{Xxh3BuildHasher, compute_hash};
+use crate::storage_engine::digest::{IdentityBuildHasher, compute_hash};
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::Values;
 use std::collections::HashMap;
@@ -52,7 +52,7 @@ const OFFSET_MASK: u64 = (1u64 << (64 - TAG_BITS)) - 1;
 /// - Small and predictable performance cost (~2 bit ops + 1 compare)
 pub struct KeyIndexer {
     /// Index: key_hash → packed (tag | offset)
-    index: HashMap<u64, u64, Xxh3BuildHasher>,
+    index: HashMap<u64, u64, IdentityBuildHasher>,
 }
 
 impl KeyIndexer {
@@ -60,7 +60,7 @@ impl KeyIndexer {
     #[inline]
     pub fn with_capacity(estimated_entries: usize) -> Self {
         Self {
-            index: HashMap::with_capacity_and_hasher(estimated_entries, Xxh3BuildHasher),
+            index: HashMap::with_capacity_and_hasher(estimated_entries, IdentityBuildHasher::default()),
         }
     }
 
