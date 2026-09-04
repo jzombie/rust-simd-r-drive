@@ -1,7 +1,7 @@
 use crate::storage_engine::digest::{IdentityBuildHasher, compute_hash};
+use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::Values;
-use std::collections::HashMap;
 
 /// Number of high bits reserved for collision-detection tag (16 bits).
 ///
@@ -60,7 +60,10 @@ impl KeyIndexer {
     #[inline]
     pub fn with_capacity(estimated_entries: usize) -> Self {
         Self {
-            index: HashMap::with_capacity_and_hasher(estimated_entries, IdentityBuildHasher::default()),
+            index: HashMap::with_capacity_and_hasher(
+                estimated_entries,
+                IdentityBuildHasher::default(),
+            ),
         }
     }
 
@@ -176,7 +179,9 @@ impl KeyIndexer {
     #[inline]
     pub fn insert_if_absent(&mut self, key_hash: u64, offset: u64) {
         let tag = Self::tag_from_hash(key_hash);
-        self.index.entry(key_hash).or_insert(Self::pack(tag, offset));
+        self.index
+            .entry(key_hash)
+            .or_insert(Self::pack(tag, offset));
     }
 
     #[inline]

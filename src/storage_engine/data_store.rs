@@ -90,7 +90,8 @@ impl DataStore {
         debug!("mmap initialized");
 
         let mut key_indexer = KeyIndexer::with_capacity(INDEX_BASELINE_CAPACITY);
-        let final_len = Self::recover_valid_chain(&mmap, file.get_ref(), file_len, &mut key_indexer)?;
+        let final_len =
+            Self::recover_valid_chain(&mmap, file.get_ref(), file_len, &mut key_indexer)?;
         debug!(entries = key_indexer.len(), "chain recovered + index built");
 
         if final_len < file_len {
@@ -435,7 +436,8 @@ impl DataStore {
                 use std::os::windows::fs::FileExt;
                 let mut written = 0usize;
                 while written < read_len {
-                    let n = file.seek_read(&mut buf[written..read_len], new_start + written as u64)?;
+                    let n =
+                        file.seek_read(&mut buf[written..read_len], new_start + written as u64)?;
                     if n == 0 {
                         return Err(Error::new(
                             std::io::ErrorKind::UnexpectedEof,
@@ -485,16 +487,38 @@ impl DataStore {
             // Ensure window covers the tail entry's metadata (20 bytes).
             // On corrupt offset → skip this candidate.
             match fill_window(
-                file, &mut buf, &mut win_start, &mut win_end,
-                file_len, metadata_offset, METADATA_SIZE as u64,
+                file,
+                &mut buf,
+                &mut win_start,
+                &mut win_end,
+                file_len,
+                metadata_offset,
+                METADATA_SIZE as u64,
             ) {
-                Ok(bytes) => { if bytes > 0 { window_fills += 1; bytes_read += bytes as u64; } }
-                Err(_) => { cursor -= 1; continue; }
+                Ok(bytes) => {
+                    if bytes > 0 {
+                        window_fills += 1;
+                        bytes_read += bytes as u64;
+                    }
+                }
+                Err(_) => {
+                    cursor -= 1;
+                    continue;
+                }
             }
 
-            let metadata = match window_slice(&buf, win_start, win_end, metadata_offset, METADATA_SIZE as u64) {
+            let metadata = match window_slice(
+                &buf,
+                win_start,
+                win_end,
+                metadata_offset,
+                METADATA_SIZE as u64,
+            ) {
                 Ok(s) => EntryMetadata::deserialize(s),
-                Err(_) => { cursor -= 1; continue; }
+                Err(_) => {
+                    cursor -= 1;
+                    continue;
+                }
             };
 
             let prev_tail = metadata.prev_offset;
@@ -503,34 +527,46 @@ impl DataStore {
             let derived_start = prev_tail + Self::prepad_len(prev_tail) as u64;
             let entry_end = metadata_offset;
 
-            let entry_start = if entry_end > prev_tail
-                && entry_end - prev_tail == 1
-            {
+            let entry_start = if entry_end > prev_tail && entry_end - prev_tail == 1 {
                 // Read tombstone byte at prev_tail.
                 match fill_window(
-                    file, &mut buf, &mut win_start, &mut win_end,
-                    file_len, prev_tail, 1,
+                    file,
+                    &mut buf,
+                    &mut win_start,
+                    &mut win_end,
+                    file_len,
+                    prev_tail,
+                    1,
                 ) {
                     Ok(bytes) => {
-                        if bytes > 0 { window_fills += 1; bytes_read += bytes as u64; }
+                        if bytes > 0 {
+                            window_fills += 1;
+                            bytes_read += bytes as u64;
+                        }
                         match window_slice(&buf, win_start, win_end, prev_tail, 1) {
                             Ok(s) if s[0] == NULL_BYTE[0] => prev_tail,
                             _ => {
                                 #[cfg(any(test, debug_assertions))]
-                                { debug_assert_aligned_offset(derived_start); }
+                                {
+                                    debug_assert_aligned_offset(derived_start);
+                                }
                                 derived_start
                             }
                         }
                     }
                     Err(_) => {
                         #[cfg(any(test, debug_assertions))]
-                        { debug_assert_aligned_offset(derived_start); }
+                        {
+                            debug_assert_aligned_offset(derived_start);
+                        }
                         derived_start
                     }
                 }
             } else {
                 #[cfg(any(test, debug_assertions))]
-                { debug_assert_aligned_offset(derived_start); }
+                {
+                    debug_assert_aligned_offset(derived_start);
+                }
                 derived_start
             };
 
@@ -568,13 +604,16 @@ impl DataStore {
 
                 // Ensure window covers metadata (20 bytes) + tombstone byte (1 byte).
                 // On corrupt offset → invalidate this chain.
-                let need_end = std::cmp::max(
-                    prev_metadata_offset + METADATA_SIZE as u64,
-                    back_cursor,
-                );
+                let need_end =
+                    std::cmp::max(prev_metadata_offset + METADATA_SIZE as u64, back_cursor);
                 match fill_window(
-                    file, &mut buf, &mut win_start, &mut win_end,
-                    file_len, prev_metadata_offset, need_end - prev_metadata_offset,
+                    file,
+                    &mut buf,
+                    &mut win_start,
+                    &mut win_end,
+                    file_len,
+                    prev_metadata_offset,
+                    need_end - prev_metadata_offset,
                 ) {
                     Ok(bytes) => {
                         if bytes > 0 {
@@ -582,12 +621,24 @@ impl DataStore {
                             bytes_read += bytes as u64;
                         }
                     }
-                    Err(_) => { chain_valid = false; break; }
+                    Err(_) => {
+                        chain_valid = false;
+                        break;
+                    }
                 }
 
-                let prev_metadata = match window_slice(&buf, win_start, win_end, prev_metadata_offset, METADATA_SIZE as u64) {
+                let prev_metadata = match window_slice(
+                    &buf,
+                    win_start,
+                    win_end,
+                    prev_metadata_offset,
+                    METADATA_SIZE as u64,
+                ) {
                     Ok(s) => EntryMetadata::deserialize(s),
-                    Err(_) => { chain_valid = false; break; }
+                    Err(_) => {
+                        chain_valid = false;
+                        break;
+                    }
                 };
                 let prev_prev_tail = prev_metadata.prev_offset;
 
@@ -596,11 +647,19 @@ impl DataStore {
                     && prev_metadata_offset - prev_prev_tail == 1
                 {
                     match fill_window(
-                        file, &mut buf, &mut win_start, &mut win_end,
-                        file_len, prev_prev_tail, 1,
+                        file,
+                        &mut buf,
+                        &mut win_start,
+                        &mut win_end,
+                        file_len,
+                        prev_prev_tail,
+                        1,
                     ) {
                         Ok(bytes) => {
-                            if bytes > 0 { window_fills += 1; bytes_read += bytes as u64; }
+                            if bytes > 0 {
+                                window_fills += 1;
+                                bytes_read += bytes as u64;
+                            }
                             match window_slice(&buf, win_start, win_end, prev_prev_tail, 1) {
                                 Ok(s) if s[0] == NULL_BYTE[0] => prev_prev_tail,
                                 _ => prev_prev_tail + Self::prepad_len(prev_prev_tail) as u64,

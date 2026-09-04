@@ -117,7 +117,9 @@ fn evict_page_cache() {
     }
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
-        eprintln!("WARNING: cold-cache eviction not supported on this platform; results reflect warm cache");
+        eprintln!(
+            "WARNING: cold-cache eviction not supported on this platform; results reflect warm cache"
+        );
     }
 }
 
@@ -129,10 +131,7 @@ fn benchmark_open_time(path: &Path) {
     let start = Instant::now();
     let _storage = DataStore::open(path).expect("Failed to open storage (cold)");
     let cold_dt = start.elapsed();
-    println!(
-        "Open (cold cache):  {:#.3}s",
-        cold_dt.as_secs_f64(),
-    );
+    println!("Open (cold cache):  {:#.3}s", cold_dt.as_secs_f64(),);
     drop(_storage);
 
     // Warm cache
