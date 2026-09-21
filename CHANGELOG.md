@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
+## [UNRELEASED]
+
+### Changed
+- Bumped `arrow` from `59.2.0` to `59.3.0`.
+- Bumped `xxhash-rust` from `0.8.16` to `0.8.18`.
+- Bumped `async-trait` from `0.1.89` to `0.1.92`.
+- Bumped `crc32fast` from `1.5.0` to `1.5.1`.
+- Bumped `bytemuck` from `1.25.1` to `1.25.2`.
+
 ## [0.17.1-alpha] - 2026-09-04
 
 ### Changed
