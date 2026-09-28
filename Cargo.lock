@@ -1321,6 +1321,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "muxio-rpc-service"
+version = "0.16.1-alpha"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3877ee8b25c3c3779c3931c50d4a02afe56c0a31836d949b0e4c9ceb5c4cb5a"
+dependencies = [
+ "bitcode",
+ "num_enum",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "muxio-rpc-service-caller"
 version = "0.15.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1329,7 +1340,7 @@ dependencies = [
  "async-trait",
  "futures",
  "muxio-core",
- "muxio-rpc-service",
+ "muxio-rpc-service 0.15.0-alpha",
  "tokio",
  "tracing",
 ]
@@ -1345,7 +1356,7 @@ dependencies = [
  "bytes",
  "futures",
  "muxio-core",
- "muxio-rpc-service",
+ "muxio-rpc-service 0.15.0-alpha",
  "tokio",
  "tracing",
 ]
@@ -1361,7 +1372,7 @@ dependencies = [
  "futures",
  "futures-util",
  "muxio-core",
- "muxio-rpc-service",
+ "muxio-rpc-service 0.15.0-alpha",
  "muxio-rpc-service-caller",
  "muxio-rpc-service-endpoint",
  "tokio",
@@ -1380,7 +1391,7 @@ dependencies = [
  "bytes",
  "futures-util",
  "muxio-core",
- "muxio-rpc-service",
+ "muxio-rpc-service 0.15.0-alpha",
  "muxio-rpc-service-caller",
  "muxio-rpc-service-endpoint",
  "tokio",
@@ -1953,7 +1964,7 @@ name = "simd-r-drive-muxio-service-definition"
 version = "0.17.2-alpha"
 dependencies = [
  "bitcode",
- "muxio-rpc-service",
+ "muxio-rpc-service 0.16.1-alpha",
 ]
 
 [[package]]
@@ -1961,7 +1972,7 @@ name = "simd-r-drive-ws-client"
 version = "0.17.2-alpha"
 dependencies = [
  "async-trait",
- "muxio-rpc-service",
+ "muxio-rpc-service 0.16.1-alpha",
  "muxio-rpc-service-caller",
  "muxio-tokio-rpc-client",
  "simd-r-drive",
@@ -1976,7 +1987,7 @@ version = "0.17.2-alpha"
 dependencies = [
  "clap",
  "indoc",
- "muxio-rpc-service",
+ "muxio-rpc-service 0.16.1-alpha",
  "muxio-tokio-rpc-server",
  "simd-r-drive",
  "simd-r-drive-muxio-service-definition",
