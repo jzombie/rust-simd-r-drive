@@ -1301,9 +1301,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-core"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f9b11bd1bb6e19b167da0a9a37fbeb99383761bb26e57b123332d8693303d34"
+checksum = "bf2e3ef924494047d60e59788963d76dae94c4bd3d5303dcfca34f4c95c63443"
 dependencies = [
  "once_cell",
  "tracing",
@@ -1311,9 +1311,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e023b3d6ff25a7d8c1dd3b92545f99e4c8108fa59e33552f5a3a640e4385d3e"
+checksum = "fd4b4136f9b4474fee59b97103156b79b5a28e76d056d7e7a994839a5b855c3c"
 dependencies = [
  "bitcode",
  "num_enum",
@@ -1322,9 +1322,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service-caller"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e58f0db8f97f5a3e4dda182d8c6e2a5b3de43061438a199d5497080de6f8865a"
+checksum = "8972d3d26da1b1912feda156b8927589149e2db73e30fa1608194bb21fc539c8"
 dependencies = [
  "async-trait",
  "futures",
@@ -1336,9 +1336,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service-endpoint"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69dee75c2e18bd4c10be8ecb501779cb797a29cadbbbe8d25284c55dfc8b89c3"
+checksum = "96403104ecec83a189e387816161cdaf11e8bdec50e40def9bd8dbfa7f48d4a5"
 dependencies = [
  "async-trait",
  "bitcode",
@@ -1352,9 +1352,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-tokio-rpc-client"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9ff2fa80676ee99b2b083abe43155d1f56737effc47a4f85ed731b02f0254d0"
+checksum = "bacb3922a7f47b3a11a51e53229d889e66343b335822473e8dcd5070986073f6"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1371,9 +1371,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-tokio-rpc-server"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46bb59b73a3991595c74e0cdea568d9ee1c3fdea72efcd10beffe4ca0762428c"
+checksum = "fc9a1131cc49b5e98f12720c9737ec861e4cd7c3af98057047f55be27de4bc31"
 dependencies = [
  "async-trait",
  "axum",
