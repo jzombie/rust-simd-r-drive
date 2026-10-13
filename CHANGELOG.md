@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
+## [0.17.3-alpha] - 2026-10-13
+
+### Changed
+- Bumped `muxio`-family crates from `0.15.0-alpha` to `0.17.1-alpha`.
+- Bumped `futures` from `0.3.32` to `0.3.34`.
+- Bumped `clap` from `4.6.6` to `4.6.7`.
+- Bumped `serde` from `1.0.228` to `1.0.229`.
+- Refreshed `Cargo.lock` to reflect updated transitive dependencies (`clap_builder` `4.6.7`, `clap_derive` `4.6.7`, `futures-*` `0.3.34`, `serde_core` `1.0.229`).
+
 ## [0.17.2-alpha] - 2026-09-21
 
 ### Changed

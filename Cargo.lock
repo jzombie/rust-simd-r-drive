@@ -508,9 +508,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.6.6"
+version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "473c7e07f409a8d772161724aa8db6a765a2532a70f9667eeb7b49d3d02fbdca"
+checksum = "aa8876b300ab35ba921adea3dfd70157a46249b33f95c9084ae5709785478946"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -518,9 +518,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.6.6"
+version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b48fea5a88e9ae728a2dcbedbfc0e730f7d60da42e1cb049a83c9fb8b789889"
+checksum = "ec0797fb7aeb1406c84efac526901f7ec3ead2124f946b494e72879d4b54704d"
 dependencies = [
  "anstream",
  "anstyle",
@@ -530,9 +530,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.6.4"
+version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d012d2b9d65aca7f18f4d9878a045bc17899bba951561ba5ec3c2ba1eed9a061"
+checksum = "f9c751b79415d4e559e3d1fcf128e09e720eb673a06d26cf6f392d37d75b66e0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -794,9 +794,9 @@ dependencies = [
 
 [[package]]
 name = "futures"
-version = "0.3.32"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b147ee9d1f6d097cef9ce628cd2ee62288d963e16fb287bd9286455b241382d"
+checksum = "9a31d2a3fbaaeb2af2368bbdd904aa8e812d3c04a1ee10d3171f52d556e5d0a3"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -809,9 +809,9 @@ dependencies = [
 
 [[package]]
 name = "futures-channel"
-version = "0.3.32"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07bbe89c50d7a535e539b8c17bc0b49bdb77747034daa8087407d655f3f7cc1d"
+checksum = "b1f9e3d69d39e4862ffed03ed071a76f9a13ba1d9109d355b0f0aa6b15e393c4"
 dependencies = [
  "futures-core",
  "futures-sink",
@@ -819,15 +819,15 @@ dependencies = [
 
 [[package]]
 name = "futures-core"
-version = "0.3.32"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e3450815272ef58cec6d564423f6e755e25379b217b0bc688e295ba24df6b1d"
+checksum = "92d699e522242e69e3003b94ecc1f960f3a5e015aa7c5d7486e65ad01dd94f5e"
 
 [[package]]
 name = "futures-executor"
-version = "0.3.32"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baf29c38818342a3b26b5b923639e7b1f4a61fc5e76102d4b1981c6dc7a7579d"
+checksum = "031b47cf1a3c6cc8bc2fc76cd437f521619387907d469316e7c0bc278f1f5432"
 dependencies = [
  "futures-core",
  "futures-task",
@@ -836,38 +836,38 @@ dependencies = [
 
 [[package]]
 name = "futures-io"
-version = "0.3.32"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cecba35d7ad927e23624b22ad55235f2239cfa44fd10428eecbeba6d6a717718"
+checksum = "53c0fa8157de1303bfffdaa1cc2a673bfffb60102f76b0ef4441659124373fed"
 
 [[package]]
 name = "futures-macro"
-version = "0.3.32"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e835b70203e41293343137df5c0664546da5745f82ec9b84d40be8336958447b"
+checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.117",
+ "syn 3.0.4",
 ]
 
 [[package]]
 name = "futures-sink"
-version = "0.3.32"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c39754e157331b013978ec91992bde1ac089843443c49cbc7f46150b0fad0893"
+checksum = "1944426bf7d03f1d14f708785e4b33efd750b36d48a157b836b3efc15ede8e1d"
 
 [[package]]
 name = "futures-task"
-version = "0.3.32"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "037711b3d59c33004d3856fbdc83b99d4ff37a24768fa1be9ce3538a1cde4393"
+checksum = "cd417de3d1d015fc3bfd2b1ea46dfc7bab72ef86f1cc7cc9c78e728b34a6d1fd"
 
 [[package]]
 name = "futures-util"
-version = "0.3.32"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "389ca41296e6190b48053de0321d02a77f32f8a5d2461dd38762c0593805c6d6"
+checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -1301,9 +1301,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-core"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f9b11bd1bb6e19b167da0a9a37fbeb99383761bb26e57b123332d8693303d34"
+checksum = "bf2e3ef924494047d60e59788963d76dae94c4bd3d5303dcfca34f4c95c63443"
 dependencies = [
  "once_cell",
  "tracing",
@@ -1311,9 +1311,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e023b3d6ff25a7d8c1dd3b92545f99e4c8108fa59e33552f5a3a640e4385d3e"
+checksum = "fd4b4136f9b4474fee59b97103156b79b5a28e76d056d7e7a994839a5b855c3c"
 dependencies = [
  "bitcode",
  "num_enum",
@@ -1322,9 +1322,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service-caller"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e58f0db8f97f5a3e4dda182d8c6e2a5b3de43061438a199d5497080de6f8865a"
+checksum = "8972d3d26da1b1912feda156b8927589149e2db73e30fa1608194bb21fc539c8"
 dependencies = [
  "async-trait",
  "futures",
@@ -1336,9 +1336,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-rpc-service-endpoint"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69dee75c2e18bd4c10be8ecb501779cb797a29cadbbbe8d25284c55dfc8b89c3"
+checksum = "96403104ecec83a189e387816161cdaf11e8bdec50e40def9bd8dbfa7f48d4a5"
 dependencies = [
  "async-trait",
  "bitcode",
@@ -1352,9 +1352,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-tokio-rpc-client"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9ff2fa80676ee99b2b083abe43155d1f56737effc47a4f85ed731b02f0254d0"
+checksum = "bacb3922a7f47b3a11a51e53229d889e66343b335822473e8dcd5070986073f6"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1371,9 +1371,9 @@ dependencies = [
 
 [[package]]
 name = "muxio-tokio-rpc-server"
-version = "0.15.0-alpha"
+version = "0.17.1-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46bb59b73a3991595c74e0cdea568d9ee1c3fdea72efcd10beffe4ca0762428c"
+checksum = "fc9a1131cc49b5e98f12720c9737ec861e4cd7c3af98057047f55be27de4bc31"
 dependencies = [
  "async-trait",
  "axum",
@@ -1763,9 +1763,9 @@ checksum = "d767eb0aabc880b29956c35734170f26ed551a859dbd361d140cdbeca61ab1e2"
 
 [[package]]
 name = "serde"
-version = "1.0.228"
+version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
+checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
  "serde_derive",
@@ -1773,22 +1773,22 @@ dependencies = [
 
 [[package]]
 name = "serde_core"
-version = "1.0.228"
+version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
+checksum = "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.228"
+version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
+checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.117",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -1901,7 +1901,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive"
-version = "0.17.2-alpha"
+version = "0.17.3-alpha"
 dependencies = [
  "async-trait",
  "bitcode",
@@ -1929,7 +1929,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-entry-handle"
-version = "0.17.2-alpha"
+version = "0.17.3-alpha"
 dependencies = [
  "arrow",
  "crc32fast",
@@ -1938,7 +1938,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-extensions"
-version = "0.17.2-alpha"
+version = "0.17.3-alpha"
 dependencies = [
  "bitcode",
  "doc-comment",
@@ -1950,7 +1950,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-muxio-service-definition"
-version = "0.17.2-alpha"
+version = "0.17.3-alpha"
 dependencies = [
  "bitcode",
  "muxio-rpc-service",
@@ -1958,7 +1958,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-client"
-version = "0.17.2-alpha"
+version = "0.17.3-alpha"
 dependencies = [
  "async-trait",
  "muxio-rpc-service",
@@ -1972,7 +1972,7 @@ dependencies = [
 
 [[package]]
 name = "simd-r-drive-ws-server"
-version = "0.17.2-alpha"
+version = "0.17.3-alpha"
 dependencies = [
  "clap",
  "indoc",
