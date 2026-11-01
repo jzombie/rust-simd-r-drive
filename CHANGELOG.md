@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
-## [UNRELEASED]
+## [0.17.4-alpha] - 2026-10-31
 
 ### Changed
 - Bumped `muxio`-family crates from `0.17.1-alpha` to `0.17.2-alpha`.
