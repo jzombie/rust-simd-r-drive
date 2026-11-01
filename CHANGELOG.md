@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
+## [UNRELEASED]
+
+### Changed
+- Bumped `muxio`-family crates from `0.17.1-alpha` to `0.17.2-alpha`.
+- Bumped `tokio` from `1.53.1` to `1.53.3`.
+- Bumped `serde_json` from `1.0.151` to `1.0.154`.
+- Bumped `xxhash-rust` from `0.8.18` to `0.8.19`.
+- Bumped `indoc` from `2.0.7` to `2.0.8`.
+- Bumped `rand` from `0.10.1` to `0.10.3`.
+- Refreshed `Cargo.lock` to reflect updated transitive dependencies.
+
 ## [0.17.3-alpha] - 2026-10-13
 
 ### Changed
