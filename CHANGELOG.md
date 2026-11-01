@@ -1,12 +1,20 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
+## [0.17.5-alpha] - 2026-10-31
+
+### Changed
+
+- Bumped `chacha20` from `0.10.0` to `0.10.2` (transitive via `rand`; `0.10.0` is yanked on crates.io).
+
 ## [0.17.4-alpha] - 2026-10-31
 
 ### Changed
+
 - Bumped `muxio`-family crates from `0.17.1-alpha` to `0.17.2-alpha`.
 - Bumped `tokio` from `1.53.1` to `1.53.3`.
 - Bumped `serde_json` from `1.0.151` to `1.0.154`.
@@ -18,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 ## [0.17.3-alpha] - 2026-10-13
 
 ### Changed
+
 - Bumped `muxio`-family crates from `0.15.0-alpha` to `0.17.1-alpha`.
 - Bumped `futures` from `0.3.32` to `0.3.34`.
 - Bumped `clap` from `4.6.6` to `4.6.7`.
@@ -27,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 ## [0.17.2-alpha] - 2026-09-21
 
 ### Changed
+
 - Bumped `arrow` from `59.2.0` to `59.3.0`.
 - Bumped `xxhash-rust` from `0.8.16` to `0.8.18`.
 - Bumped `async-trait` from `0.1.89` to `0.1.92`.
@@ -36,6 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 ## [0.17.1-alpha] - 2026-09-04
 
 ### Changed
+
 - Unified `recover_valid_chain` and `KeyIndexer::build` into a single backward pass using a 64 MB sliding window with `pread` (cross-platform: `read_exact_at` on Unix, `seek_read` loop on Windows). Eliminates the second full-file scan during `DataStore::open()`.
 - Replaced `Xxh3BuildHasher` with `IdentityHasher` in `KeyIndexer` — zero-cost passthrough for pre-hashed `u64` keys, removing redundant XXH3 re-hashing on every index insertion.
 - Added dynamic tail-sampling for HashMap capacity: after the first 1,000 entries, the observed average entry size is used to `reserve()` the estimated remaining capacity in one call.
@@ -48,11 +59,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 - Bumped `serial_test` from `3.5.0` to `4.0.1`.
 
 ### Added
+
 - Sliding window bounds validation in `fill_window` and `window_slice` — returns `Err(InvalidData)` on corrupt offsets instead of panicking, allowing recovery to skip invalid candidate tails gracefully.
 - `debug!`-level telemetry in `recover_valid_chain` logging `window_fills`, `bytes_read`, and `entry_count` for profiling recovery I/O.
 - Unit tests for `KeyIndexer::clear()` capacity retention and `insert_if_absent` first-wins semantics.
 
 ### Removed
+
 - Removed `KeyIndexer::build` (superseded by single-pass indexing in `recover_valid_chain`).
 - Removed `RecoveryResult` struct (unused).
 - Removed `madvise(Sequential)` from `init_mmap` — was counterproductive when recovery uses `pread` instead of mmap.
@@ -60,6 +73,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 ## [0.17.0-alpha] - 2026-08-21
 
 ### Changed
+
 - Bumped `arrow` from `59.0.0` to `59.1.0`.
 - Bumped `bytemuck` from `1.25.0` to `1.25.1`.
 - Bumped `xxhash-rust` from `0.8.15` to `0.8.16`.
@@ -69,6 +83,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 - Replaced `chunks_exact(N)` with `as_chunks::<N>()` in `align_or_copy` to satisfy current clippy lints (no functional change).
 
 ### Fixed
+
 - Fixed a potential reader/writer deadlock in `DataStore` that could hang concurrent workloads indefinitely (observed as CI timeouts on macOS). `reindex` acquired the mmap mutex before the key-index write lock while readers held a key-index read guard across the mmap lock — an ABBA cycle. Locks are now always acquired in a single global order (`file` → `key_indexer` → `mmap`) across read, batch-read, and write paths.
 - Clarified the crate-level "Safety Notes" (#99): appending via the engine API is always safe (the store re-maps the file internally after each write); the "do not resize while in use" warning refers to resizing the storage file out-of-band while the store is open.
 
@@ -82,53 +97,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 ## [0.16.3-alpha] - 2026-07-11
 
 ### Added
+
 - Hash stability tests (`tests/hash_stability_tests.rs`) that enforce hardcoded xxh3 hash values to guard against silent regressions if the `xxhash-rust` dependency is updated or replaced.
 
 ### Changed
+
 - Bumped `arrow` from `58.3.0` to `59.0.0`.
 - Bumped `dashmap` from `6.1.0` to `6.2.1`.
 - Bumped `serde_json` from `1.0.149` to `1.0.150`.
 - Bumped `serial_test` from `3.4.0` to `3.5.0`.
 - Bumped `crossbeam-epoch` from `0.9.18` to `0.9.20` (fixes RUSTSEC-2026-0204).
 
-### Deprecated
-### Removed
-### Fixed
-### Security
-### Migration
-
 ## [0.16.2-alpha] - 2026-05-11
 
 ### Added
 ### Changed
+
 - Bumped `arrow` from `58.1.0` to `58.3.0`.
 - Bumped `clap` from `4.6.0` to `4.6.1`.
 - Bumped `muxio`-family crates from `0.10.1-alpha` to `0.10.2-alpha`.
 - Bumped `rayon` from `1.11.0` to `1.12.0`.
 - Bumped `tokio` from `1.51.1` to `1.52.3`.
 - Refreshed `Cargo.lock` to reflect updated transitive dependencies (`hashbrown` `0.17.1`, consolidated `tokio-tungstenite`/`tungstenite` versions).
-### Deprecated
-### Removed
-### Fixed
-### Security
-### Migration
 
 ## [0.16.1-alpha] - 2026-04-21
 
 ### Added
 ### Changed
+
 - Bumped workspace dependency versions: `rand` from `0.9.2` to `0.10.1`, and `tokio` from `1.51.0` to `1.51.1`.
-### Deprecated
-### Removed
 ### Fixed
+
 - Updated benchmark imports to use `rand::RngExt` so benchmark targets compile cleanly with `rand` `0.10.x`.
-### Security
 ### Migration
+
 - If there are breaking changes, put a short, actionable checklist here.
 
 
 ## [0.16.0-alpha] - 2026-03-23
 ### Changed
+
 - Replaced `bincode` with `bitcode` for serialization in extension utilities and related tests.
 - Updated dependency versions across workspace crates and refreshed lockfiles to current compatible releases.
 
@@ -137,22 +145,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 
 ## [0.15.5-alpha] - 2025-10-27
 ### Changed
+
 - Bumped Apache Arrow dependency to 57.0.0. (No other functional changes.)
 
 ---
 
 ## [0.15.0-alpha] - 2025-09-25
 ### Breaking
+
 - Default payload alignment increased from 16 bytes to 64 bytes to ensure
   SIMD- and cacheline-safe zero-copy access across SSE/AVX/AVX-512 code
   paths. Readers/writers compiled with `<= 0.14.x-alpha` that assume
   16-byte alignment will not be able to parse 0.15.x stores correctly.
 
 ### Added
+
 - Debug/test-only assertions (`assert_aligned`, `assert_aligned_offset`)
   to validate both pointer- and offset-level alignment invariants.
 
 ### Changed
+
 - Updated documentation and examples to reflect the new 64-byte default
   `PAYLOAD_ALIGNMENT` (still configurable in
   `src/storage_engine/constants.rs`).
@@ -160,6 +172,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
   pointer and offset alignment when compiled in test or debug mode.
 
 ### Migration
+
 - Stores created with 0.15.x are not backward-compatible with
   0.14.x readers/writers due to the alignment change.
 - To migrate:
@@ -173,11 +186,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
 
 ## [0.14.0-alpha] - 2025-09-08
 ### Breaking
+
 - Files written by 0.14.0-alpha use padded payload starts for fixed alignment.
   Older readers (<= 0.13.x-alpha) may misinterpret pre-pad bytes as part of the
   payload. Upgrade all readers/writers before mixing file versions.
 
 ### Added
+
 - Fixed payload alignment for zero-copy typed views. Payloads now begin
   at an address that is a multiple of `PAYLOAD_ALIGNMENT`, configured in
   `src/storage_engine/constants.rs` via:
@@ -187,11 +202,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and this 
   methods in `EntryHandle`.
 
 ### Changed
+
 - Internal on-disk layout: each non-tombstone payload may be preceded by
   a small zero pre-pad (0..A-1 bytes) to satisfy alignment (A is the
   configured alignment). Public API is unchanged.
 
 ### Migration
+
 - Regenerate stores with the new version:
   1) Open the old store with the matching old binary and read entries.
   2) Write each entry into a new 0.14.0-alpha store.
