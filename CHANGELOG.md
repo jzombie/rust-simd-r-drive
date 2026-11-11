@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this project adheres to
 (or is loosely based on) Semantic Versioning.
 
+## [0.17.6-alpha] - 2026-11-11
+
+### Changed
+
+- Bumped `arrow` from `59.3.0` to `60.1.0` (pulls in new `arrow-cmp` `60.1.0` subcrate).
+- Bumped `tokio` from `1.53.3` to `1.54.1`.
+- Bumped `memmap2` from `0.9.11` to `0.9.12`.
+- Bumped `crc32fast` from `1.5.1` to `1.5.4`.
+- Refreshed `Cargo.lock` to reflect updated transitive dependencies (`atoi` `2.0.0` → `3.1.1`, `getrandom` `0.3.4` → `0.4.2` via `tempfile`).
+
 ## [0.17.5-alpha] - 2026-10-31
 
 ### Changed

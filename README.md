@@ -259,10 +259,10 @@ By using SIMD for these performance-critical tasks, `SIMD R Drive` minimizes CPU
 
 [SIMD R Drive Extensions](./extensions/) provide additional functionality.
 
-## Python Bindings and Experiments
+## Bindings and Experiments
 
-- Experimental [Python language bindings](./experiments/bindings/)
 - Experimental WebSocket [client](./experiments/simd-r-drive-ws-client/) / [server](./experiments/simd-r-drive-ws-server/)
+- Experimental [Python language bindings](./experiments/bindings/) _note: these haven't been rebuilt in some time and are out of date._
 
 ## License
 
